@@ -1,0 +1,1438 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Generador de Propuestas · Propiedades.com</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+<style>
+  :root {
+    --green-dark: #1a3a2a;
+    --green-mid: #2d6a4f;
+    --green-brand: #3a7d5c;
+    --green-light: #52b788;
+    --gold-mid: #b8860b;
+    --blue-light: #2563eb;
+    --text-dark: #111827;
+    --text-mid: #374151;
+    --text-light: #6b7280;
+    --border: #e5e7eb;
+    --white: #ffffff;
+    --page-bg: #f8fafc;
+    --shadow-lg: 0 8px 32px rgba(0,0,0,.14);
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--page-bg);
+    color: var(--text-dark);
+    min-height: 100vh;
+  }
+
+  .app {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    min-height: 100vh;
+  }
+
+  .sidebar {
+    background: var(--white);
+    border-right: 1px solid #f0f0f0;
+    padding: 28px 24px;
+    overflow-y: auto;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+  }
+
+  .sidebar-header {
+    margin-bottom: 28px;
+    padding-bottom: 22px;
+    border-bottom: 1px solid #f0f0f0;
+  }
+
+  .sidebar-logo {
+    display: flex;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+
+  .sidebar-subtitle,
+  .preview-label,
+  .section-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: #9ca3af;
+  }
+
+  .form-section {
+    margin-bottom: 22px;
+  }
+
+  .section-label {
+    color: var(--text-light);
+    margin-bottom: 12px;
+  }
+
+  .field {
+    margin-bottom: 14px;
+  }
+
+  .field label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-mid);
+    margin-bottom: 5px;
+  }
+
+  .field input,
+  .field select {
+    width: 100%;
+    padding: 9px 12px;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--text-dark);
+    background: var(--white);
+    outline: none;
+    transition: border-color .15s, background .15s;
+  }
+
+  .field input:focus,
+  .field select:focus {
+    border-color: var(--green-light);
+  }
+
+  .field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .field-help {
+    font-size: 11px;
+    color: var(--text-light);
+    line-height: 1.4;
+    margin-top: 6px;
+  }
+
+  .choice-group,
+  .period-group {
+    display: grid;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+
+  .choice-group.two {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .choice-group.three {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+
+  .period-group {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .choice-btn,
+  .period-btn {
+    padding: 9px 6px;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-mid);
+    background: var(--white);
+    cursor: pointer;
+    text-align: center;
+    transition: all .15s;
+  }
+
+  .choice-btn.active,
+  .period-btn.active {
+    border-color: var(--green-brand);
+    background: #f0faf4;
+    color: var(--green-dark);
+  }
+
+  .period-btn.disabled,
+  .period-btn:disabled {
+    opacity: .45;
+    cursor: not-allowed;
+    background: #f3f4f6;
+  }
+
+  .check-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 13px 0;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+  }
+
+  .check-row:last-child {
+    border-bottom: none;
+  }
+
+  .check-row span {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .check-row strong {
+    font-size: 14px;
+    color: var(--text-dark);
+  }
+
+  .check-row small {
+    font-size: 11px;
+    color: var(--text-light);
+  }
+
+  .check-row input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 52px;
+    height: 28px;
+    border-radius: 999px;
+    background: #d1d5db;
+    position: relative;
+    cursor: pointer;
+    border: none;
+    outline: none;
+    transition: background .2s;
+    flex-shrink: 0;
+  }
+
+  .check-row input[type="checkbox"]::before {
+    content: '';
+    position: absolute;
+    width: 22px;
+    height: 22px;
+    top: 3px;
+    left: 3px;
+    border-radius: 50%;
+    background: var(--white);
+    box-shadow: 0 1px 3px rgba(0,0,0,.25);
+    transition: transform .2s;
+  }
+
+  .check-row input[type="checkbox"]:checked {
+    background: var(--green-brand);
+  }
+
+  .check-row input[type="checkbox"]:checked::before {
+    transform: translateX(24px);
+  }
+
+  .product-block {
+    border-top: 1px solid var(--border);
+    padding-top: 14px;
+    margin-top: 14px;
+  }
+
+  .product-block-title {
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--text-dark);
+    margin-bottom: 2px;
+  }
+
+  .product-block-subtitle {
+    font-size: 11px;
+    color: var(--text-light);
+    margin-bottom: 12px;
+  }
+
+  .is-hidden {
+    display: none !important;
+  }
+
+  .calculated-field,
+  input[readonly].calculated-field {
+    background: #f3f4f6;
+    color: #6b7280;
+    cursor: not-allowed;
+  }
+
+  .export-btn {
+    width: 100%;
+    padding: 13px;
+    background: var(--green-dark);
+    color: white;
+    border: none;
+    border-radius: var(--radius);
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: background .2s, transform .1s;
+    margin-top: 8px;
+  }
+
+  .export-btn:hover {
+    background: var(--green-mid);
+  }
+
+  .export-btn:active {
+    transform: scale(.98);
+  }
+
+  .export-btn:disabled {
+    background: #9ca3af;
+    cursor: not-allowed;
+    opacity: .65;
+  }
+
+  .export-btn:disabled:hover {
+    background: #9ca3af;
+  }
+
+  .preview-area {
+    padding: 32px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: #fefefe;
+    min-height: 100vh;
+  }
+
+  .preview-label {
+    margin-bottom: 16px;
+    align-self: flex-start;
+  }
+
+  #proposal-doc {
+    background: var(--white);
+    width: 794px;
+    box-shadow: var(--shadow-lg);
+    border-radius: 4px;
+    padding: 48px 56px 56px;
+    font-family: 'Inter', sans-serif;
+  }
+
+  .doc-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 32px;
+  }
+
+  .doc-meta {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0;
+    padding-bottom: 20px;
+    margin-bottom: 28px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .doc-meta-item .label {
+    font-size: 11px;
+    color: #9ca3af;
+    font-weight: 500;
+    margin-bottom: 2px;
+  }
+
+  .doc-meta-item .value {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-dark);
+  }
+
+  .client-legend {
+    margin: -8px 0 18px;
+    font-size: 14px;
+    line-height: 1.45;
+    color: var(--text-dark);
+    font-weight: 500;
+  }
+
+  .client-legend strong {
+    color: var(--green-dark);
+    font-weight: 800;
+  }
+
+  .doc-plan-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--green-brand);
+    margin-bottom: 4px;
+  }
+
+  .doc-plan-title {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--text-dark);
+    margin-bottom: 20px;
+  }
+
+  .cards-grid {
+    display: grid;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  .cards-grid.one-card {
+    grid-template-columns: 1fr;
+    max-width: 360px;
+    margin: 0 auto 16px;
+  }
+
+  .cards-grid.two-cards {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .cards-grid.three-cards {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .cards-grid.three-cards .plan-card:last-child {
+    grid-column: 1 / -1;
+    max-width: 360px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  .plan-card {
+    border-radius: 15px;
+    overflow: hidden;
+    box-shadow: 0 10px 5px rgba(0,0,0,0.10);
+  }
+
+  .plan-card.elite-card {
+    border: 0.75px solid #71BD86;
+  }
+
+  .plan-card.destacados-card {
+    border: 0.75px solid #DDC88F;
+  }
+
+  .plan-card.prime-card {
+    border: 0.75px solid #8FB7DD;
+  }
+
+  .plan-card-header {
+    padding: 14px 16px 12px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+
+  .plan-card-header.elite,
+  .plan-card-header.simples {
+    background: linear-gradient(180deg, #104421 0%, #268543 100%);
+  }
+
+  .plan-card-header.destacados {
+    background: linear-gradient(180deg, #765509 0%, #CCB165 100%);
+  }
+
+  .plan-card-header.prime {
+    background: linear-gradient(180deg, #092F76 0%, #65B1CC 100%);
+  }
+
+  .plan-card-header-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .plan-card-icon {
+    font-size: 16px;
+  }
+
+  .plan-card-name {
+    font-size: 15px;
+    font-weight: 800;
+    color: white;
+  }
+
+  .plan-card-desc {
+    font-size: 10px;
+    color: rgba(255,255,255,.75);
+    margin-top: 1px;
+    max-width: 160px;
+    line-height: 1.3;
+  }
+
+  .plan-card-badge {
+    font-size: 9px;
+    font-weight: 700;
+    padding: 3px 7px;
+    border-radius: 20px;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+
+  .badge-recomendado {
+    background: #25A04A;
+    color: white;
+    border: 0.75px solid white;
+  }
+
+  .badge-complemento-destacados {
+    background: #CDB269;
+    color: white;
+    border: 1px solid white;
+  }
+
+  .badge-complemento-prime {
+    background: #69B2CD;
+    color: white;
+    border: 1px solid white;
+  }
+
+  .plan-card-body {
+    padding: 16px;
+    text-align: center;
+  }
+
+  .price-block {
+    margin-bottom: 12px;
+  }
+
+  .price-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 3px;
+  }
+
+  .price-main {
+    font-size: 32px;
+    font-weight: 800;
+    color: var(--text-dark);
+  }
+
+  .price-iva {
+    font-size: 10px;
+    color: #9ca3af;
+    font-weight: 500;
+  }
+
+  .inventory-label,
+  .avisos-label {
+    font-size: 11px;
+    color: var(--text-light);
+    text-align: center;
+    margin-bottom: 4px;
+  }
+
+  .inventory-value,
+  .avisos-value {
+    font-size: 28px;
+    font-weight: 800;
+    text-align: center;
+    margin-bottom: 12px;
+  }
+
+  .inventory-value {
+    color: var(--green-brand);
+  }
+
+  .avisos-value {
+    color: var(--gold-mid);
+  }
+
+  .avisos-value.prime-color {
+    color: var(--blue-light);
+  }
+
+  .features-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .features-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--text-mid);
+    line-height: 1.4;
+    text-align: left;
+  }
+
+  .feature-text {
+    display: block;
+    flex: 1;
+    text-align: left;
+  }
+
+  .feature-icon {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .feature-icon.green {
+    background: var(--green-brand);
+  }
+
+  .feature-icon.gold {
+    background: var(--gold-mid);
+  }
+
+  .feature-icon.blue {
+    background: var(--blue-light);
+  }
+
+  .feature-icon svg {
+    width: 8px;
+    height: 8px;
+  }
+
+  .total-box {
+    border: 0.75px solid #71BD86;
+    margin-top: 20px;
+    border-radius: 20px;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    background: white;
+    box-shadow: 0 10px 10px rgba(0,0,0,0.15);
+  }
+
+  .total-period {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--text-light);
+    margin-bottom: 3px;
+  }
+
+  .total-desc {
+    font-size: 12px;
+    color: var(--text-mid);
+    font-weight: 500;
+  }
+
+  .total-box-right {
+    text-align: right;
+  }
+
+  .total-amount {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--green-dark);
+  }
+
+  .total-iva {
+    font-size: 10px;
+    color: #9ca3af;
+  }
+
+  .vigencia-box {
+    background: #E6F4EA;
+    border: 0.75px solid #71BD86;
+    border-radius: 15px;
+    padding: 8px 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 16px 0 20px;
+  }
+
+  .vigencia-icon {
+    font-size: 18px;
+  }
+
+  .vigencia-text {
+    font-size: 13px;
+    color: var(--green-mid);
+    font-weight: 500;
+  }
+
+  .vigencia-text span {
+    font-weight: 700;
+  }
+
+  .payment-section {
+    margin-top: 28px;
+  }
+
+  .payment-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--green-brand);
+    margin-bottom: 10px;
+  }
+
+  .payment-subtitle {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--text-dark);
+    margin-bottom: 14px;
+  }
+
+.payment-options {
+  background: #E6F4EA;
+  border: 0.75px solid #71BD86;
+  border-bottom: none;
+  border-radius: 15px 15px 0 0;
+  padding: 16px 18px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-bottom: 0;
+}
+
+.payment-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 0 0 14px;
+}
+
+.payment-option + .payment-option {
+  border-top: 1px solid rgba(113, 189, 134, 0.28);
+  padding-top: 14px;
+}
+
+  .payment-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .payment-icon.blue {
+    background: #dbeafe;
+  }
+
+  .payment-icon.green {
+    background: #dcfce7;
+  }
+
+  .payment-option-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-dark);
+    margin-bottom: 1px;
+  }
+
+  .payment-option-desc {
+    font-size: 11px;
+    color: var(--text-light);
+  }
+
+  .disclaimer {
+    border-left: 3px solid var(--green-light);
+    padding: 10px 14px;
+    background: #fafafa;
+    border-radius: 0 6px 6px 0;
+    font-size: 11px;
+    color: var(--text-mid);
+    line-height: 1.6;
+    margin-bottom: 28px;
+  }
+
+  .disclaimer strong {
+    font-weight: 700;
+    color: var(--text-dark);
+  }
+
+  .doc-footer {
+    background: var(--green-dark);
+    border-radius: 12px;
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 20px;
+  }
+
+  .footer-site {
+    font-size: 13px;
+    font-weight: 700;
+    color: white;
+  }
+
+  .footer-desc {
+    font-size: 11px;
+    color: rgba(255,255,255,.6);
+    margin-top: 1px;
+  }
+
+  .footer-cta {
+    background: var(--green-light);
+    color: white;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 9px 20px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+
+  .sidebar::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  .sidebar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .sidebar::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 2px;
+  }
+
+  @media (max-width: 768px) {
+    .app {
+      grid-template-columns: 1fr;
+    }
+
+    .sidebar {
+      position: relative;
+      height: auto;
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .preview-area {
+      padding: 16px 0;
+      overflow-x: hidden;
+      align-items: center;
+    }
+
+    .preview-label {
+      padding-left: 16px;
+      align-self: flex-start;
+    }
+
+    #proposal-doc {
+      transform-origin: top left;
+      transform: scale(0.43);
+      width: 794px;
+      position: relative;
+      left: 228px;
+      margin-bottom: -400px;
+    }
+  }
+
+  .footer-cta {
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .price-discount-line {
+    text-align: center;
+    margin-bottom: 4px;
+    line-height: 1.2;
+  }
+
+  .price-original {
+    font-size: 13px !important;
+    color: #dc2626 !important;
+    text-decoration: line-through !important;
+    font-weight: 500 !important;
+  }
+
+  .price-discount-pct {
+    font-size: 13px !important;
+    color: #00a651 !important;
+    font-weight: 800 !important;
+    margin-left: 4px;
+  }
+
+  input[type="number"]:disabled,
+  #inp-pkg-plan-desc:disabled,
+  #inp-pkg-dest-desc:disabled,
+  #inp-pkg-prime-desc:disabled,
+  #inp-single-desc:disabled {
+    background-color: #f3f4f6 !important;
+    color: #6b7280 !important;
+    border-color: #e5e7eb !important;
+    cursor: not-allowed !important;
+    opacity: 1 !important;
+    -webkit-text-fill-color: #6b7280 !important;
+  }
+
+
+  .total-original {
+    font-size: 15px;
+    color: #dc2626;
+    text-decoration: line-through;
+    font-weight: 700;
+    margin-bottom: 2px;
+  }
+
+  .total-preferential-label {
+    font-size: 10px;
+    color: #16a34a;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    margin-bottom: 1px;
+  }
+
+  .total-amount-preferential {
+    color: #16a34a !important;
+  }
+
+
+  .total-validity-note {
+    max-width: 260px;
+    margin-top: 4px;
+    font-size: 10px;
+    line-height: 1.35;
+    color: #6b7280;
+    font-weight: 500;
+  }
+
+
+   .bank-details-card {
+    margin-top: 0;
+    background: #E6F4EA;
+    border: 0.75px solid #71BD86;
+    border-top: none;
+    border-radius: 0 0 15px 15px;
+    padding: 0 18px 16px;
+    overflow: hidden;
+  }
+
+  .bank-details-header {
+    border-top: 1px solid rgba(113, 189, 134, 0.28);
+    padding: 16px 0 10px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: transparent;
+  }
+
+  .bank-details-header-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: #dcfce7;
+    color: #16a34a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+
+  .bank-details-title {
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--green-mid);
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    margin: 0;
+  }
+
+  .bank-details-body {
+    padding: 2px 0 0;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .bank-details-field {
+    display: grid;
+    grid-template-columns: 165px 1fr;
+    gap: 14px;
+    align-items: start;
+    padding: 7px 0;
+    border-bottom: 1px solid rgba(113, 189, 134, 0.22);
+  }
+
+  .bank-details-field:last-child {
+    border-bottom: none;
+  }
+
+  .bank-details-field.full-width {
+    grid-column: auto;
+  }
+
+  .bank-details-field-label {
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-dark);
+    letter-spacing: 0;
+    text-transform: none;
+    line-height: 1.35;
+  }
+
+  .bank-details-field-value {
+    font-family: inherit;
+    font-size: 11.5px;
+    font-weight: 500;
+    color: var(--text-mid);
+    line-height: 1.35;
+    word-break: break-word;
+  }
+
+  .bank-details-separator {
+    display: none;
+  }
+
+
+  .proposal-info-box {
+    background: #E6F4EA;
+    border: 1px solid var(--border-green);
+    border-radius: 16px;
+    padding: 14px 16px;
+    margin-top: 16px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 18px;
+    align-items: center;
+  }
+
+  .proposal-info-item {
+    font-size: 13px;
+    color: var(--text-dark);
+    line-height: 1.35;
+  }
+
+  .proposal-info-item strong {
+    color: var(--green-dark);
+    font-weight: 800;
+  }
+
+  .proposal-legal-note {
+    margin-top: 12px;
+    font-size: 9.5px;
+    line-height: 1.35;
+    color: #6b7280;
+    text-align: center;
+  }
+
+</style>
+</head>
+
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">
+        <img src="logo_pcom.png" style="height:22px;" alt="Propiedades.com">
+      </div>
+      <div class="sidebar-subtitle">Generador de Propuestas</div>
+    </div>
+
+    <div class="form-section">
+      <div class="section-label">Asesor</div>
+      <div class="field">
+        <label>Asesor asignado</label>
+        <select id="sel-asesor">
+          <option value="cc">Sin asesor / Contact Center</option>
+          <option value="anahi_cruz">Anahi Cruz</option>
+          <option value="doranely_gonzalez">Doranely Gonzalez</option>
+          <option value="daniel_brena">Daniel Brena</option>
+          <option value="hannali_de_la_garza">Hannali de la Garza</option>
+          <option value="asesor5">Asesor 5</option>
+          <option value="asesor6">Asesor 6</option>
+          <option value="asesor7">Asesor 7</option>
+          <option value="asesor8">Asesor 8</option>
+          <option value="asesor9">Asesor 9</option>
+        </select>
+        <div class="field-help">Si no eliges asesor, el botón enviará al Contact Center.</div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="section-label">Datos del cliente</div>
+
+      <div class="field">
+        <label>Cliente / Empresa</label>
+        <input type="text" id="inp-cliente" placeholder="Ej. Novaland Bienes Raíces">
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label>Inventario</label>
+          <input type="number" id="inp-inventario" placeholder="300">
+        </div>
+        <div class="field">
+          <label>Estado</label>
+          <select id="inp-ciudad-display">
+            <option value="">— Selecciona estado —</option>
+            <option value="Aguascalientes">Aguascalientes</option>
+            <option value="Baja California">Baja California</option>
+            <option value="Baja California Sur">Baja California Sur</option>
+            <option value="Campeche">Campeche</option>
+            <option value="Chiapas">Chiapas</option>
+            <option value="Chihuahua">Chihuahua</option>
+            <option value="CDMX">CDMX</option>
+            <option value="Coahuila">Coahuila</option>
+            <option value="Colima">Colima</option>
+            <option value="Durango">Durango</option>
+            <option value="Estado de México">Estado de México</option>
+            <option value="Guanajuato">Guanajuato</option>
+            <option value="Guerrero">Guerrero</option>
+            <option value="Hidalgo">Hidalgo</option>
+            <option value="Jalisco">Jalisco</option>
+            <option value="Michoacán">Michoacán</option>
+            <option value="Morelos">Morelos</option>
+            <option value="Nayarit">Nayarit</option>
+            <option value="Nuevo León">Nuevo León</option>
+            <option value="Oaxaca">Oaxaca</option>
+            <option value="Puebla">Puebla</option>
+            <option value="Querétaro">Querétaro</option>
+            <option value="Quintana Roo">Quintana Roo</option>
+            <option value="San Luis Potosí">San Luis Potosí</option>
+            <option value="Sinaloa">Sinaloa</option>
+            <option value="Sonora">Sonora</option>
+            <option value="Tabasco">Tabasco</option>
+            <option value="Tamaulipas">Tamaulipas</option>
+            <option value="Tlaxcala">Tlaxcala</option>
+            <option value="Veracruz">Veracruz</option>
+            <option value="Yucatán">Yucatán</option>
+            <option value="Zacatecas">Zacatecas</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="section-label">Ciudad</div>
+      <div class="field">
+        <label>Ciudad del cliente</label>
+        <select id="sel-ciudad">
+          <option value="FullPrice">FullPrice</option>
+          <option value="CDMX_EDOMEX" selected>CDMX - Edo Mex</option>
+          <option value="JALISCO_NL">Jalisco - Nuevo León</option>
+          <option value="QUERETARO">Querétaro</option>
+          <option value="RESTO">Resto del país</option>
+        </select>
+        <div class="field-help">La zona define el descuento regional aplicado al precio. FullPrice solo se usa cuando seleccionas FullPrice.</div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="section-label">Tipo de propuesta</div>
+      <div class="choice-group two">
+        <button class="choice-btn active" data-mode="plan" type="button">Individual</button>
+        <button class="choice-btn" data-mode="paquete" type="button">Paquete</button>
+      </div>
+    </div>
+
+    <div id="section-individual">
+      <div class="form-section">
+        <div class="section-label">Producto</div>
+        <div class="choice-group three">
+          <button class="choice-btn active" data-single-product="plan" type="button">Elite / Oportunidades</button>
+          <button class="choice-btn" data-single-product="destacados" type="button">Destacado</button>
+          <button class="choice-btn" data-single-product="prime" type="button">Prime</button>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="section-label">Configuración</div>
+
+        <div class="field" id="field-single-plan">
+          <label>Producto principal</label>
+          <select id="sel-single-plan">
+            <option value="">— Selecciona un producto —</option>
+            <optgroup label="Productos">
+              <option value="elite">Elite</option>
+              <option value="oportunidades">Oportunidades Ilimitadas</option>
+            </optgroup>
+          </select>
+        </div>
+
+        <div class="field is-hidden" id="field-single-elite-package">
+          <label>Paquete Elite</label>
+          <select id="sel-single-elite-package">
+            <option value="hasta300" selected>Hasta 300 propiedades</option>
+            <option value="hasta500">301 a 500 propiedades</option>
+            <option value="custom">Usar inventario</option>
+          </select>
+          <div class="field-help">Si eliges usar inventario, el cálculo toma la cantidad capturada en Datos del cliente.</div>
+        </div>
+
+        <div class="field is-hidden" id="field-single-oportunidades-qty">
+          <label>Paquete de oportunidades</label>
+          <select id="sel-single-oportunidades-qty">
+            <option value="10">Paquete 10</option>
+            <option value="40">Paquete 40</option>
+            <option value="80">Paquete 80</option>
+            <option value="140">Paquete 140</option>
+            <option value="300" selected>Paquete 300</option>
+            <option value="500">Paquete 500</option>
+            <option value="custom">Usar inventario</option>
+          </select>
+          <div class="field-help">Para más de 500, captura el inventario en Datos del cliente.</div>
+        </div>
+
+        <div class="field is-hidden" id="field-single-qty">
+          <label id="single-qty-label">Cantidad de avisos</label>
+          <input type="number" id="inp-single-qty" min="1" max="200" placeholder="Ej. 5">
+          <div class="field-help">Captura una cantidad del 1 al 200.</div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="section-label">Periodo</div>
+        <div class="period-group">
+          <button class="period-btn" data-period-scope="single" data-period="mensual" type="button">Mensual</button>
+          <button class="period-btn" data-period-scope="single" data-period="trimestral" type="button">Trimestral</button>
+          <button class="period-btn" data-period-scope="single" data-period="semestral" type="button">Semestral</button>
+          <button class="period-btn active" data-period-scope="single" data-period="anual" type="button">Anual</button>
+        </div>
+        <div class="field-help">Elige el periodo de contratación.</div>
+      </div>
+
+      <div class="form-section">
+        <div class="field-row">
+          <div class="field">
+            <label>Fecha de inicio</label>
+            <input type="date" id="inp-single-fecha">
+          </div>
+          <div class="field">
+            <label>Vigencia</label>
+            <input type="date" id="inp-single-vigencia" class="calculated-field" readonly>
+          </div>
+        </div>
+
+        <div class="field">
+          <label id="single-desc-label">Descuento adicional (%)</label>
+          <input type="number" id="inp-single-desc" min="0" max="100" placeholder="0">
+          <div class="field-help" id="help-single-desc">Referencia por zona: hasta 20%.</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="section-paquete" class="is-hidden">
+      <div class="form-section">
+        <div class="section-label">Productos del paquete</div>
+        <div class="field-help">Selecciona al menos 2 productos.</div>
+
+        <label class="check-row">
+          <span>
+            <strong>Elite / Oportunidades</strong>
+            <small>Producto principal del paquete</small>
+          </span>
+          <input type="checkbox" id="chk-pkg-plan">
+        </label>
+
+        <label class="check-row">
+          <span>
+            <strong>Destacado</strong>
+            <small>Posicionamiento premium dorado</small>
+          </span>
+          <input type="checkbox" id="chk-pkg-dest">
+        </label>
+
+        <label class="check-row">
+          <span>
+            <strong>Prime</strong>
+            <small>Posicionamiento premium azul</small>
+          </span>
+          <input type="checkbox" id="chk-pkg-prime">
+        </label>
+      </div>
+
+      <div class="product-block is-hidden" id="pkg-plan-block">
+        <div class="product-block-title">Elite / Oportunidades</div>
+        <div class="product-block-subtitle">Producto principal del paquete</div>
+
+        <div class="field">
+          <label>Producto principal</label>
+          <select id="sel-pkg-plan">
+            <option value="">— Selecciona un producto —</option>
+            <optgroup label="Productos">
+              <option value="elite">Elite</option>
+              <option value="oportunidades">Oportunidades Ilimitadas</option>
+            </optgroup>
+          </select>
+        </div>
+
+        <div class="field is-hidden" id="field-pkg-elite-package">
+          <label>Paquete Elite</label>
+          <select id="sel-pkg-elite-package">
+            <option value="hasta300" selected>Hasta 300 propiedades</option>
+            <option value="hasta500">301 a 500 propiedades</option>
+            <option value="custom">Usar inventario</option>
+          </select>
+          <div class="field-help">Si eliges usar inventario, el cálculo toma la cantidad capturada en Datos del cliente.</div>
+        </div>
+
+        <div class="field is-hidden" id="field-pkg-oportunidades-qty">
+          <label>Paquete de oportunidades</label>
+          <select id="sel-pkg-oportunidades-qty">
+            <option value="10">Paquete 10</option>
+            <option value="40">Paquete 40</option>
+            <option value="80">Paquete 80</option>
+            <option value="140">Paquete 140</option>
+            <option value="300" selected>Paquete 300</option>
+            <option value="500">Paquete 500</option>
+            <option value="custom">Usar inventario</option>
+          </select>
+          <div class="field-help">Para más de 500, captura el inventario en Datos del cliente.</div>
+        </div>
+
+        <div class="period-group">
+          <button class="period-btn" data-period-scope="pkg" data-pkg-product="plan" data-period="mensual" type="button">Mensual</button>
+          <button class="period-btn" data-period-scope="pkg" data-pkg-product="plan" data-period="trimestral" type="button">Trimestral</button>
+          <button class="period-btn" data-period-scope="pkg" data-pkg-product="plan" data-period="semestral" type="button">Semestral</button>
+          <button class="period-btn active" data-period-scope="pkg" data-pkg-product="plan" data-period="anual" type="button">Anual</button>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label>Fecha de inicio</label>
+            <input type="date" id="inp-pkg-plan-fecha">
+          </div>
+          <div class="field">
+            <label>Vigencia</label>
+            <input type="date" id="inp-pkg-plan-vigencia" class="calculated-field" readonly>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Descuento adicional (%)</label>
+          <input type="number" id="inp-pkg-plan-desc" min="0" max="100" placeholder="0">
+          <div class="field-help" id="help-pkg-plan-desc">Referencia por zona: hasta 20%.</div>
+        </div>
+      </div>
+
+      <div class="product-block is-hidden" id="pkg-dest-block">
+        <div class="product-block-title">Destacado</div>
+        <div class="product-block-subtitle">Posicionamiento premium dorado</div>
+
+        <div class="field">
+          <label>Cantidad de avisos</label>
+          <input type="number" id="inp-pkg-dest-qty" min="1" max="200" placeholder="Ej. 5">
+          <div class="field-help">Captura una cantidad del 1 al 200.</div>
+        </div>
+
+        <div class="period-group">
+          <button class="period-btn" data-period-scope="pkg" data-pkg-product="dest" data-period="mensual" type="button">Mensual</button>
+          <button class="period-btn" data-period-scope="pkg" data-pkg-product="dest" data-period="trimestral" type="button">Trimestral</button>
+          <button class="period-btn" data-period-scope="pkg" data-pkg-product="dest" data-period="semestral" type="button">Semestral</button>
+          <button class="period-btn active" data-period-scope="pkg" data-pkg-product="dest" data-period="anual" type="button">Anual</button>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label>Fecha de inicio</label>
+            <input type="date" id="inp-pkg-dest-fecha">
+          </div>
+          <div class="field">
+            <label>Vigencia</label>
+            <input type="date" id="inp-pkg-dest-vigencia" class="calculated-field" readonly>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Descuento adicional a destacado (%)</label>
+          <input type="number" id="inp-pkg-dest-desc" min="0" max="100" placeholder="0">
+          <div class="field-help" id="help-pkg-dest-desc">Referencia por zona: hasta 20%.</div>
+        </div>
+      </div>
+
+      <div class="product-block is-hidden" id="pkg-prime-block">
+        <div class="product-block-title">Prime</div>
+        <div class="product-block-subtitle">Posicionamiento premium azul</div>
+
+        <div class="field">
+          <label>Cantidad de avisos</label>
+          <input type="number" id="inp-pkg-prime-qty" min="1" max="200" placeholder="Ej. 5">
+          <div class="field-help">Captura una cantidad del 1 al 200.</div>
+        </div>
+
+        <div class="period-group">
+          <button class="period-btn" data-period-scope="pkg" data-pkg-product="prime" data-period="mensual" type="button">Mensual</button>
+          <button class="period-btn" data-period-scope="pkg" data-pkg-product="prime" data-period="trimestral" type="button">Trimestral</button>
+          <button class="period-btn" data-period-scope="pkg" data-pkg-product="prime" data-period="semestral" type="button">Semestral</button>
+          <button class="period-btn active" data-period-scope="pkg" data-pkg-product="prime" data-period="anual" type="button">Anual</button>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label>Fecha de inicio</label>
+            <input type="date" id="inp-pkg-prime-fecha">
+          </div>
+          <div class="field">
+            <label>Vigencia</label>
+            <input type="date" id="inp-pkg-prime-vigencia" class="calculated-field" readonly>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Descuento adicional a prime (%)</label>
+          <input type="number" id="inp-pkg-prime-desc" min="0" max="100" placeholder="0">
+          <div class="field-help" id="help-pkg-prime-desc">Referencia por zona: hasta 20%.</div>
+        </div>
+      </div>
+    </div>
+
+
+    <div class="form-section">
+      <div class="section-label">Vigencia de la propuesta</div>
+      <div class="field">
+        <label>Fecha de vigencia</label>
+        <input type="date" id="inp-propuesta-vigencia">
+        <div class="field-help">Esta fecha se mostrará en la propuesta final.</div>
+      </div>
+    </div>
+
+    <button id="btn-export-pdf" class="export-btn" onclick="exportPDF()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <path d="M12 15V3m0 12l-4-4m4 4l4-4M2 17l.621 2.485A2 2 0 004.561 21h14.878a2 2 0 001.94-1.515L22 17"/>
+      </svg>
+      Exportar PDF
+    </button>
+  </aside>
+
+  <main class="preview-area">
+    <div class="preview-label">Vista previa de la propuesta</div>
+    <div id="proposal-doc"></div>
+  </main>
+</div>
+
+<script src="data.js?v=destacados-tabla-prime-formula1"></script>
+<script src="app.js?v=destacados-tabla-prime-formula1"></script>
+</body>
+</html>
