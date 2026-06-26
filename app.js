@@ -1348,86 +1348,96 @@ function vsDestacadosCardHTML(item) {
 
 // ── VS card ───────────────────────────────────
 function vsCardHTML(item) {
-  const isElite = item.kind === 'plan' && item.planKey === 'elite';
   const isDest  = item.kind === 'destacados';
   const isPrime = item.kind === 'prime';
 
   if (isDest) return vsDestacadosCardHTML(item);
 
-  const name = item.price?.productName
-    || (isElite ? 'Elite' : item.kind === 'plan' ? 'Oportunidades Ilimitadas' : isDest ? 'Destacados' : 'Prime');
-
-  const icon        = isElite ? '⭐' : item.kind === 'plan' ? '⭐' : isDest ? '🏆' : '💎';
-  const headerClass = isElite ? 'elite' : item.kind === 'plan' ? 'simples' : isDest ? 'destacados' : 'prime';
-
-  const desc = isElite
-    ? 'Publicaciones con etiqueta Exclusivo · Primeros resultados'
-    : item.kind === 'plan'
-      ? 'Publicaciones con oportunidades ilimitadas'
-      : isDest
-        ? 'Asignación automática de anuncio a destacar: El sistema identifica los mejores anuncios a destacar de acuerdo a tu inventario y al comportamiento del mercado.'
-        : 'Posicionamiento premium · Fijos en resultados';
-
-  const price      = item.price;
+  const price       = item.price;
   const hasDiscount = price.pct > 0 && price.original;
+  const isEliteCard = item.planKey === 'elite';
 
-  const rows = [];
+  const vsFooter = `
+    <div class="vs-details" style="margin-top:14px;border-top:1px solid var(--border);padding-top:4px;">
+      <div class="vs-detail-row">
+        <span class="vs-detail-label">Periodo</span>
+        <span class="vs-detail-value">${periodLabel(item.period)}</span>
+      </div>
+      ${isPrime ? `<div class="vs-detail-row" style="border-bottom:none;">
+        <span class="vs-detail-label">Cantidad de avisos</span>
+        <span class="vs-detail-value">${item.qty}</span>
+      </div>` : ''}
+    </div>
+    <div class="vs-price-block">
+      ${hasDiscount ? `<div class="vs-price-row"><span class="vs-price-lbl">Subtotal</span><span class="vs-subtotal-val">${fmt(price.original)}</span></div>` : ''}
+      <div class="vs-price-row">
+        <span class="vs-price-lbl">Total</span>
+        <span class="vs-total-val">${fmt(price.final)} <span class="price-iva">+IVA</span></span>
+      </div>
+    </div>`;
 
-  rows.push(`<div class="vs-detail-row">
-    <span class="vs-detail-label">Periodo</span>
-    <span class="vs-detail-value">${periodLabel(item.period)}</span>
-  </div>`);
-
-  if (item.kind === 'plan') {
-    rows.push(`<div class="vs-detail-row">
-      <span class="vs-detail-label">Inventario cubierto</span>
-      <span class="vs-detail-value">${price.coverage || '—'}</span>
-    </div>`);
-  } else {
-    rows.push(`<div class="vs-detail-row">
-      <span class="vs-detail-label">Cantidad de avisos</span>
-      <span class="vs-detail-value">${item.qty}</span>
-    </div>`);
+  if (isPrime) {
+    return `
+    <div class="plan-card prime-card">
+      <div class="plan-card-header prime">
+        <div class="plan-card-header-left">
+          <span class="plan-card-icon">💎</span>
+          <div>
+            <div class="plan-card-name">Avisos Prime</div>
+            <div class="plan-card-desc">Posiciona tus mejores propiedades al tope de los resultados</div>
+          </div>
+        </div>
+        <span class="plan-card-badge badge-complemento-prime">COMPLEMENTO</span>
+      </div>
+      <div class="plan-card-body">
+        ${priceBlockHTML(price, true)}
+        <div class="avisos-label">Avisos Prime</div>
+        <div class="avisos-value prime-color">${item.qty}</div>
+        <ul class="features-list">
+          <li><span class="feature-icon blue">${checkSVG()}</span><span class="feature-text">Aparecen <strong>por encima</strong> de los destacados</span></li>
+          <li><span class="feature-icon blue">${checkSVG()}</span><span class="feature-text">Se mantienen <strong>fijos</strong> en los resultados de búsqueda</span></li>
+          <li><span class="feature-icon blue">${checkSVG()}</span><span class="feature-text">Etiqueta <strong>"Prime"</strong> de alta visibilidad</span></li>
+        </ul>
+        ${vsFooter}
+      </div>
+    </div>`;
   }
 
-  rows.push(`<div class="vs-detail-row">
-    <span class="vs-detail-label">Vigencia</span>
-    <span class="vs-detail-value">${isDest ? periodLabel(item.period) : fmtDate(item.fecha) + ' — ' + fmtDate(item.vigencia)}</span>
-  </div>`);
+  // Elite / Oportunidades Ilimitadas
+  const planName  = price.productName || (isEliteCard ? 'Elite' : 'Oportunidades Ilimitadas');
+  const cardClass = isEliteCard ? 'elite' : 'simples';
+  const planDesc  = isEliteCard
+    ? 'Publicaciones con etiqueta Exclusivo · Primeros resultados de búsqueda'
+    : 'Publicaciones con oportunidades ilimitadas';
+  const inv = price.coverage || '—';
 
-  if (hasDiscount) {
-    rows.push(`<div class="vs-detail-row">
-      <span class="vs-detail-label">Descuento adicional</span>
-      <span class="vs-detail-value vs-detail-discount">${price.pct}%</span>
-    </div>`);
-  }
+  const featuresElite = `
+    <li><span class="feature-icon green">${checkSVG()}</span><span class="feature-text">Etiqueta <strong>"Exclusivo"</strong> en todas tus publicaciones</span></li>
+    <li><span class="feature-icon green">${checkSVG()}</span><span class="feature-text">Posicionamiento <strong>prioritario</strong> sobre publicaciones simples</span></li>
+    <li><span class="feature-icon green">${checkSVG()}</span><span class="feature-text">Más de <strong>2 millones de personas</strong> podrían ver tus propiedades este mes</span></li>`;
 
-  const subtotalRow = hasDiscount ? `
-    <div class="vs-price-row">
-      <span class="vs-price-lbl">Subtotal</span>
-      <span class="vs-subtotal-val">${fmt(price.original)}</span>
-    </div>` : '';
+  const featuresSimples = `
+    <li><span class="feature-icon green">${checkSVG()}</span><span class="feature-text">Posicionamiento <strong>prioritario</strong> sobre publicaciones simples</span></li>
+    <li><span class="feature-icon green">${checkSVG()}</span><span class="feature-text">Más de <strong>2 millones de personas</strong> podrían ver tus propiedades este mes</span></li>`;
 
   return `
-  <div class="plan-card">
-    <div class="plan-card-header ${headerClass}">
+  <div class="plan-card elite-card">
+    <div class="plan-card-header ${cardClass}">
       <div class="plan-card-header-left">
-        <span class="plan-card-icon">${icon}</span>
+        <span class="plan-card-icon">⭐</span>
         <div>
-          <div class="plan-card-name">${name}</div>
-          <div class="plan-card-desc">${desc}</div>
+          <div class="plan-card-name">${planName}</div>
+          <div class="plan-card-desc">${planDesc}</div>
         </div>
       </div>
+      <span class="plan-card-badge badge-recomendado">RECOMENDADO</span>
     </div>
     <div class="plan-card-body">
-      <div class="vs-details">${rows.join('')}</div>
-      <div class="vs-price-block">
-        ${subtotalRow}
-        <div class="vs-price-row">
-          <span class="vs-price-lbl">Total</span>
-          <span class="vs-total-val">${fmt(price.final)} <span class="price-iva">+IVA</span></span>
-        </div>
-      </div>
+      ${priceBlockHTML(price, true)}
+      <div class="inventory-label">Inventario Cubierto</div>
+      <div class="inventory-value">${inv}</div>
+      <ul class="features-list">${isEliteCard ? featuresElite : featuresSimples}</ul>
+      ${vsFooter}
     </div>
   </div>`;
 }
