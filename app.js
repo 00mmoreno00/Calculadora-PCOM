@@ -1294,11 +1294,65 @@ function proposalTitle() {
   return parts.length ? `Paquete ${parts.join(' + ')}` : 'Paquete';
 }
 
+function vsDestacadosCardHTML(item) {
+  const price = item.price;
+  const hasDiscount = price.pct > 0 && price.original;
+
+  const subtotalRow = hasDiscount ? `
+    <div class="vs-price-row">
+      <span class="vs-price-lbl">Subtotal</span>
+      <span class="vs-subtotal-val">${fmt(price.original)}</span>
+    </div>` : '';
+
+  return `
+  <div class="plan-card destacados-card">
+    <div class="plan-card-header destacados">
+      <div class="plan-card-header-left">
+        <span class="plan-card-icon">🏆</span>
+        <div>
+          <div class="plan-card-name">Destacados</div>
+          <div class="plan-card-desc">Posiciona tus mejores propiedades al tope de los resultados</div>
+        </div>
+      </div>
+      <span class="plan-card-badge badge-complemento-destacados">COMPLEMENTO</span>
+    </div>
+    <div class="plan-card-body">
+      ${priceBlockHTML(price, true)}
+      <div class="avisos-label">Avisos Destacados</div>
+      <div class="avisos-value">${item.qty}</div>
+      <ul class="features-list">
+        <li><span class="feature-icon gold">${checkSVG()}</span><span class="feature-text">Se muestran en los <strong>primeros</strong> resultados</span></li>
+        <li><span class="feature-icon gold">${checkSVG()}</span><span class="feature-text">Etiqueta <strong>"Destacado"</strong> de alta visibilidad</span></li>
+        <li><span class="feature-icon gold">${checkSVG()}</span><span class="feature-text"><strong>Asignación automática de anuncio a destacar:</strong> El sistema identifica los mejores anuncios a destacar de acuerdo a tu inventario y al comportamiento del mercado.</span></li>
+      </ul>
+      <div class="vs-details" style="margin-top:14px;border-top:1px solid var(--border);padding-top:4px;">
+        <div class="vs-detail-row">
+          <span class="vs-detail-label">Periodo</span>
+          <span class="vs-detail-value">${periodLabel(item.period)}</span>
+        </div>
+        <div class="vs-detail-row" style="border-bottom:none;">
+          <span class="vs-detail-label">Cantidad de avisos</span>
+          <span class="vs-detail-value">${item.qty}</span>
+        </div>
+      </div>
+      <div class="vs-price-block">
+        ${subtotalRow}
+        <div class="vs-price-row">
+          <span class="vs-price-lbl">Total</span>
+          <span class="vs-total-val">${fmt(price.final)} <span class="price-iva">+IVA</span></span>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
 // ── VS card ───────────────────────────────────
 function vsCardHTML(item) {
   const isElite = item.kind === 'plan' && item.planKey === 'elite';
   const isDest  = item.kind === 'destacados';
   const isPrime = item.kind === 'prime';
+
+  if (isDest) return vsDestacadosCardHTML(item);
 
   const name = item.price?.productName
     || (isElite ? 'Elite' : item.kind === 'plan' ? 'Oportunidades Ilimitadas' : isDest ? 'Destacados' : 'Prime');
