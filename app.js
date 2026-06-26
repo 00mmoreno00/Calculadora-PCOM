@@ -945,7 +945,8 @@ function compCardHTML(item) {
   const featuresDest = `
     <li><span class="feature-icon gold">${checkSVG()}</span><span class="feature-text">Aparecen <strong>por encima</strong> de las publicaciones Elite</span></li>
     <li><span class="feature-icon gold">${checkSVG()}</span><span class="feature-text">Se muestran en los <strong>primeros</strong> resultados</span></li>
-    <li><span class="feature-icon gold">${checkSVG()}</span><span class="feature-text">Etiqueta <strong>"Destacado"</strong> de alta visibilidad</span></li>`;
+    <li><span class="feature-icon gold">${checkSVG()}</span><span class="feature-text">Etiqueta <strong>"Destacado"</strong> de alta visibilidad</span></li>
+    <li><span class="feature-icon gold">${checkSVG()}</span><span class="feature-text"><strong>Asignación automática de anuncio a destacar:</strong> El sistema identifica los mejores anuncios a destacar de acuerdo a tu inventario y al comportamiento del mercado.</span></li>`;
 
   const featuresPrime = `
     <li><span class="feature-icon blue">${checkSVG()}</span><span class="feature-text">Aparecen <strong>por encima</strong> de los destacados</span></li>
@@ -1168,7 +1169,6 @@ function render() {
     const cardHTML = item => vsCardHTML(item);
     if (items.length === 2) {
       mainSection = `
-        <div class="vs-doc-label">Comparación de productos</div>
         <div class="vs-grid">
           <div class="vs-col">${cardHTML(items[0])}</div>
           <div class="vs-divider"><div class="vs-badge-circle">VS</div></div>
@@ -1177,7 +1177,6 @@ function render() {
         ${proposalInfoHTML()}`;
     } else if (items.length === 1) {
       mainSection = `
-        <div class="vs-doc-label">Comparación de productos</div>
         <div class="vs-grid">
           <div class="vs-col">${cardHTML(items[0])}</div>
           <div class="vs-divider"><div class="vs-badge-circle">VS</div></div>
@@ -1339,7 +1338,7 @@ function vsCardHTML(item) {
 
   rows.push(`<div class="vs-detail-row">
     <span class="vs-detail-label">Vigencia</span>
-    <span class="vs-detail-value">${fmtDate(item.fecha)} — ${fmtDate(item.vigencia)}</span>
+    <span class="vs-detail-value">${isDest ? periodLabel(item.period) : fmtDate(item.fecha) + ' — ' + fmtDate(item.vigencia)}</span>
   </div>`);
 
   if (hasDiscount) {
