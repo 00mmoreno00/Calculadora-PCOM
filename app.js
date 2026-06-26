@@ -25,6 +25,11 @@ let state = {
     prime: { enabled: false, qty: null, period: 'anual', fecha: '', vigencia: '', desc: 0 }
   },
 
+  vs: {
+    p1: { product: 'plan', plan: '', qty: null, oportunidadesQty: '300', elitePackage: 'hasta300', period: 'anual', fecha: '', vigencia: '', desc: 0 },
+    p2: { product: 'destacados', plan: '', qty: null, oportunidadesQty: '300', elitePackage: 'hasta300', period: 'anual', fecha: '', vigencia: '', desc: 0 }
+  },
+
   cliente: '',
   inventario: '',
   ciudadDisplay: '',
@@ -257,6 +262,19 @@ function bindEvents() {
       state.pkg[product].period = btn.dataset.period;
       updatePkgVigencia(product);
       render();
+      return;
+    }
+
+    if (btn.dataset.periodScope === 'vs') {
+      const slot = btn.dataset.vsSlot;
+      const group = btn.closest('.period-group');
+
+      group.querySelectorAll('.period-btn').forEach(item => item.classList.remove('active'));
+      btn.classList.add('active');
+
+      state.vs[slot].period = btn.dataset.period;
+      updateVsVigencia(slot);
+      render();
     }
   }, 'cambio de periodo'));
 
@@ -284,6 +302,55 @@ function bindEvents() {
   ['input', 'change'].forEach(evt => {
     getEl('inp-ciudad-display').addEventListener(evt, e => {
       state.ciudadDisplay = e.target.value;
+      render();
+    });
+  });
+
+  ['p1', 'p2'].forEach(slot => {
+    document.querySelectorAll(`[data-vs-slot="${slot}"][data-vs-product]`).forEach(btn => {
+      btn.addEventListener('click', () => safeRun(() => {
+        setActive(`[data-vs-slot="${slot}"][data-vs-product]`, btn);
+        state.vs[slot].product = btn.dataset.vsProduct;
+        syncVsSlot(slot);
+        render();
+      }, `cambio de producto VS ${slot}`));
+    });
+
+    getEl(`sel-vs-${slot}-plan`).addEventListener('change', e => {
+      state.vs[slot].plan = e.target.value;
+      syncVsSlot(slot);
+      render();
+    });
+
+    getEl(`sel-vs-${slot}-elite-package`).addEventListener('change', e => {
+      state.vs[slot].elitePackage = e.target.value;
+      render();
+    });
+
+    getEl(`sel-vs-${slot}-oportunidades-qty`).addEventListener('change', e => {
+      state.vs[slot].oportunidadesQty = e.target.value;
+      render();
+    });
+
+    ['input', 'change'].forEach(evt => {
+      getEl(`inp-vs-${slot}-qty`).addEventListener(evt, e => {
+        state.vs[slot].qty = parseOptionalNumber(e.target.value);
+        render();
+      });
+    });
+
+    getEl(`inp-vs-${slot}-fecha`).addEventListener('change', e => {
+      state.vs[slot].fecha = e.target.value;
+      updateVsVigencia(slot);
+      render();
+    });
+
+    getEl(`inp-vs-${slot}-desc`).addEventListener('input', e => {
+      const value = normalizeDiscountValue(e.target.value);
+      state.vs[slot].desc = value;
+      if ((parseOptionalNumber(e.target.value) || 0) !== value) {
+        e.target.value = value > 0 ? String(value) : '';
+      }
       render();
     });
   });
@@ -374,6 +441,9 @@ function updateSingleDiscountAvailability() {
 function syncUI() {
   toggleEl('section-individual', state.mode === 'plan');
   toggleEl('section-paquete', state.mode === 'paquete');
+  toggleEl('section-vs', state.mode === 'vs');
+  syncVsSlot('p1');
+  syncVsSlot('p2');
 
   const isPlan = state.single.product === 'plan';
   const isDest = state.single.product === 'destacados';
@@ -451,7 +521,8 @@ function updateExportButton() {
   if (!btn) return;
 
   const packageNeedsMoreProducts = state.mode === 'paquete' && countEnabledPackageProducts() < 2;
-  btn.disabled = packageNeedsMoreProducts;
+  const vsNeedsProducts = state.mode === 'vs' && getSelectedItems().length < 2;
+  btn.disabled = packageNeedsMoreProducts || vsNeedsProducts;
 }
 
 // ── Package values ────────────────────────────
@@ -734,6 +805,8 @@ function getSelectedItems() {
 
   if (state.mode === 'plan') {
     addSingleItem(items);
+  } else if (state.mode === 'vs') {
+    addVsItems(items);
   } else {
     addPackageItems(items);
   }
@@ -1093,7 +1166,30 @@ function render() {
 
   let mainSection = '';
 
-  if (items.length > 0) {
+  if (state.mode === 'vs') {
+    const cardHTML = item => item.kind === 'plan' ? planCardHTML(item) : compCardHTML(item);
+    if (items.length === 2) {
+      mainSection = `
+        <div class="vs-doc-label">Comparación de productos</div>
+        <div class="vs-grid">
+          <div class="vs-col">${cardHTML(items[0])}</div>
+          <div class="vs-divider"><div class="vs-badge-circle">VS</div></div>
+          <div class="vs-col">${cardHTML(items[1])}</div>
+        </div>
+        ${proposalInfoHTML()}`;
+    } else if (items.length === 1) {
+      mainSection = `
+        <div class="vs-doc-label">Comparación de productos</div>
+        <div class="vs-grid">
+          <div class="vs-col">${cardHTML(items[0])}</div>
+          <div class="vs-divider"><div class="vs-badge-circle">VS</div></div>
+          <div class="vs-col vs-col-empty"><div class="vs-empty-card">Configura el Producto 2</div></div>
+        </div>
+        ${proposalInfoHTML()}`;
+    } else {
+      mainSection = `<div style="padding:40px;text-align:center;color:#9ca3af;font-size:14px;">Configura los dos productos para ver la comparación.</div>`;
+    }
+  } else if (items.length > 0) {
     const gridClass = items.length === 3 ? 'three-cards' : items.length > 1 ? 'two-cards' : 'one-card';
 
     mainSection = `
@@ -1197,6 +1293,71 @@ function proposalTitle() {
   if (state.pkg.prime.enabled) parts.push('Prime');
 
   return parts.length ? `Paquete ${parts.join(' + ')}` : 'Paquete';
+}
+
+// ── VS helpers ────────────────────────────────
+function syncVsSlot(slot) {
+  const s = state.vs[slot];
+  const isPlan = s.product === 'plan';
+  const isDest = s.product === 'destacados';
+
+  toggleEl(`field-vs-${slot}-plan`, isPlan);
+  toggleEl(`field-vs-${slot}-elite-package`, isPlan && s.plan === 'elite');
+  toggleEl(`field-vs-${slot}-oportunidades-qty`, isPlan && s.plan === 'oportunidades');
+  toggleEl(`field-vs-${slot}-qty`, !isPlan);
+
+  const qtyLabel = getEl(`vs-${slot}-qty-label`);
+  if (qtyLabel) qtyLabel.textContent = isDest ? 'Cantidad de avisos Destacados' : 'Cantidad de avisos Prime';
+
+  const descHelp = getEl(`help-vs-${slot}-desc`);
+  if (descHelp) descHelp.textContent = discountCapText();
+}
+
+function updateVsVigencia(slot) {
+  state.vs[slot].vigencia = addMonths(state.vs[slot].fecha, monthsByPeriod(state.vs[slot].period));
+  setValue(`inp-vs-${slot}-vigencia`, state.vs[slot].vigencia);
+}
+
+function addVsItems(items) {
+  ['p1', 'p2'].forEach(slot => {
+    const s = state.vs[slot];
+
+    if (s.product === 'plan' && s.plan && s.fecha) {
+      items.push({
+        kind: 'plan',
+        planKey: s.plan,
+        period: s.period,
+        fecha: s.fecha,
+        vigencia: s.vigencia,
+        price: getPlanPrice(s.plan, s.period, s.desc, s.oportunidadesQty, s.elitePackage),
+        vsSlot: slot
+      });
+    }
+
+    if (s.product === 'destacados' && s.qty && s.fecha) {
+      items.push({
+        kind: 'destacados',
+        qty: s.qty,
+        period: s.period,
+        fecha: s.fecha,
+        vigencia: s.vigencia,
+        price: calculateRegionalTablePrice(getPrecioDestacados(s.qty, s.period), s.desc),
+        vsSlot: slot
+      });
+    }
+
+    if (s.product === 'prime' && s.qty && s.fecha) {
+      items.push({
+        kind: 'prime',
+        qty: s.qty,
+        period: s.period,
+        fecha: s.fecha,
+        vigencia: s.vigencia,
+        price: calculateRegionalTablePrice(getPrecioPrime(s.qty, s.period), s.desc),
+        vsSlot: slot
+      });
+    }
+  });
 }
 
 // ── PDF ───────────────────────────────────────

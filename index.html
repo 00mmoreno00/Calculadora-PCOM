@@ -1061,6 +1061,82 @@
     text-align: center;
   }
 
+  /* ── VS mode ── */
+  .vs-slot-header {
+    margin-bottom: 10px;
+  }
+
+  .vs-slot-badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    padding: 3px 12px;
+    border-radius: 20px;
+    text-transform: uppercase;
+  }
+
+  .vs-slot-badge-1 { background: #dbeafe; color: #1d4ed8; }
+  .vs-slot-badge-2 { background: #fef3c7; color: #b45309; }
+
+  .vs-grid {
+    display: grid;
+    grid-template-columns: 1fr 52px 1fr;
+    gap: 12px;
+    align-items: start;
+    margin-bottom: 20px;
+  }
+
+  .vs-divider {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 72px;
+  }
+
+  .vs-badge-circle {
+    background: var(--green-dark);
+    color: #fff;
+    font-weight: 800;
+    font-size: 15px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 14px rgba(0,0,0,.22);
+    letter-spacing: 1px;
+    flex-shrink: 0;
+  }
+
+  .vs-col-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 180px;
+  }
+
+  .vs-empty-card {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 36px 20px;
+    text-align: center;
+    color: var(--text-light);
+    font-size: 13px;
+    width: 100%;
+  }
+
+  .vs-doc-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text-light);
+    text-align: center;
+    margin-bottom: 16px;
+  }
+
 </style>
 </head>
 
@@ -1165,9 +1241,10 @@
 
     <div class="form-section">
       <div class="section-label">Tipo de propuesta</div>
-      <div class="choice-group two">
+      <div class="choice-group three">
         <button class="choice-btn active" data-mode="plan" type="button">Individual</button>
         <button class="choice-btn" data-mode="paquete" type="button">Paquete</button>
+        <button class="choice-btn" data-mode="vs" type="button">VS</button>
       </div>
     </div>
 
@@ -1422,6 +1499,143 @@
       </div>
     </div>
 
+    <div id="section-vs" class="is-hidden">
+
+      <!-- Producto 1 -->
+      <div class="form-section">
+        <div class="vs-slot-header"><span class="vs-slot-badge vs-slot-badge-1">Producto 1</span></div>
+        <div class="choice-group three">
+          <button class="choice-btn active" data-vs-product="plan" data-vs-slot="p1" type="button">Elite / Oport.</button>
+          <button class="choice-btn" data-vs-product="destacados" data-vs-slot="p1" type="button">Destacado</button>
+          <button class="choice-btn" data-vs-product="prime" data-vs-slot="p1" type="button">Prime</button>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="field" id="field-vs-p1-plan">
+          <label>Producto principal</label>
+          <select id="sel-vs-p1-plan">
+            <option value="">Selecciona</option>
+            <optgroup label="Productos">
+              <option value="elite">Elite</option>
+              <option value="oportunidades">Oportunidades Ilimitadas</option>
+            </optgroup>
+          </select>
+        </div>
+        <div class="field is-hidden" id="field-vs-p1-elite-package">
+          <label>Paquete Elite</label>
+          <select id="sel-vs-p1-elite-package">
+            <option value="hasta300" selected>Hasta 300 propiedades</option>
+            <option value="hasta500">301 a 500 propiedades</option>
+            <option value="custom">Usar inventario</option>
+          </select>
+        </div>
+        <div class="field is-hidden" id="field-vs-p1-oportunidades-qty">
+          <label>Paquete de oportunidades</label>
+          <select id="sel-vs-p1-oportunidades-qty">
+            <option value="10">Paquete 10</option>
+            <option value="40">Paquete 40</option>
+            <option value="80">Paquete 80</option>
+            <option value="140">Paquete 140</option>
+            <option value="300" selected>Paquete 300</option>
+            <option value="500">Paquete 500</option>
+          </select>
+        </div>
+        <div class="field is-hidden" id="field-vs-p1-qty">
+          <label id="vs-p1-qty-label">Cantidad de avisos</label>
+          <input type="number" id="inp-vs-p1-qty" min="1" max="200" placeholder="Ej. 5">
+        </div>
+        <div class="period-group">
+          <button class="period-btn" data-period-scope="vs" data-vs-slot="p1" data-period="mensual" type="button">Mensual</button>
+          <button class="period-btn" data-period-scope="vs" data-vs-slot="p1" data-period="trimestral" type="button">Trimestral</button>
+          <button class="period-btn" data-period-scope="vs" data-vs-slot="p1" data-period="semestral" type="button">Semestral</button>
+          <button class="period-btn active" data-period-scope="vs" data-vs-slot="p1" data-period="anual" type="button">Anual</button>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>Fecha de inicio</label>
+            <input type="date" id="inp-vs-p1-fecha">
+          </div>
+          <div class="field">
+            <label>Vigencia</label>
+            <input type="date" id="inp-vs-p1-vigencia" class="calculated-field" readonly>
+          </div>
+        </div>
+        <div class="field">
+          <label>Descuento adicional (%)</label>
+          <input type="number" id="inp-vs-p1-desc" min="0" max="100" placeholder="0">
+          <div class="field-help" id="help-vs-p1-desc"></div>
+        </div>
+      </div>
+
+      <!-- Producto 2 -->
+      <div class="form-section">
+        <div class="vs-slot-header"><span class="vs-slot-badge vs-slot-badge-2">Producto 2</span></div>
+        <div class="choice-group three">
+          <button class="choice-btn" data-vs-product="plan" data-vs-slot="p2" type="button">Elite / Oport.</button>
+          <button class="choice-btn active" data-vs-product="destacados" data-vs-slot="p2" type="button">Destacado</button>
+          <button class="choice-btn" data-vs-product="prime" data-vs-slot="p2" type="button">Prime</button>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="field is-hidden" id="field-vs-p2-plan">
+          <label>Producto principal</label>
+          <select id="sel-vs-p2-plan">
+            <option value="">Selecciona</option>
+            <optgroup label="Productos">
+              <option value="elite">Elite</option>
+              <option value="oportunidades">Oportunidades Ilimitadas</option>
+            </optgroup>
+          </select>
+        </div>
+        <div class="field is-hidden" id="field-vs-p2-elite-package">
+          <label>Paquete Elite</label>
+          <select id="sel-vs-p2-elite-package">
+            <option value="hasta300" selected>Hasta 300 propiedades</option>
+            <option value="hasta500">301 a 500 propiedades</option>
+            <option value="custom">Usar inventario</option>
+          </select>
+        </div>
+        <div class="field is-hidden" id="field-vs-p2-oportunidades-qty">
+          <label>Paquete de oportunidades</label>
+          <select id="sel-vs-p2-oportunidades-qty">
+            <option value="10">Paquete 10</option>
+            <option value="40">Paquete 40</option>
+            <option value="80">Paquete 80</option>
+            <option value="140">Paquete 140</option>
+            <option value="300" selected>Paquete 300</option>
+            <option value="500">Paquete 500</option>
+          </select>
+        </div>
+        <div class="field is-hidden" id="field-vs-p2-qty">
+          <label id="vs-p2-qty-label">Cantidad de avisos</label>
+          <input type="number" id="inp-vs-p2-qty" min="1" max="200" placeholder="Ej. 5">
+        </div>
+        <div class="period-group">
+          <button class="period-btn" data-period-scope="vs" data-vs-slot="p2" data-period="mensual" type="button">Mensual</button>
+          <button class="period-btn" data-period-scope="vs" data-vs-slot="p2" data-period="trimestral" type="button">Trimestral</button>
+          <button class="period-btn" data-period-scope="vs" data-vs-slot="p2" data-period="semestral" type="button">Semestral</button>
+          <button class="period-btn active" data-period-scope="vs" data-vs-slot="p2" data-period="anual" type="button">Anual</button>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>Fecha de inicio</label>
+            <input type="date" id="inp-vs-p2-fecha">
+          </div>
+          <div class="field">
+            <label>Vigencia</label>
+            <input type="date" id="inp-vs-p2-vigencia" class="calculated-field" readonly>
+          </div>
+        </div>
+        <div class="field">
+          <label>Descuento adicional (%)</label>
+          <input type="number" id="inp-vs-p2-desc" min="0" max="100" placeholder="0">
+          <div class="field-help" id="help-vs-p2-desc"></div>
+        </div>
+      </div>
+
+    </div>
 
     <div class="form-section">
       <div class="section-label">Vigencia de la propuesta</div>
