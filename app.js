@@ -1317,7 +1317,6 @@ function vsDestacadosCardHTML(item) {
       <span class="plan-card-badge badge-complemento-destacados">COMPLEMENTO</span>
     </div>
     <div class="plan-card-body">
-      ${priceBlockHTML(price, true)}
       <div class="avisos-label">Avisos Destacados</div>
       <div class="avisos-value">${item.qty}</div>
       <ul class="features-list">
@@ -1326,14 +1325,14 @@ function vsDestacadosCardHTML(item) {
         <li><span class="feature-icon gold">${checkSVG()}</span><span class="feature-text"><strong>Asignación automática de anuncio a destacar:</strong> El sistema identifica los mejores anuncios a destacar de acuerdo a tu inventario y al comportamiento del mercado.</span></li>
       </ul>
       <div class="vs-details" style="margin-top:14px;border-top:1px solid var(--border);padding-top:4px;">
-        <div class="vs-detail-row">
+        <div class="vs-detail-row" style="${hasDiscount ? '' : 'border-bottom:none;'}">
           <span class="vs-detail-label">Periodo</span>
           <span class="vs-detail-value">${periodLabel(item.period)}</span>
         </div>
-        <div class="vs-detail-row" style="border-bottom:none;">
-          <span class="vs-detail-label">Cantidad de avisos</span>
-          <span class="vs-detail-value">${item.qty}</span>
-        </div>
+        ${hasDiscount ? `<div class="vs-detail-row" style="border-bottom:none;">
+          <span class="vs-detail-label">Descuento</span>
+          <span class="vs-detail-value vs-detail-discount">${price.pct}%</span>
+        </div>` : ''}
       </div>
       <div class="vs-price-block">
         ${subtotalRow}
@@ -1359,13 +1358,13 @@ function vsCardHTML(item) {
 
   const vsFooter = `
     <div class="vs-details" style="margin-top:14px;border-top:1px solid var(--border);padding-top:4px;">
-      <div class="vs-detail-row">
+      <div class="vs-detail-row" style="${hasDiscount ? '' : 'border-bottom:none;'}">
         <span class="vs-detail-label">Periodo</span>
         <span class="vs-detail-value">${periodLabel(item.period)}</span>
       </div>
-      ${isPrime ? `<div class="vs-detail-row" style="border-bottom:none;">
-        <span class="vs-detail-label">Cantidad de avisos</span>
-        <span class="vs-detail-value">${item.qty}</span>
+      ${hasDiscount ? `<div class="vs-detail-row" style="border-bottom:none;">
+        <span class="vs-detail-label">Descuento</span>
+        <span class="vs-detail-value vs-detail-discount">${price.pct}%</span>
       </div>` : ''}
     </div>
     <div class="vs-price-block">
@@ -1390,7 +1389,6 @@ function vsCardHTML(item) {
         <span class="plan-card-badge badge-complemento-prime">COMPLEMENTO</span>
       </div>
       <div class="plan-card-body">
-        ${priceBlockHTML(price, true)}
         <div class="avisos-label">Avisos Prime</div>
         <div class="avisos-value prime-color">${item.qty}</div>
         <ul class="features-list">
@@ -1433,7 +1431,6 @@ function vsCardHTML(item) {
       <span class="plan-card-badge badge-recomendado">RECOMENDADO</span>
     </div>
     <div class="plan-card-body">
-      ${priceBlockHTML(price, true)}
       <div class="inventory-label">Inventario Cubierto</div>
       <div class="inventory-value">${inv}</div>
       <ul class="features-list">${isEliteCard ? featuresElite : featuresSimples}</ul>
