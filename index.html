@@ -970,49 +970,63 @@
 
   .bank-details-body {
     padding: 2px 0 0;
-    display: grid;
-    grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: column;
     gap: 0;
   }
 
-  .bank-details-field {
+  .bank-details-row {
     display: grid;
-    grid-template-columns: 165px 1fr;
-    gap: 14px;
-    align-items: start;
-    padding: 7px 0;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
     border-bottom: 1px solid rgba(113, 189, 134, 0.22);
   }
 
-  .bank-details-field:last-child {
+  .bank-details-row .bank-details-field {
     border-bottom: none;
   }
 
-  .bank-details-field.full-width {
-    grid-column: auto;
+  .bank-details-row .bank-details-field.half + .bank-details-field.half {
+    border-left: 1px solid rgba(113, 189, 134, 0.22);
+    padding-left: 14px;
+  }
+
+  .bank-details-field {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 9px 0;
+    border-bottom: 1px solid rgba(113, 189, 134, 0.22);
+  }
+
+  .bank-details-field.last {
+    border-bottom: none;
   }
 
   .bank-details-field-label {
     font-family: inherit;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 700;
-    color: var(--text-dark);
-    letter-spacing: 0;
-    text-transform: none;
-    line-height: 1.35;
+    color: var(--green-mid);
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    line-height: 1.2;
   }
 
   .bank-details-field-value {
     font-family: inherit;
-    font-size: 11.5px;
-    font-weight: 500;
-    color: var(--text-mid);
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-dark);
     line-height: 1.35;
     word-break: break-word;
   }
 
-  .bank-details-separator {
-    display: none;
+  .bank-details-field-value.mono {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 12px;
+    letter-spacing: .04em;
+    color: var(--green-dark);
   }
 
 

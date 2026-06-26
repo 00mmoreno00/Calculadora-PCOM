@@ -1002,26 +1002,27 @@ function bankDetailsHTML() {
       <span class="bank-details-title">Datos para transferencia</span>
     </div>
     <div class="bank-details-body">
-      <div class="bank-details-field">
-        <span class="bank-details-field-label">Banco</span>
-        <span class="bank-details-field-value">BBVA BANCOMER</span>
+      <div class="bank-details-row">
+        <div class="bank-details-field half">
+          <span class="bank-details-field-label">Banco</span>
+          <span class="bank-details-field-value">BBVA BANCOMER</span>
+        </div>
+        <div class="bank-details-field half">
+          <span class="bank-details-field-label">Cuenta</span>
+          <span class="bank-details-field-value mono">0118381968</span>
+        </div>
       </div>
       <div class="bank-details-field">
-        <span class="bank-details-field-label">Cuenta</span>
-        <span class="bank-details-field-value">0118381968</span>
-      </div>
-      <div class="bank-details-separator"></div>
-      <div class="bank-details-field full-width">
         <span class="bank-details-field-label">CLABE Interbancaria</span>
-        <span class="bank-details-field-value">012180001183819685</span>
+        <span class="bank-details-field-value mono">012180001183819685</span>
       </div>
-      <div class="bank-details-field full-width">
+      <div class="bank-details-field">
         <span class="bank-details-field-label">Razón Social</span>
         <span class="bank-details-field-value">CORPORATIVO MCNEMEXICO S DE RL DE CV</span>
       </div>
-      <div class="bank-details-field">
+      <div class="bank-details-field last">
         <span class="bank-details-field-label">RFC</span>
-        <span class="bank-details-field-value">CMC210701L19</span>
+        <span class="bank-details-field-value mono">CMC210701L19</span>
       </div>
     </div>
   </div>`;
