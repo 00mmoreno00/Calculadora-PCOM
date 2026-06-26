@@ -1075,15 +1075,13 @@ function bankDetailsHTML() {
       <span class="bank-details-title">Datos para transferencia</span>
     </div>
     <div class="bank-details-body">
-      <div class="bank-details-row">
-        <div class="bank-details-field half">
-          <span class="bank-details-field-label">Banco</span>
-          <span class="bank-details-field-value">BBVA BANCOMER</span>
-        </div>
-        <div class="bank-details-field half">
-          <span class="bank-details-field-label">Cuenta</span>
-          <span class="bank-details-field-value mono">0118381968</span>
-        </div>
+      <div class="bank-details-field">
+        <span class="bank-details-field-label">Banco</span>
+        <span class="bank-details-field-value">BBVA BANCOMER</span>
+      </div>
+      <div class="bank-details-field">
+        <span class="bank-details-field-label">Cuenta</span>
+        <span class="bank-details-field-value mono">0118381968</span>
       </div>
       <div class="bank-details-field">
         <span class="bank-details-field-label">CLABE Interbancaria</span>
@@ -1167,7 +1165,7 @@ function render() {
   let mainSection = '';
 
   if (state.mode === 'vs') {
-    const cardHTML = item => item.kind === 'plan' ? planCardHTML(item) : compCardHTML(item);
+    const cardHTML = item => vsCardHTML(item);
     if (items.length === 2) {
       mainSection = `
         <div class="vs-doc-label">Comparación de productos</div>
@@ -1236,8 +1234,8 @@ function render() {
       <div class="payment-subtitle">Opciones de pago disponibles</div>
       <div class="payment-options">
         <div class="payment-option">
-          <div class="payment-icon blue">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
+          <div class="payment-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2d6a4f" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
           </div>
           <div>
             <div class="payment-option-name">Meses sin intereses (MSI) vía PayPal</div>
@@ -1246,8 +1244,8 @@ function render() {
         </div>
 
         <div class="payment-option">
-          <div class="payment-icon green">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          <div class="payment-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2d6a4f" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
           </div>
           <div>
             <div class="payment-option-name">Transferencia bancaria</div>
@@ -1281,6 +1279,8 @@ function mainProductLabel(planKey) {
 }
 
 function proposalTitle() {
+  if (state.mode === 'vs') return 'Comparación de productos';
+
   if (state.mode === 'plan') {
     if (state.single.product === 'plan') return mainProductLabel(state.single.plan);
     if (state.single.product === 'destacados') return 'Destacado';
@@ -1293,6 +1293,90 @@ function proposalTitle() {
   if (state.pkg.prime.enabled) parts.push('Prime');
 
   return parts.length ? `Paquete ${parts.join(' + ')}` : 'Paquete';
+}
+
+// ── VS card ───────────────────────────────────
+function vsCardHTML(item) {
+  const isElite = item.kind === 'plan' && item.planKey === 'elite';
+  const isDest  = item.kind === 'destacados';
+  const isPrime = item.kind === 'prime';
+
+  const name = item.price?.productName
+    || (isElite ? 'Elite' : item.kind === 'plan' ? 'Oportunidades Ilimitadas' : isDest ? 'Destacados' : 'Prime');
+
+  const icon        = isElite ? '⭐' : item.kind === 'plan' ? '⭐' : isDest ? '🏆' : '💎';
+  const headerClass = isElite ? 'elite' : item.kind === 'plan' ? 'simples' : isDest ? 'destacados' : 'prime';
+
+  const desc = isElite
+    ? 'Publicaciones con etiqueta Exclusivo · Primeros resultados'
+    : item.kind === 'plan'
+      ? 'Publicaciones con oportunidades ilimitadas'
+      : isDest
+        ? 'Asignación automática de anuncio a destacar: El sistema identifica los mejores anuncios a destacar de acuerdo a tu inventario y al comportamiento del mercado.'
+        : 'Posicionamiento premium · Fijos en resultados';
+
+  const price      = item.price;
+  const hasDiscount = price.pct > 0 && price.original;
+
+  const rows = [];
+
+  rows.push(`<div class="vs-detail-row">
+    <span class="vs-detail-label">Periodo</span>
+    <span class="vs-detail-value">${periodLabel(item.period)}</span>
+  </div>`);
+
+  if (item.kind === 'plan') {
+    rows.push(`<div class="vs-detail-row">
+      <span class="vs-detail-label">Inventario cubierto</span>
+      <span class="vs-detail-value">${price.coverage || '—'}</span>
+    </div>`);
+  } else {
+    rows.push(`<div class="vs-detail-row">
+      <span class="vs-detail-label">Cantidad de avisos</span>
+      <span class="vs-detail-value">${item.qty}</span>
+    </div>`);
+  }
+
+  rows.push(`<div class="vs-detail-row">
+    <span class="vs-detail-label">Vigencia</span>
+    <span class="vs-detail-value">${fmtDate(item.fecha)} — ${fmtDate(item.vigencia)}</span>
+  </div>`);
+
+  if (hasDiscount) {
+    rows.push(`<div class="vs-detail-row">
+      <span class="vs-detail-label">Descuento adicional</span>
+      <span class="vs-detail-value vs-detail-discount">${price.pct}%</span>
+    </div>`);
+  }
+
+  const subtotalRow = hasDiscount ? `
+    <div class="vs-price-row">
+      <span class="vs-price-lbl">Subtotal</span>
+      <span class="vs-subtotal-val">${fmt(price.original)}</span>
+    </div>` : '';
+
+  return `
+  <div class="plan-card">
+    <div class="plan-card-header ${headerClass}">
+      <div class="plan-card-header-left">
+        <span class="plan-card-icon">${icon}</span>
+        <div>
+          <div class="plan-card-name">${name}</div>
+          <div class="plan-card-desc">${desc}</div>
+        </div>
+      </div>
+    </div>
+    <div class="plan-card-body">
+      <div class="vs-details">${rows.join('')}</div>
+      <div class="vs-price-block">
+        ${subtotalRow}
+        <div class="vs-price-row">
+          <span class="vs-price-lbl">Total</span>
+          <span class="vs-total-val">${fmt(price.final)} <span class="price-iva">+IVA</span></span>
+        </div>
+      </div>
+    </div>
+  </div>`;
 }
 
 // ── VS helpers ────────────────────────────────

@@ -696,9 +696,9 @@
   }
 
   .payment-subtitle {
-    font-size: 18px;
-    font-weight: 800;
-    color: var(--text-dark);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-mid);
     margin-bottom: 14px;
   }
 
@@ -730,18 +730,16 @@
     width: 32px;
     height: 32px;
     border-radius: 8px;
+    background: rgba(45, 106, 79, 0.09);
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
   }
 
-  .payment-icon.blue {
-    background: #dbeafe;
-  }
-
+  .payment-icon.blue,
   .payment-icon.green {
-    background: #dcfce7;
+    background: rgba(45, 106, 79, 0.09);
   }
 
   .payment-option-name {
@@ -948,8 +946,8 @@
     width: 32px;
     height: 32px;
     border-radius: 8px;
-    background: #dcfce7;
-    color: #16a34a;
+    background: rgba(45, 106, 79, 0.09);
+    color: var(--green-mid);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1135,6 +1133,68 @@
     color: var(--text-light);
     text-align: center;
     margin-bottom: 16px;
+  }
+
+  .vs-details {
+    margin-bottom: 14px;
+  }
+
+  .vs-detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 12.5px;
+    gap: 8px;
+  }
+
+  .vs-detail-row:last-child { border-bottom: none; }
+
+  .vs-detail-label {
+    color: var(--text-light);
+    flex-shrink: 0;
+  }
+
+  .vs-detail-value {
+    font-weight: 600;
+    color: var(--text-dark);
+    text-align: right;
+  }
+
+  .vs-detail-discount {
+    color: #16a34a;
+  }
+
+  .vs-price-block {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 2px solid var(--border);
+  }
+
+  .vs-price-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 3px 0;
+  }
+
+  .vs-price-lbl {
+    font-size: 12px;
+    color: var(--text-light);
+    font-weight: 500;
+  }
+
+  .vs-subtotal-val {
+    font-size: 13px;
+    color: var(--text-light);
+    text-decoration: line-through;
+  }
+
+  .vs-total-val {
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--green-dark);
   }
 
 </style>
