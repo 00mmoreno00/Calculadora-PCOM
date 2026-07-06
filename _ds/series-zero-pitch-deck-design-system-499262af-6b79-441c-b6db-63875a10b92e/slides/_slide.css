@@ -1,0 +1,166 @@
+/* ============================================================
+   NEXT MOVE — Slide UI kit shared styles.
+   Diseño a 1920×1080. Escala para llenar cualquier viewport.
+   Márgenes 60px. Logo top-left + página bottom-right.
+   ============================================================ */
+@import url('../colors_and_type.css');
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0; padding: 0;
+  background: #0A0A0C;
+  font-family: var(--font-sans);
+  color: var(--black);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+}
+
+/* Stage para slide standalone: escala 1920×1080 al viewport. */
+.standalone-stage {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.standalone-stage .slide {
+  width: 1920px;
+  height: 1080px;
+  transform-origin: center center;
+}
+
+/* ----------------------------------------------------------------
+   La slide
+   ---------------------------------------------------------------- */
+.slide {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  background: var(--white);
+  color: var(--black);
+  overflow: hidden;
+  padding: 60px;
+  display: flex;
+  flex-direction: column;
+}
+
+.slide.dark {
+  background: var(--black);
+  color: var(--white);
+}
+
+.slide.purple {
+  background: var(--purple);
+  color: var(--white);
+}
+
+/* ----------------------------------------------------------------
+   Chrome: logo top-left, número de página bottom-right
+   ---------------------------------------------------------------- */
+.slide-logo {
+  position: absolute;
+  top: 60px; left: 60px;
+  display: flex; align-items: center; gap: 14px;
+  z-index: 2;
+}
+.slide-logo img { height: 40px; width: auto; }
+.slide-logo .wordmark {
+  font-family: var(--font-sans);
+  font-weight: 800;
+  font-size: 24px;
+  letter-spacing: -0.02em;
+  color: var(--black);
+}
+.slide.dark .slide-logo .wordmark,
+.slide.purple .slide-logo .wordmark { color: var(--white); }
+
+.slide-page {
+  position: absolute;
+  bottom: 60px; right: 60px;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  color: var(--ink-3);
+  z-index: 2;
+}
+.slide.dark .slide-page,
+.slide.purple .slide-page { color: rgba(255,255,255,0.55); }
+
+/* ----------------------------------------------------------------
+   Reusable pieces
+   ---------------------------------------------------------------- */
+.eyebrow {
+  display: inline-flex; align-items: center; gap: 16px;
+  font-family: var(--font-mono);
+  font-size: 18px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--purple-deep);
+  font-weight: 600;
+}
+.slide.dark .eyebrow,
+.slide.purple .eyebrow { color: var(--green); }
+.eyebrow::before {
+  content: "";
+  display: inline-block;
+  width: 36px; height: 3px;
+  background: currentColor;
+}
+
+/* Body region inside chrome */
+.slide-body {
+  flex: 1;
+  margin-top: 100px;   /* clears the top logo (40px + 60px padding gap) */
+  margin-bottom: 60px; /* clears the bottom page number */
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* Big-number signature element */
+.mega {
+  font-family: var(--font-sans);
+  font-size: 280px;
+  font-weight: 800;
+  line-height: 0.86;
+  letter-spacing: -0.045em;
+  color: var(--black);
+  font-feature-settings: 'tnum' 1, 'lnum' 1;
+}
+.mega .unit { color: var(--ink-3); font-size: 0.4em; font-weight: 700; }
+.mega .accent { color: var(--purple); }
+.slide.dark .mega { color: var(--white); }
+.slide.dark .mega .accent { color: var(--green); }
+.slide.purple .mega { color: var(--white); }
+.slide.purple .mega .accent { color: var(--green); }
+
+/* Bullets — slide grade */
+.bullet-list { list-style: none; padding: 0; margin: 0; }
+.bullet-list li {
+  display: flex; gap: 22px;
+  padding: 20px 0;
+  font-family: var(--font-sans);
+  font-size: 32px;
+  line-height: 1.3;
+  color: var(--black);
+  font-weight: 500;
+  border-bottom: 1px solid var(--gray-200);
+}
+.slide.dark .bullet-list li { color: var(--white); border-bottom-color: rgba(255,255,255,0.1); }
+.bullet-list li::before {
+  content: "";
+  display: inline-block;
+  width: 14px; height: 14px;
+  background: var(--purple);
+  margin-top: 16px;
+  flex-shrink: 0;
+}
+.slide.dark .bullet-list li::before { background: var(--green); }
+.bullet-list li:last-child { border-bottom: none; }
+
+/* Helpers */
+.t-purple { color: var(--purple); }
+.t-green  { color: var(--green); }
+.t-purple-deep { color: var(--purple-deep); }
