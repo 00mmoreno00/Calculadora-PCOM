@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/series-zero-pitch-deck-design-system-499262af-6b79-441c-b6db-63875a10b92e/colors_and_type.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&display=swap">
+  <script src="_ds/series-zero-pitch-deck-design-system-499262af-6b79-441c-b6db-63875a10b92e/_ds_bundle.js"></script>
+  <script src="utils.js"></script>
+  <script src="config.js"></script>
+  <script src="pricing-data.js"></script>
+  <script src="promotions.js"></script>
+  <script src="pricing-engine.js"></script>
+  <script src="promotion-engine.js"></script>
+  <script src="validators.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0}
+    body{font-family:'Nunito',system-ui,sans-serif;color:#111;background:#EDEDF1;-webkit-font-smoothing:antialiased}
+    a{color:#1b8f51;text-decoration:none}
+    a:hover{color:#146b3d;text-decoration:underline}
+    input,select,button,textarea{font-family:inherit}
+    ::-webkit-scrollbar{width:10px;height:10px}
+    ::-webkit-scrollbar-track{background:transparent}
+    ::-webkit-scrollbar-thumb{background:#CBCBD4;border-radius:6px}
+    ::-webkit-scrollbar-thumb:hover{background:#B4B4BF}
+    input:focus,select:focus,textarea:focus{outline:2px solid #1b8f51;outline-offset:-1px}
+    button{cursor:pointer}
+  </style>
+</helmet>
+<div style="min-height:100vh">{{ app }}</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  // ===================== ESTADO INICIAL =====================
+  state = {
+    ready: false,
+    admin: false,
+    showAdmin: false,
+    exporting: false,
+    exportError: "",
+    showBreakdown: false,
+
+    // Asesor + cliente
+    advisorId: "",
+    clientName: "",
+    clientInventory: "",
+    clientStatus: "Prospecto",
+    stateName: "",
+    zone: "",
+    zoneManual: false,
+
+    // Propuesta
+    mode: "individual",
+    proposalDate: "",
+    proposalValidUntil: "",
+    folio: "",
+    advisorSearch: "",
+    proposalNotes: "",
+
+    // Productos
+    products: [],
+
+    // Admin editor
+    promoDraft: null,
+    importText: "",
+
+    // Administración de productos (protegida por contraseña)
+    showPwd: false,
+    pwdInput: "",
+    pwdError: "",
+    showProductAdmin: false,
+    adminEditingId: null,
+    adminTab: "productos"
+  };
+
+  PWD = "12345";
+  PRODUCT_LS = "pc_product_config_v1";
+  ADV_LS = "pc_advisors_v1";
+  PRODUCT_IDS = ["elite", "oportunidades", "destacados", "prime"];
+
+  // Catálogo de asesores (localStorage o default de config).
+  getAdvisors() {
+    try { const raw = localStorage.getItem(this.ADV_LS); if (raw) { const a = JSON.parse(raw); if (Array.isArray(a)) return a; } } catch (e) { }
+    return (window.PC.config.advisors || []).map(a => Object.assign({}, a));
+  }
+  saveAdvisors(list) { try { localStorage.setItem(this.ADV_LS, JSON.stringify(list)); } catch (e) { } this.forceUpdate(); }
+
+  // Paleta por producto (verde / dorado / azul) para la propuesta y PDF.
+  themes = {
+    green: { main: "#16763F", accent: "#1E9D5B", soft: "#E4F5EC", border: "#C3E7D2", chip: "#1E9D5B" },
+    gold:  { main: "#8A6410", accent: "#C58A1A", soft: "#FAF2DC", border: "#EAD8A6", chip: "#C58A1A" },
+    blue:  { main: "#1B4F9E", accent: "#2A6FDB", soft: "#E7F0FC", border: "#C4DAF6", chip: "#2A6FDB" }
+  };
+
+  // ===================== CICLO DE VIDA =====================
+  componentDidMount() {
+    this._poll = setInterval(() => {
+      if (window.PC && window.PC.PricingEngine && window.PC.Validators) {
+        clearInterval(this._poll);
+        this.init();
+      }
+    }, 60);
+  }
+  componentWillUnmount() { if (this._poll) clearInterval(this._poll); }
+
+  init() {
+    const U = window.PC.utils, C = window.PC.config;
+    const today = U.todayLocal();
+    const validUntil = U.addBusinessDays(today, C.proposalValidityBusinessDays);
+    const isAdmin = new URLSearchParams(location.search).get("admin") === "true";
+    this.setState({
+      ready: true,
+      admin: isAdmin,
+      proposalDate: U.toISO(today),
+      proposalValidUntil: U.toISO(validUntil),
+      folio: this.makeFolio(today),
+      advisorId: this.getAdvisors()[0] ? this.getAdvisors()[0].id : "",
+      products: [this.makeProduct()]
+    });
+  }
+
+  makeFolio(d) {
+    const U = window.PC.utils;
+    const r = Math.floor(1000 + Math.random() * 9000);
+    return "P-" + d.getFullYear() + U.pad(d.getMonth() + 1) + U.pad(d.getDate()) + "-" + r;
+  }
+
+  makeProduct(productId) {
+    const U = window.PC.utils;
+    return {
+      uid: "p" + Math.random().toString(36).slice(2, 8),
+      productId: productId || "elite",
+      period: "anual",
+      startDate: this.state.proposalDate || U.toISO(U.todayLocal()),
+      eliteOption: "hasta300",
+      oppOption: "10",
+      inventory: "",
+      quantity: 1,
+      primeCalcMode: "tabla",
+      manualDiscountPct: 0,
+      // Promo manual por producto (bonificación / cortesía)
+      promoOn: false,
+      promoQty: 1,
+      promoProduct: "destacados"
+    };
+  }
+
+  // ===================== MUTADORES DE ESTADO =====================
+  set(key, val) { this.setState({ [key]: val, exportError: "" }); }
+
+  onStateName(v) {
+    const C = window.PC.config;
+    const patch = { stateName: v, exportError: "" };
+    if (!this.state.zoneManual) patch.zone = C.suggestZone(v); // auto-sugerir zona
+    this.setState(patch);
+  }
+  onZone(v) { this.setState({ zone: v, zoneManual: true, exportError: "" }); }
+  resyncZone() {
+    const C = window.PC.config;
+    this.setState({ zone: C.suggestZone(this.state.stateName), zoneManual: false, exportError: "" });
+  }
+
+  onMode(mode) {
+    let products = this.state.products.slice();
+    if (mode === "individual") products = [products[0] || this.makeProduct()];
+    else if (mode === "vs") {
+      products = [products[0] || this.makeProduct("elite"), products[1] || this.makeProduct("prime")];
+    } else if (mode === "paquete") {
+      if (products.length < 2) {
+        products = [products[0] || this.makeProduct("oportunidades"), this.makeProduct("destacados")];
+      }
+    }
+    this.setState({ mode, products, exportError: "" });
+  }
+
+  updateProduct(idx, patch) {
+    const products = this.state.products.map((p, i) => i === idx ? Object.assign({}, p, patch) : p);
+    this.setState({ products, exportError: "" });
+  }
+  addProduct() {
+    if (this.state.products.length >= 4) return;
+    const used = this.state.products.map(p => p.productId);
+    const cat = this.activeCatalog();
+    const next = cat.find(x => used.indexOf(x) < 0) || cat[0] || "elite";
+    this.setState({ products: this.state.products.concat([this.makeProduct(next)]), exportError: "" });
+  }
+  removeProduct(idx) {
+    if (this.state.products.length <= 1) return;
+    this.setState({ products: this.state.products.filter((_, i) => i !== idx), exportError: "" });
+  }
+
+  // ===================== CÁLCULO (usa los motores) =====================
+  computeAll() {
+    const PE = window.PC.PricingEngine, PR = window.PC.PromotionEngine, V = window.PC.Validators;
+    const date = window.PC.utils.fromISO(this.state.proposalDate) || window.PC.utils.todayLocal();
+    const s = this.state;
+    const productIds = s.products.map(p => p.productId);
+
+    const items = s.products.map(p => {
+      const pc = this.pcfg(p.productId);
+      // Precio por opción de cobertura (admin) tiene prioridad sobre el precio base del producto.
+      let baseOverride = pc.basePrice;
+      if (p.productId === "elite" || p.productId === "oportunidades") {
+        const sel = p.productId === "elite" ? p.eliteOption : p.oppOption;
+        const o = pc.coverage.find(c => c.value === sel);
+        if (o && o.price != null && o.price !== "") baseOverride = Number(o.price);
+      }
+      const cfg = {
+        productId: p.productId, mode: s.mode, zone: s.zone || "CDMX_EDOMEX",
+        period: p.period, eliteOption: p.eliteOption, oppOption: p.oppOption,
+        inventory: s.clientInventory, quantity: p.quantity, primeCalcMode: p.primeCalcMode,
+        manualDiscountPct: p.manualDiscountPct,
+        promoOn: p.promoOn, promoQty: p.promoQty, promoProduct: p.promoProduct,
+        basePriceOverride: baseOverride, maxDiscount: pc.maxDiscount
+      };
+      const promoCtx = {
+        mode: s.mode, productId: p.productId, products: productIds,
+        zone: cfg.zone, period: p.period, inventory: p.inventory, quantity: p.quantity, date
+      };
+      const promoEval = PR.evaluateForProduct(promoCtx);
+      const result = PE.computePrice(cfg, promoEval.applied);
+      result.productName = pc.name; // nombre configurable (admin)
+      result.theme = pc.theme;      // tema configurable (admin)
+      const validation = V.validateProduct(Object.assign({}, cfg, { startDate: p.startDate }), result);
+      // Restricción por estado(s) (admin): el producto solo aplica en los estados listados.
+      if (pc.states.length && pc.states.indexOf(s.stateName) < 0) {
+        validation.complete = false;
+        validation.missing.push(pc.name + " solo aplica en: " + pc.states.join(", ") + " (estado actual: " + (s.stateName || "sin estado") + ")");
+      }
+      // Vigencia por producto (incluye meses de cortesía por promo).
+      const start = window.PC.utils.fromISO(p.startDate);
+      const extra = result.appliedPromotion ? (result.appliedPromotion.extraMonths || 0) : 0;
+      const end = start ? window.PC.utils.addMonths(start, result.months + extra) : null;
+      return { cfg, result, promoEval, validation, start, end, extraMonths: extra };
+    });
+
+    // Promo a nivel paquete
+    let pkg = null;
+    if (s.mode === "paquete") {
+      const pkgEval = PR.evaluateForPackage({ mode: s.mode, products: productIds, zone: s.zone, period: s.products[0] && s.products[0].period, date });
+      pkg = { eval: pkgEval, calc: PE.computePackage(items.map(i => i.result), pkgEval.applied) };
+    }
+
+    const validation = V.validateProposal(s, items.map(i => i.validation));
+    this._lastValidation = validation;
+    return { items, pkg, validation };
+  }
+
+  // ===================== EXPORTAR PDF =====================
+  async exportPDF() {
+    if (!this._lastValidation || !this._lastValidation.canExport) {
+      this.setState({ exportError: "La propuesta no está completa. Revisa la lista de pendientes." });
+      return;
+    }
+    this.setState({ exporting: true, exportError: "" });
+    try {
+      const built = await this.buildPdf();
+      built.pdf.save(built.filename);
+    } catch (e) {
+      this.setState({ exportError: "Error al exportar el PDF: " + (e && e.message ? e.message : e) });
+    }
+    this.setState({ exporting: false });
+  }
+
+  // Genera el PDF y devuelve { pdf, blob, filename }. Reutilizado por exportar y enviar.
+  async buildPdf() {
+    const node = document.getElementById("pc-proposal");
+    if (!node || !window.html2canvas || !window.jspdf) throw new Error("Librerías no cargadas.");
+    const canvas = await window.html2canvas(node, { scale: 2, backgroundColor: "#ffffff", useCORS: true, windowWidth: node.scrollWidth });
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF("p", "pt", "a4");
+    const pw = pdf.internal.pageSize.getWidth();
+    const ph = pdf.internal.pageSize.getHeight();
+    const imgH = canvas.height * pw / canvas.width;
+    const img = canvas.toDataURL("image/jpeg", 0.95);
+    let position = 0, heightLeft = imgH;
+    pdf.addImage(img, "JPEG", 0, position, pw, imgH);
+    heightLeft -= ph;
+    while (heightLeft > 0) { position -= ph; pdf.addPage(); pdf.addImage(img, "JPEG", 0, position, pw, imgH); heightLeft -= ph; }
+    const safe = (this.state.clientName || "Cliente").trim().replace(/[^\wáéíóúñÁÉÍÓÚÑ\- ]+/g, "").replace(/\s+/g, "_") || "Cliente";
+    return { pdf: pdf, blob: pdf.output("blob"), filename: "Propuesta_" + safe + ".pdf" };
+  }
+
+  // Overrides de producto guardados en localStorage (admin).
+  getProductOverrides() {
+    try { const raw = localStorage.getItem(this.PRODUCT_LS); if (raw) return JSON.parse(raw) || {}; } catch (e) { }
+    return {};
+  }
+  saveProductOverrides(obj) {
+    try { localStorage.setItem(this.PRODUCT_LS, JSON.stringify(obj)); } catch (e) { }
+    this.forceUpdate();
+  }
+  // Configuración efectiva de un producto (default + override). Soporta productos personalizados.
+  pcfg(id) {
+    const C = window.PC.config;
+    const meta = C.productMeta[id];
+    const isCustom = !meta;
+    const ov = (this.getProductOverrides()[id]) || {};
+    const states = Array.isArray(ov.states) ? ov.states : (ov.restrictState ? [ov.restrictState] : []);
+    return {
+      id: id, custom: isCustom,
+      name: ov.name != null && ov.name !== "" ? ov.name : (meta ? meta.name : "Producto"),
+      badge: ov.badge != null ? ov.badge : (meta ? meta.badge : "Complemento"),
+      tagline: ov.tagline != null ? ov.tagline : (meta ? meta.tagline : ""),
+      valueLabel: ov.valueLabel != null && ov.valueLabel !== "" ? ov.valueLabel : (meta ? meta.valueLabel : "Cantidad"),
+      icon: ov.icon || (meta ? meta.icon : "star"),
+      theme: ov.theme || (meta ? meta.theme : "green"),
+      maxDiscount: ov.maxDiscount != null && ov.maxDiscount !== "" ? Number(ov.maxDiscount) : 100,
+      basePrice: ov.basePrice != null && ov.basePrice !== "" ? Number(ov.basePrice) : null,
+      benefits: Array.isArray(ov.benefits) && ov.benefits.length ? ov.benefits : (C.benefits[id] || []),
+      states: states,
+      coverage: Array.isArray(ov.coverage) ? ov.coverage : this.defaultCoverage(id),
+      disabled: !!ov.disabled
+    };
+  }
+  // Opciones de cobertura de inventario por defecto (Elite / Oportunidades).
+  defaultCoverage(id) {
+    const D = window.PC.pricingData;
+    if (id === "elite") return [
+      { label: "Hasta 300 propiedades", value: "hasta300" },
+      { label: "301 a 500 propiedades", value: "301a500" },
+      { label: "Usar inventario capturado", value: "inventario" }
+    ];
+    if (id === "oportunidades") return D.oportunidades.packages.map(n => ({ label: "Paquete " + n, value: String(n) })).concat([{ label: "Usar inventario capturado", value: "inventario" }]);
+    return [];
+  }
+  // Catálogo completo (base + personalizados) y catálogo activo (sin ocultos).
+  catalog() {
+    const ov = this.getProductOverrides();
+    const custom = Object.keys(ov).filter(k => ov[k] && ov[k].custom && this.PRODUCT_IDS.indexOf(k) < 0);
+    return this.PRODUCT_IDS.concat(custom);
+  }
+  activeCatalog() { return this.catalog().filter(id => !this.pcfg(id).disabled); }
+  productOpts() { return this.activeCatalog().map(id => ({ value: id, label: this.pcfg(id).name })); }
+
+  whatsappLink() {
+    const C = window.PC.config;
+    const adv = this.getAdvisors().find(a => a.id === this.state.advisorId);
+    let phone = (adv && adv.phone) ? adv.phone : C.contactCenter.phone;
+    phone = String(phone).replace(/\D/g, ""); if (phone.length === 10) phone = "52" + phone;
+    const msg = "Hola, me interesa esta propuesta comercial de " + C.company.name + ".";
+    return "https://wa.me/" + phone + "?text=" + encodeURIComponent(msg);
+  }
+
+  // ===================== ESTILOS COMPARTIDOS =====================
+  get st() {
+    return {
+      label: { display: "block", font: "600 10.5px/1.4 Nunito", textTransform: "uppercase", letterSpacing: ".07em", color: "#6B6B73", marginBottom: "6px" },
+      input: { width: "100%", padding: "9px 11px", border: "1px solid #D0D0D8", borderRadius: "8px", fontSize: "14px", background: "#fff", color: "#111", fontWeight: 500 },
+      field: { marginBottom: "13px" },
+      card: { background: "#fff", border: "1px solid #E6E6EB", borderRadius: "12px", padding: "18px", marginBottom: "14px" },
+      eyebrow: { font: "600 10.5px/1 Nunito", letterSpacing: ".12em", textTransform: "uppercase", color: "#1b8f51" },
+      sectionTitle: { font: "800 15px/1.2 Nunito", color: "#111", margin: "3px 0 14px", letterSpacing: "-.01em" }
+    };
+  }
+
+  field(label, control) { return React.createElement("div", { style: this.st.field }, React.createElement("label", { style: this.st.label }, label), control); }
+  select(value, onChange, options) {
+    return React.createElement("select", { value: value, onChange: e => onChange(e.target.value), style: this.st.input },
+      options.map(o => React.createElement("option", { key: o.value, value: o.value }, o.label)));
+  }
+  section(numLabel, title, children) {
+    const h = React.createElement;
+    return h("div", { style: this.st.card },
+      h("div", { style: this.st.eyebrow }, numLabel),
+      h("div", { style: this.st.sectionTitle }, title),
+      children);
+  }
+
+  // ===================== PANEL DE CONFIGURACIÓN =====================
+  renderPanel(data) {
+    const h = React.createElement, C = window.PC.config, s = this.state;
+    const advisorOpts = this.getAdvisors().map(a => ({ value: a.id, label: a.name + (a.phone ? "" : " (sin tel.)") }));
+    const advQ = (s.advisorSearch || "").trim().toLowerCase();
+    let advShown = advQ ? advisorOpts.filter(o => o.label.toLowerCase().indexOf(advQ) >= 0) : advisorOpts;
+    if (s.advisorId && !advShown.some(o => o.value === s.advisorId)) { const sel = advisorOpts.find(o => o.value === s.advisorId); if (sel) advShown = [sel].concat(advShown); }
+    const stateOpts = [{ value: "", label: "Selecciona estado…" }].concat(C.states.map(x => ({ value: x, label: x })));
+    const zoneOpts = C.zones.map(z => ({ value: z.id, label: z.label }));
+    const zw = window.PC.Validators.zoneWarning(s.stateName, s.zone);
+
+    // Modo (segmented)
+    const modeBtn = (id, label) => h("button", {
+      onClick: () => this.onMode(id),
+      style: {
+        flex: 1, padding: "9px 6px", border: "1px solid " + (s.mode === id ? "#1b8f51" : "#D0D0D8"),
+        background: s.mode === id ? "#1b8f51" : "#fff", color: s.mode === id ? "#fff" : "#2A2A2E",
+        fontWeight: 700, fontSize: "12.5px", borderRadius: "8px"
+      }
+    }, label);
+
+    return h("aside", {
+      style: { width: "440px", minWidth: "440px", height: "100vh", overflowY: "auto", background: "#F4F4F6", borderRight: "1px solid #E0E0E6", padding: "0 18px 40px" }
+    },
+      // Header
+      h("div", { style: { position: "sticky", top: 0, background: "#F4F4F6", zIndex: 5, padding: "16px 0 12px", borderBottom: "1px solid #E6E6EB", marginBottom: "16px" } },
+        h("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" } },
+          h("div", null,
+            h("div", { style: { font: "800 17px/1 Nunito", letterSpacing: "-.02em" } }, "Calculadora comercial"),
+            h("div", { style: { font: "500 12px/1.3 Nunito", color: "#6B6B73", marginTop: "3px" } }, C.company.name + " · uso interno")),
+          h("div", { style: { display: "flex", gap: "8px", alignItems: "center" } },
+            s.admin ? h("button", { onClick: () => this.setState({ showAdmin: true }), style: { padding: "7px 11px", borderRadius: "8px", border: "1px solid #1b8f51", background: "#E4F5EC", color: "#146b3d", fontWeight: 700, fontSize: "12px" } }, "Admin promos") : null,
+            h("button", { title: "Administración de productos", onClick: () => this.setState({ showPwd: true, pwdInput: "", pwdError: "" }), style: { width: "36px", height: "36px", borderRadius: "8px", border: "1px solid #D0D0D8", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 } }, this.icoGear())))),
+
+      // 1. Asesor
+      this.section("Sección 01", "Asesor asignado",
+        h("div", null,
+          h("input", { style: Object.assign({}, this.st.input, { marginBottom: "8px" }), value: s.advisorSearch, placeholder: "Buscar asesor por nombre…", onChange: e => this.set("advisorSearch", e.target.value) }),
+          this.select(s.advisorId, v => this.set("advisorId", v), advShown),
+          advQ ? h("div", { style: { marginTop: "6px", font: "500 11px Nunito", color: "#6B6B73" } }, advShown.length + " asesor(es) coincide(n)") : null)),
+
+      // 2. Cliente
+      this.section("Sección 02", "Datos del cliente",
+        h("div", null,
+          this.field("Cliente o empresa", h("input", { style: this.st.input, value: s.clientName, placeholder: "Nombre del cliente o empresa", onChange: e => this.set("clientName", e.target.value) })),
+          this.field("Inventario del cliente", h("input", { type: "number", min: "0", style: this.st.input, value: s.clientInventory, placeholder: "Ej. 250", onChange: e => this.set("clientInventory", e.target.value) })))),
+
+      // 3. Estado y zona
+      this.section("Sección 03", "Estado y zona de pricing",
+        h("div", null,
+          this.field("Estado (entidad federativa)", this.select(s.stateName, v => this.onStateName(v), stateOpts)),
+          this.field("Zona de pricing", this.select(s.zone, v => this.onZone(v), zoneOpts)),
+          zw ? h("div", { style: { padding: "9px 11px", borderRadius: "8px", fontSize: "12px", lineHeight: 1.4, marginTop: "-4px", background: zw.level === "warning" ? "#FDF3E1" : "#EEF4FF", border: "1px solid " + (zw.level === "warning" ? "#EBCB8B" : "#C4D6F6"), color: zw.level === "warning" ? "#8A5A0F" : "#1B4F9E", display: "flex", gap: "8px", alignItems: "flex-start" } },
+            h("span", null, zw.level === "warning" ? "⚠" : "ℹ"),
+            h("div", null, zw.text,
+              (zw.level === "warning") ? h("button", { onClick: () => this.resyncZone(), style: { display: "block", marginTop: "6px", padding: "4px 8px", borderRadius: "6px", border: "1px solid #EBCB8B", background: "#fff", color: "#8A5A0F", fontWeight: 700, fontSize: "11px" } }, "Usar zona sugerida") : null)) : null)),
+
+      // 4. Tipo de propuesta
+      this.section("Sección 04", "Tipo de propuesta",
+        h("div", { style: { display: "flex", gap: "8px" } }, modeBtn("individual", "Individual"), modeBtn("paquete", "Paquete"), modeBtn("vs", "Comparativo VS"))),
+
+      // 5. Productos
+      this.renderProductsConfig(data),
+
+      // 6. Vigencia propuesta
+      this.section("Sección 06", "Vigencia de la propuesta",
+        h("div", null,
+          h("div", { style: { display: "flex", gap: "10px" } },
+            h("div", { style: { flex: 1 } }, this.field("Fecha de generación", h("input", { type: "date", style: this.st.input, value: s.proposalDate, onChange: e => this.set("proposalDate", e.target.value) }))),
+            h("div", { style: { flex: 1 } }, this.field("Válida hasta", h("input", { type: "date", style: this.st.input, value: s.proposalValidUntil, onChange: e => this.set("proposalValidUntil", e.target.value) })))),
+          h("div", { style: { font: "500 11.5px/1.4 Nunito", color: "#6B6B73" } }, "Por default: " + C.proposalValidityBusinessDays + " días hábiles después de la generación."),
+          this.field("Condiciones / notas (opcional)", h("textarea", { style: Object.assign({}, this.st.input, { minHeight: "72px", resize: "vertical", lineHeight: 1.4, marginTop: "12px" }), value: s.proposalNotes, placeholder: "Condiciones especiales, acuerdos o notas que aparecerán en la propuesta…", onChange: e => this.set("proposalNotes", e.target.value) })))),
+
+      // 7. Validación + exportar
+      this.renderExport(data)
+    );
+  }
+
+  renderProductsConfig(data) {
+    const h = React.createElement, s = this.state;
+    const isVs = s.mode === "vs", isPkg = s.mode === "paquete";
+    const label = isVs ? "Configuración A vs B" : (isPkg ? "Configuración del paquete" : "Configuración de producto");
+    return this.section("Sección 05", label,
+      h("div", null,
+        s.products.map((p, i) => this.renderProductConfig(p, i, data)),
+        isPkg ? h("button", { onClick: () => this.addProduct(), disabled: s.products.length >= 4, style: { width: "100%", padding: "10px", borderRadius: "8px", border: "1px dashed #9ED3B4", background: "#EAF7F0", color: "#146b3d", fontWeight: 700, fontSize: "13px", opacity: s.products.length >= 4 ? .5 : 1 } }, "+ Agregar producto al paquete") : null,
+        isPkg && s.products.length < 2 ? h("div", { style: { marginTop: "8px", font: "600 12px Nunito", color: "#C58A1A" } }, "El paquete requiere mínimo 2 productos.") : null));
+  }
+
+  inventoryHint(idx) {
+    const h = React.createElement, inv = this.state.clientInventory;
+    const ok = inv && Number(inv) > 0;
+    return h("div", { key: "invhint" + idx, style: { marginBottom: "13px", padding: "9px 11px", borderRadius: "8px", background: ok ? "#EAF7F0" : "#FDF3E1", border: "1px solid " + (ok ? "#C3E7D2" : "#EBCB8B"), font: "500 11.5px/1.4 Nunito", color: ok ? "#146b3d" : "#8A5A0F" } },
+      ok ? ("Usando el inventario del cliente: " + Number(inv).toLocaleString("es-MX") + " propiedades.")
+         : "Captura el Inventario del cliente (Sección 02) para usar esta opción.");
+  }
+
+  miniPriceSummary(r) {
+    const h = React.createElement, U = window.PC.utils;
+    const row = (label, value, o) => { o = o || {}; return h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "12px", marginBottom: o.mb || "3px" } },
+      h("span", { style: { font: (o.strong ? "800 " : "500 ") + (o.big ? "12px" : "11px") + " Nunito", color: o.labelColor || "#6B6B73" } }, label),
+      h("span", { style: { font: (o.strong ? "800 " : "600 ") + (o.big ? "17px" : "12px") + " Nunito", color: o.valueColor || "#111", textDecoration: o.strike ? "line-through" : "none" } }, value)); };
+    return h("div", { style: { marginTop: "4px", padding: "11px 13px", borderRadius: "8px", background: "#F4F4F6" } },
+      row("Precio total sin IVA", U.money(r.originalPrice), { strike: r.visibleDiscountPct > 0, valueColor: r.visibleDiscountPct > 0 ? "#A5A5AD" : "#111" }),
+      (r.visibleDiscountPct > 0) ? row("Descuento", "−" + r.visibleDiscountPct + "%", { labelColor: "#1b8f51", valueColor: "#1b8f51" }) : null,
+      row("Precio final sin IVA", U.money(r.finalPrice)),
+      h("div", { style: { height: "1px", background: "#E0E0E6", margin: "6px 0" } }),
+      row("Precio final con IVA", U.money(r.finalPriceIVA), { strong: true, big: true, labelColor: "#111", valueColor: "#111" }));
+  }
+
+  renderProductConfig(p, idx, data) {
+    const h = React.createElement, s = this.state, D = window.PC.pricingData;
+    const item = data.items[idx];
+    const vsTag = s.mode === "vs" ? (idx === 0 ? "A" : "B") : null;
+    const productOpts = this.productOpts();
+    const periodOpts = Object.keys(D.PERIODS).map(k => ({ value: k, label: D.PERIODS[k].label }));
+
+    const conditional = [];
+    if (p.productId === "elite") {
+      const covOpts = this.pcfg("elite").coverage.map(o => ({ value: o.value, label: o.label }));
+      conditional.push(this.field("Cobertura de inventario", this.select(p.eliteOption, v => this.updateProduct(idx, { eliteOption: v }), covOpts)));
+      if (p.eliteOption === "inventario")
+        conditional.push(this.inventoryHint(idx));
+    } else if (p.productId === "oportunidades") {
+      const opts = this.pcfg("oportunidades").coverage.map(o => ({ value: o.value, label: o.label }));
+      conditional.push(this.field("Paquete de oportunidades", this.select(p.oppOption, v => this.updateProduct(idx, { oppOption: v }), opts)));
+      if (p.oppOption === "inventario")
+        conditional.push(this.inventoryHint(idx));
+    } else if (p.productId === "destacados" || p.productId === "prime") {
+      const conf = p.productId === "destacados" ? D.destacados : D.prime;
+      conditional.push(this.field("Cantidad de avisos (" + conf.minQty + "–" + conf.maxQty + ")",
+        h("input", { type: "number", min: String(conf.minQty), max: String(conf.maxQty), style: this.st.input, value: p.quantity, onChange: e => this.updateProduct(idx, { quantity: e.target.value }) })));
+      if (p.productId === "prime")
+        conditional.push(this.field("Método de cálculo", this.select(p.primeCalcMode, v => this.updateProduct(idx, { primeCalcMode: v }), [{ value: "tabla", label: "Tabla (default)" }, { value: "formula", label: "Fórmula ($699 × avisos × meses)" }])));
+    } else {
+      // Producto personalizado (admin): cantidad de unidades.
+      conditional.push(this.field("Cantidad", h("input", { type: "number", min: "1", style: this.st.input, value: p.quantity, onChange: e => this.updateProduct(idx, { quantity: e.target.value }) })));
+    }
+
+    const r = item.result;
+    const complete = item.validation.complete;
+    return h("div", { key: p.uid, style: { border: "1px solid " + (complete ? "#C3E7D2" : "#E6E6EB"), borderRadius: "10px", padding: "14px", marginBottom: "12px", background: "#FCFCFD" } },
+      h("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" } },
+        h("div", { style: { display: "flex", alignItems: "center", gap: "8px" } },
+          vsTag ? h("span", { style: { width: "22px", height: "22px", borderRadius: "6px", background: "#1b8f51", color: "#fff", font: "800 12px Nunito", display: "flex", alignItems: "center", justifyContent: "center" } }, vsTag) : h("span", { style: { font: "700 12px Nunito", color: "#A5A5AD" } }, String(idx + 1).padStart(2, "0")),
+          h("span", { style: { font: "700 13px Nunito", color: complete ? "#16763F" : "#6B6B73" } }, complete ? "Completo" : "Incompleto")),
+        (s.mode === "paquete" && s.products.length > 1) ? h("button", { onClick: () => this.removeProduct(idx), style: { border: "none", background: "none", color: "#D7373F", fontWeight: 700, fontSize: "12px" } }, "Quitar") : null),
+
+      this.field("Producto", this.select(p.productId, v => this.updateProduct(idx, { productId: v }), productOpts)),
+      h("div", { style: { display: "flex", gap: "10px" } },
+        h("div", { style: { flex: 1 } }, this.field("Periodo", this.select(p.period, v => this.updateProduct(idx, { period: v }), periodOpts))),
+        h("div", { style: { flex: 1 } }, this.field("Fecha de inicio", h("input", { type: "date", style: this.st.input, value: p.startDate, onChange: e => this.updateProduct(idx, { startDate: e.target.value }) })))),
+      conditional,
+      this.field("Descuento adicional (%) · tope " + this.pcfg(p.productId).maxDiscount + "%", h("input", { type: "number", min: "0", max: String(this.pcfg(p.productId).maxDiscount), style: this.st.input, value: p.manualDiscountPct, onChange: e => this.updateProduct(idx, { manualDiscountPct: e.target.value }) })),
+
+      // Botón Promo (bonificación manual) + cajitas cantidad/producto
+      h("div", { style: { marginBottom: "13px" } },
+        h("button", {
+          onClick: () => this.updateProduct(idx, { promoOn: !p.promoOn }),
+          style: { display: "inline-flex", alignItems: "center", gap: "7px", padding: "8px 14px", borderRadius: "8px", border: "1px solid " + (p.promoOn ? "#1b8f51" : "#D0D0D8"), background: p.promoOn ? "#1b8f51" : "#fff", color: p.promoOn ? "#fff" : "#2A2A2E", font: "700 12.5px Nunito" }
+        },
+          h("span", { style: { width: "8px", height: "8px", borderRadius: "999px", background: p.promoOn ? "#8FE3B4" : "#C9C9D2" } }), "Promo"),
+        p.promoOn ? h("div", { style: { display: "flex", gap: "10px", marginTop: "10px" } },
+          h("div", { style: { width: "92px" } }, this.field("Cantidad", h("input", { type: "number", min: "1", style: this.st.input, value: p.promoQty, onChange: e => this.updateProduct(idx, { promoQty: e.target.value }) }))),
+          h("div", { style: { flex: 1 } }, this.field("Producto", this.select(p.promoProduct, v => this.updateProduct(idx, { promoProduct: v }), productOpts)))) : null),
+
+      // Mini resumen de precio en vivo
+      this.miniPriceSummary(r),
+      (r.warnings && r.warnings.length) ? h("div", { style: { marginTop: "6px", font: "500 11px Nunito", color: "#C58A1A" } }, r.warnings.map((w, i) => h("div", { key: i }, "⚠ " + w))) : null
+    );
+  }
+
+  renderExport(data) {
+    const h = React.createElement, s = this.state;
+    const v = data.validation;
+    return this.section("Sección 07", "Vigencia y exportación",
+      h("div", null,
+        !v.canExport ? h("div", { style: { marginBottom: "12px" } },
+          h("div", { style: { font: "700 12px Nunito", color: "#C58A1A", marginBottom: "6px" } }, "Falta por completar:"),
+          h("ul", { style: { margin: 0, paddingLeft: "18px", font: "500 12px/1.6 Nunito", color: "#6B6B73" } },
+            v.missing.slice(0, 8).map((m, i) => h("li", { key: i }, m)),
+            v.missing.length > 8 ? h("li", { key: "more" }, "y " + (v.missing.length - 8) + " más…") : null)) :
+          h("div", { style: { marginBottom: "12px", font: "700 12.5px Nunito", color: "#16763F", display: "flex", gap: "6px", alignItems: "center" } }, "✓ Propuesta completa y lista para exportar."),
+
+        this.state.exportError ? h("div", { style: { marginBottom: "10px", padding: "9px 11px", borderRadius: "8px", background: "#FBEAEA", color: "#B02A30", font: "600 12px Nunito" } }, this.state.exportError) : null,
+
+        h("button", {
+          onClick: () => this.exportPDF(), disabled: !v.canExport || this.state.exporting,
+          style: { width: "100%", padding: "13px", borderRadius: "10px", border: "none", background: (v.canExport && !this.state.exporting) ? "#1b8f51" : "#C9C9D2", color: "#fff", font: "800 14px Nunito", boxShadow: v.canExport ? "0 6px 18px -8px rgba(27,143,81,.6)" : "none" }
+        }, this.state.exporting ? "Generando PDF…" : "Descargar propuesta en PDF"),
+
+        h("button", { onClick: () => this.setState({ showBreakdown: !this.state.showBreakdown }), style: { width: "100%", marginTop: "8px", padding: "9px", borderRadius: "8px", border: "1px solid #D0D0D8", background: "#fff", color: "#6B6B73", fontWeight: 600, fontSize: "12px" } }, this.state.showBreakdown ? "Ocultar detalle de cálculo" : "Ver detalle de cálculo (debug)"),
+
+        this.state.showBreakdown ? h("div", { style: { marginTop: "10px", padding: "12px", borderRadius: "8px", background: "#111", color: "#D9F5E4", font: "500 11px/1.6 Nunito", maxHeight: "220px", overflow: "auto" } },
+          data.items.map((it, i) => h("div", { key: i, style: { marginBottom: "8px" } },
+            h("div", { style: { color: "#6FE3A5" } }, "# Producto " + (i + 1) + " — " + it.result.productName),
+            it.result.calculationBreakdown.map((b, j) => h("div", { key: j }, "  " + b))))
+        ) : null));
+  }
+
+  // ===================== PROPUESTA / PDF =====================
+  renderProposal(data) {
+    const h = React.createElement, C = window.PC.config, U = window.PC.utils, s = this.state;
+    const adv = this.getAdvisors().find(a => a.id === s.advisorId);
+    const zoneLabel = (C.zones.find(z => z.id === s.zone) || {}).label || "—";
+
+    const modeTitle = { individual: "Propuesta comercial", paquete: "Propuesta de paquete", vs: "Comparativo de productos" }[s.mode];
+
+    // Cuerpo por modo
+    let body;
+    if (s.mode === "vs") body = this.renderVsBody(data);
+    else body = h("div", { style: { display: "flex", flexWrap: "wrap", gap: "18px", justifyContent: "center" } }, data.items.map((it, i) => this.renderProductCard(it, i, data.items.length)));
+
+    // Total
+    let totalBlock = null;
+    if (s.mode === "individual") {
+      const r = data.items[0].result;
+      totalBlock = this.renderTotal({ totalSinIVA: r.originalPrice, finalSinIVA: r.finalPrice, finalConIVA: r.finalPriceIVA, descPct: r.visibleDiscountPct }, null);
+    } else if (s.mode === "paquete" && data.pkg) {
+      const c = data.pkg.calc;
+      const totalSinIVA = data.items.reduce((sum, i) => sum + i.result.originalPrice, 0);
+      const descPct = totalSinIVA > 0 ? Math.round(((totalSinIVA - c.total) / totalSinIVA) * 100) : 0;
+      totalBlock = this.renderTotal({ totalSinIVA: totalSinIVA, finalSinIVA: c.total, finalConIVA: c.totalIVA, descPct: descPct, preferential: c.subtotal !== c.total }, data.pkg.eval.applied);
+    }
+
+    return h("div", { style: { flex: 1, height: "100vh", overflowY: "auto", background: "#EDEDF1", padding: "28px 32px" } },
+      h("div", { id: "pc-proposal", style: { width: "820px", margin: "0 auto", background: "#fff", boxShadow: "0 10px 40px -18px rgba(17,17,17,.25)", borderRadius: "4px", overflow: "hidden" } },
+        // Header
+        h("div", { style: { padding: "34px 44px 22px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" } },
+          h("img", { src: C.company.logoSrc, alt: C.company.name, style: { height: "40px" } }),
+          h("div", { style: { textAlign: "right" } },
+            h("div", { style: { font: "800 15px Nunito", letterSpacing: "-.01em" } }, "Propuesta comercial"),
+            h("div", { style: { font: "500 12px Nunito", color: "#6B6B73", marginTop: "4px" } }, "Generada: " + U.formatLong(U.fromISO(s.proposalDate))))),
+
+        // Línea divisoria (delgada, gris, con margen a los lados)
+        h("div", { style: { height: "1px", background: "#E0E0E6", margin: "0 44px" } }),
+
+        // Cliente + intro
+        h("div", { style: { padding: "24px 44px" } },
+          h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "14px", marginBottom: "20px" } },
+            this.metaCell("Cliente", s.clientName || "—"),
+            this.metaCell("Inventario", s.clientInventory ? (s.clientInventory + " propiedades") : "—"),
+            this.metaCell("Estado", s.stateName || "—"),
+            this.metaCell("Zona de pricing", zoneLabel),
+            this.metaCell("Asesor", adv ? adv.name : "—")),
+          h("p", { style: { font: "500 13.5px/1.6 Nunito", color: "#2A2A2E", margin: "0 0 6px" } }, C.introMessage),
+          h("div", { style: { font: "800 22px Nunito", color: "#111", margin: "18px 0 4px", letterSpacing: "-.02em" } }, modeTitle)),
+
+        // Cuerpo
+        h("div", { style: { padding: "0 44px 8px" } }, body),
+
+        // Total
+        totalBlock ? h("div", { style: { padding: "8px 44px 4px" } }, totalBlock) : null,
+
+        // Pagos + banco
+        h("div", { style: { padding: "8px 44px 22px", marginTop: "18px" } },
+          h("div", { style: { background: "rgba(27,143,81,.06)", border: "1px solid rgba(27,143,81,.18)", borderRadius: "12px", padding: "20px 24px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "28px" } },
+            h("div", null,
+              this.payEyebrow(this.icoCard(), "Formas de pago"),
+              h("ul", { style: { margin: "10px 0 0", paddingLeft: "16px", font: "500 12.5px/1.7 Nunito", color: "#2A2A2E" } },
+                C.payments.msiPaypal.enabled ? h("li", null, C.payments.msiPaypal.label + " — " + C.payments.msiPaypal.detail) : null,
+                C.payments.transfer.enabled ? h("li", null, C.payments.transfer.label) : null)),
+            h("div", null,
+              this.payEyebrow(this.icoBank(), "Datos bancarios"),
+              h("div", { style: { font: "500 12px/1.7 Nunito", color: "#2A2A2E", marginTop: "10px" } },
+                h("div", null, h("b", null, "Banco: "), C.bank.bank),
+                h("div", null, h("b", null, "Cuenta: "), C.bank.account),
+                h("div", null, h("b", null, "CLABE Interbancaria: "), C.bank.clabe),
+                h("div", null, h("b", null, "Razón Social: "), C.bank.beneficiary),
+                h("div", null, h("b", null, "RFC: "), C.bank.rfc))))),
+
+        // Ejecutivo + whatsapp + vigencia
+        h("div", { style: { padding: "8px 44px 14px" } },
+        h("div", { style: { background: "rgba(17,17,17,.045)", border: "1px solid rgba(17,17,17,.1)", borderRadius: "12px", padding: "18px 22px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px", flexWrap: "wrap" } },
+          h("div", null,
+            h("div", { style: this.st.eyebrow }, "Ejecutivo comercial"),
+            h("div", { style: { font: "700 14px Nunito", marginTop: "5px" } }, adv ? adv.name : "—"),
+            adv ? h("div", { style: { font: "500 12px Nunito", color: "#6B6B73" } }, adv.email) : null,
+            h("div", { style: { font: "800 12px Nunito", color: "#1b8f51", marginTop: "8px" } }, "Vigencia de la propuesta: " + U.formatLong(U.fromISO(s.proposalValidUntil)))),
+          h("a", { href: this.whatsappLink(), target: "_blank", rel: "noopener", style: { display: "inline-flex", alignItems: "center", gap: "8px", padding: "12px 18px", borderRadius: "10px", background: "#1E9D5B", color: "#fff", fontWeight: 800, fontSize: "13px", textDecoration: "none" } },
+            h("span", { style: { fontSize: "16px" } }, "✆"), "Contactar por WhatsApp"))),
+
+        // Condiciones / notas de la propuesta (opcional)
+        s.proposalNotes && s.proposalNotes.trim() ? h("div", { style: { padding: "4px 44px 8px" } },
+          h("div", { style: this.st.eyebrow }, "Condiciones y notas"),
+          h("div", { style: { font: "500 12px/1.6 Nunito", color: "#2A2A2E", marginTop: "8px", whiteSpace: "pre-wrap" } }, s.proposalNotes)) : null,
+
+        // Legal
+        h("div", { style: { padding: "16px 44px 30px", borderTop: "1px solid #E6E6EB" } },
+          h("div", { style: { font: "500 10.5px/1.5 Nunito", color: "#A5A5AD" } }, C.legalNote)))
+    );
+  }
+
+  icoGear() {
+    const h = React.createElement;
+    return h("svg", { viewBox: "0 0 24 24", width: 18, height: 18, fill: "none", stroke: "#2A2A2E", strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round" },
+      h("circle", { cx: 12, cy: 12, r: 3 }),
+      h("path", { d: "M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" }));
+  }
+  renderPwd() {
+    const h = React.createElement, s = this.state;
+    const submit = () => {
+      if (s.pwdInput === this.PWD) this.setState({ showPwd: false, showProductAdmin: true, pwdInput: "", pwdError: "" });
+      else this.setState({ pwdError: "Contraseña incorrecta." });
+    };
+    return h("div", { style: { position: "fixed", inset: 0, background: "rgba(17,17,17,.5)", zIndex: 60, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "80px 20px" } },
+      h("div", { style: { width: "340px", background: "#fff", borderRadius: "14px", padding: "22px", boxShadow: "0 20px 60px -20px rgba(0,0,0,.4)" } },
+        h("div", { style: { display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" } }, this.icoGear(), h("div", { style: { font: "800 16px Nunito" } }, "Administración de productos")),
+        h("div", { style: { font: "500 12.5px/1.4 Nunito", color: "#6B6B73", marginBottom: "12px" } }, "Ingresa la contraseña para configurar los productos."),
+        h("input", { type: "password", autoFocus: true, value: s.pwdInput, placeholder: "Contraseña", onKeyDown: e => { if (e.key === "Enter") submit(); }, onChange: e => this.setState({ pwdInput: e.target.value, pwdError: "" }), style: this.st.input }),
+        s.pwdError ? h("div", { style: { marginTop: "8px", font: "600 12px Nunito", color: "#B02A30" } }, s.pwdError) : null,
+        h("div", { style: { display: "flex", gap: "8px", marginTop: "14px" } },
+          h("button", { onClick: submit, style: { flex: 1, padding: "11px", borderRadius: "9px", border: "none", background: "#1b8f51", color: "#fff", font: "800 13px Nunito" } }, "Entrar"),
+          h("button", { onClick: () => this.setState({ showPwd: false, pwdError: "" }), style: { padding: "11px 14px", borderRadius: "9px", border: "1px solid #D0D0D8", background: "#fff", color: "#6B6B73", font: "700 13px Nunito" } }, "Cancelar"))));
+  }
+
+  renderProductAdmin() {
+    const h = React.createElement, C = window.PC.config;
+    const overrides = this.getProductOverrides();
+    const inp = { padding: "8px 10px", border: "1px solid #D0D0D8", borderRadius: "7px", fontSize: "13px", width: "100%", fontFamily: "Nunito" };
+    const lbl = { font: "600 10px Nunito", textTransform: "uppercase", letterSpacing: ".06em", color: "#6B6B73", marginBottom: "4px", display: "block" };
+    const stateOpts = [{ value: "", label: "Todos los estados" }].concat(C.states.map(x => ({ value: x, label: x })));
+
+    const patch = (id, key, val) => { const o = Object.assign({}, overrides); o[id] = Object.assign({}, o[id], { [key]: val }); this.saveProductOverrides(o); };
+    const setBenefit = (id, i, val) => { const cur = (this.pcfg(id).benefits).slice(); cur[i] = val; patch(id, "benefits", cur); };
+    const addBenefit = (id) => { const cur = (this.pcfg(id).benefits).slice(); cur.push("Nueva característica"); patch(id, "benefits", cur); };
+    const delBenefit = (id, i) => { const cur = (this.pcfg(id).benefits).slice(); cur.splice(i, 1); patch(id, "benefits", cur); };
+    const covOf = (id) => (this.pcfg(id).coverage).map(o => Object.assign({}, o));
+    const setCov = (id, i, key, val) => { const cur = covOf(id); cur[i] = Object.assign({}, cur[i], { [key]: val }); patch(id, "coverage", cur); };
+    const addCov = (id) => { const cur = covOf(id); cur.push({ label: "Nueva cobertura", value: "cov_" + Math.random().toString(36).slice(2, 6), price: "" }); patch(id, "coverage", cur); };
+    const delCov = (id, i) => { const cur = covOf(id); cur.splice(i, 1); patch(id, "coverage", cur); };
+
+    const editForm = (id) => {
+      const pc = this.pcfg(id), t = this.themes[pc.theme] || this.themes.green;
+      const isTable = (id === "elite" || id === "oportunidades");
+      return h("div", { key: id, style: { border: "1px solid #E6E6EB", borderRadius: "12px", padding: "16px" } },
+        h("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "14px" } },
+          h("div", { style: { display: "flex", alignItems: "center", gap: "8px" } },
+            h("span", { style: { width: "26px", height: "26px", borderRadius: "7px", background: t.accent, display: "flex", alignItems: "center", justifyContent: "center" } }, this.svgIcon(pc.icon, "#fff", 15)),
+            h("span", { style: { font: "800 15px Nunito", color: t.main } }, pc.name)),
+          h("button", { onClick: () => this.setState({ adminEditingId: null }), style: { padding: "7px 12px", borderRadius: "8px", border: "1px solid #1b8f51", background: "#EAF7F0", color: "#146b3d", fontWeight: 700, fontSize: "12px" } }, "← Volver a la lista")),
+        h("div", { style: { display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: "10px", marginBottom: "12px" } },
+          h("div", null, h("label", { style: lbl }, "Nombre del producto"), h("input", { style: inp, value: pc.name, onChange: e => patch(id, "name", e.target.value) })),
+          h("div", null, h("label", { style: lbl }, "Tope descuento %"), h("input", { type: "number", min: "0", max: "100", style: inp, value: pc.maxDiscount, onChange: e => patch(id, "maxDiscount", e.target.value) })),
+          h("div", null, h("label", { style: lbl }, isTable ? "Precio base mensual" : (pc.custom ? "Precio base / unidad" : "Precio base / aviso")), h("input", { type: "number", min: "0", style: inp, value: pc.basePrice == null ? "" : pc.basePrice, placeholder: isTable ? "tablas por zona" : (pc.custom ? "requerido" : "tabla/fórmula"), onChange: e => patch(id, "basePrice", e.target.value) }))),
+        pc.custom ? h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "12px" } },
+          h("div", null, h("label", { style: lbl }, "Color"), h("select", { style: inp, value: pc.theme, onChange: e => patch(id, "theme", e.target.value) }, [["green", "Verde"], ["gold", "Dorado"], ["blue", "Azul"]].map(o => h("option", { key: o[0], value: o[0] }, o[1])))),
+          h("div", null, h("label", { style: lbl }, "Ícono"), h("select", { style: inp, value: pc.icon, onChange: e => patch(id, "icon", e.target.value) }, [["star", "Estrella"], ["bolt", "Rayo"], ["arrowup", "Flecha"], ["diamond", "Diamante"]].map(o => h("option", { key: o[0], value: o[0] }, o[1]))))) : null,
+        pc.custom ? h("div", { style: { marginBottom: "12px" } }, h("label", { style: lbl }, "Bajada (tagline)"), h("input", { style: inp, value: pc.tagline, onChange: e => patch(id, "tagline", e.target.value) })) : null,
+        h("div", { style: { marginBottom: "12px" } },
+          h("label", { style: lbl }, "Aplica en estado (vacío = todos los estados)"),
+          h("div", { style: { border: "1px solid #D0D0D8", borderRadius: "8px", padding: "8px 10px", maxHeight: "128px", overflow: "auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3px 12px" } },
+            C.states.map(stName => h("label", { key: stName, style: { display: "flex", gap: "6px", alignItems: "center", font: "500 11.5px Nunito", color: "#2A2A2E" } },
+              h("input", { type: "checkbox", checked: pc.states.indexOf(stName) >= 0, onChange: () => { const cur = pc.states.slice(); const i = cur.indexOf(stName); if (i >= 0) cur.splice(i, 1); else cur.push(stName); patch(id, "states", cur); } }), stName)))),
+        (id === "elite" || id === "oportunidades") ? h("div", { style: { marginBottom: "12px" } },
+          h("label", { style: lbl }, "Cobertura de inventario (etiqueta · precio mensual opcional)"),
+          pc.coverage.map((o, i) => h("div", { key: i, style: { display: "flex", gap: "6px", marginBottom: "6px" } },
+            h("input", { style: Object.assign({}, inp, { flex: 2 }), value: o.label, onChange: e => setCov(id, i, "label", e.target.value) }),
+            h("input", { type: "number", min: "0", style: Object.assign({}, inp, { width: "120px", flex: "none" }), value: o.price == null ? "" : o.price, placeholder: "precio mensual", onChange: e => setCov(id, i, "price", e.target.value) }),
+            h("button", { onClick: () => delCov(id, i), style: { border: "1px solid #EBB", background: "#FBEAEA", color: "#B02A30", borderRadius: "7px", padding: "0 10px", fontWeight: 700 } }, "×"))),
+          h("button", { onClick: () => addCov(id), style: { marginTop: "2px", padding: "7px 11px", borderRadius: "7px", border: "1px dashed #9ED3B4", background: "#EAF7F0", color: "#146b3d", fontWeight: 700, fontSize: "12px" } }, "+ Agregar cobertura"),
+          h("div", { style: { marginTop: "6px", font: "500 10.5px/1.4 Nunito", color: "#A5A5AD" } }, "Si defines precio mensual en una cobertura, se usa ese precio (× periodo) al elegirla; si lo dejas vacío, se usa la tabla por zona.")) : null,
+        h("div", null,
+          h("label", { style: lbl }, "Características"),
+          pc.benefits.map((b, i) => h("div", { key: i, style: { display: "flex", gap: "6px", marginBottom: "6px" } },
+            h("input", { style: Object.assign({}, inp, { flex: 1 }), value: b, onChange: e => setBenefit(id, i, e.target.value) }),
+            h("button", { onClick: () => delBenefit(id, i), style: { border: "1px solid #EBB", background: "#FBEAEA", color: "#B02A30", borderRadius: "7px", padding: "0 10px", fontWeight: 700 } }, "×"))),
+          h("button", { onClick: () => addBenefit(id), style: { marginTop: "2px", padding: "7px 11px", borderRadius: "7px", border: "1px dashed #9ED3B4", background: "#EAF7F0", color: "#146b3d", fontWeight: 700, fontSize: "12px" } }, "+ Agregar característica")),
+        h("div", { style: { marginTop: "10px", font: "500 10.5px/1.4 Nunito", color: "#A5A5AD" } }, isTable ? "Si defines precio base, reemplaza las tablas por zona (mensual × periodo)." : "Si defines precio base, reemplaza la tabla (precio × avisos × meses)."),
+        h("button", { onClick: () => this.setState({ adminEditingId: null }), style: { width: "100%", marginTop: "16px", padding: "13px", borderRadius: "10px", border: "none", background: "#1b8f51", color: "#fff", font: "800 14px Nunito", boxShadow: "0 6px 18px -8px rgba(27,143,81,.6)" } }, "Guardar"));
+    };
+
+    const newProduct = () => {
+      const id = "custom_" + Math.random().toString(36).slice(2, 7);
+      const o = Object.assign({}, this.getProductOverrides());
+      o[id] = { custom: true, name: "Nuevo producto", theme: "green", icon: "star", tagline: "", valueLabel: "Cantidad", maxDiscount: 100, basePrice: "", benefits: ["Nueva característica"], states: [] };
+      this.saveProductOverrides(o);
+      this.setState({ adminEditingId: id });
+    };
+    const removeCustom = (id) => { const o = Object.assign({}, this.getProductOverrides()); delete o[id]; this.saveProductOverrides(o); };
+    const toggleDisabled = (id) => { patch(id, "disabled", !this.pcfg(id).disabled); };
+
+    const listRow = (id) => {
+      const pc = this.pcfg(id), t = this.themes[pc.theme] || this.themes.green;
+      return h("div", { key: id, style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", padding: "12px 14px", border: "1px solid #E6E6EB", borderRadius: "10px", marginBottom: "10px", opacity: pc.disabled ? .55 : 1 } },
+        h("div", { style: { display: "flex", alignItems: "center", gap: "10px" } },
+          h("span", { style: { width: "28px", height: "28px", borderRadius: "7px", background: t.accent, display: "flex", alignItems: "center", justifyContent: "center", flex: "none" } }, this.svgIcon(pc.icon, "#fff", 15)),
+          h("div", null,
+            h("div", { style: { font: "800 14px Nunito", color: "#111" } }, pc.name),
+            h("div", { style: { font: "600 10.5px Nunito", color: pc.disabled ? "#A5A5AD" : "#146b3d" } }, (pc.disabled ? "Oculto" : "Vigente") + (pc.custom ? " · personalizado" : "") + (pc.states.length ? (" · " + pc.states.length + " estado(s)") : " · todos los estados")))),
+        h("div", { style: { display: "flex", gap: "6px" } },
+          h("button", { onClick: () => this.setState({ adminEditingId: id }), style: { padding: "7px 12px", borderRadius: "7px", border: "1px solid #D0D0D8", background: "#fff", color: "#2A2A2E", fontWeight: 700, fontSize: "12px" } }, "Editar"),
+          h("button", { onClick: () => { if (pc.custom) removeCustom(id); else toggleDisabled(id); }, style: { padding: "7px 12px", borderRadius: "7px", border: "1px solid #EBB", background: "#FBEAEA", color: "#B02A30", fontWeight: 700, fontSize: "12px" } }, pc.custom ? "Eliminar" : (pc.disabled ? "Mostrar" : "Ocultar"))));
+    };
+
+    const prodBody = this.state.adminEditingId
+      ? editForm(this.state.adminEditingId)
+      : h("div", null,
+        this.catalog().map(id => listRow(id)),
+        h("button", { onClick: newProduct, style: { width: "100%", marginTop: "6px", padding: "12px", borderRadius: "10px", border: "1px dashed #1b8f51", background: "#EAF7F0", color: "#146b3d", font: "800 13px Nunito" } }, "+ Nuevo producto"));
+
+    const tab = this.state.adminTab;
+    const tabBtn = (key, label) => h("button", { onClick: () => this.setState({ adminTab: key, adminEditingId: null }), style: { padding: "8px 16px", borderRadius: "8px", border: "1px solid " + (tab === key ? "#1b8f51" : "#D0D0D8"), background: tab === key ? "#1b8f51" : "#fff", color: tab === key ? "#fff" : "#2A2A2E", font: "700 13px Nunito" } }, label);
+    const body = tab === "asesores" ? this.renderAdvisorManager() : prodBody;
+    const title = tab === "asesores" ? "Administración de asesores" : "Administración de productos";
+    const sub = tab === "asesores" ? "Nombre y teléfono (para WhatsApp)" : (this.state.adminEditingId ? "Editando producto" : "Productos vigentes");
+
+    return h("div", { style: { position: "fixed", inset: 0, background: "rgba(17,17,17,.55)", zIndex: 60, display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "30px", overflow: "auto" } },
+      h("div", { style: { width: "780px", maxWidth: "100%", background: "#fff", borderRadius: "14px", overflow: "hidden" } },
+        h("div", { style: { padding: "18px 24px 0", position: "sticky", top: 0, background: "#fff", zIndex: 2 } },
+          h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } },
+            h("div", { style: { display: "flex", alignItems: "center", gap: "8px" } }, this.icoGear(), h("div", null, h("div", { style: { font: "800 17px Nunito" } }, title), h("div", { style: { font: "500 12px Nunito", color: "#6B6B73" } }, sub))),
+            h("button", { onClick: () => this.setState({ showProductAdmin: false, adminEditingId: null }), style: { padding: "8px 14px", borderRadius: "8px", border: "1px solid #D0D0D8", background: "#fff", fontWeight: 700 } }, "Cerrar")),
+          h("div", { style: { display: "flex", gap: "8px", padding: "14px 0", borderBottom: "1px solid #E6E6EB" } }, tabBtn("productos", "Productos"), tabBtn("asesores", "Asesores"))),
+        h("div", { style: { padding: "18px 24px" } }, body)));
+  }
+
+  renderAdvisorManager() {
+    const h = React.createElement;
+    const list = this.getAdvisors();
+    const inp = { padding: "9px 11px", border: "1px solid #D0D0D8", borderRadius: "8px", fontSize: "13px", fontFamily: "Nunito" };
+    const lbl = { font: "600 10px Nunito", textTransform: "uppercase", letterSpacing: ".06em", color: "#6B6B73", marginBottom: "4px", display: "block" };
+    const patch = (i, key, val) => { const l = list.map(a => Object.assign({}, a)); l[i][key] = val; this.saveAdvisors(l); };
+    const add = () => { const l = list.map(a => Object.assign({}, a)); l.push({ id: "a_" + Math.random().toString(36).slice(2, 7), name: "Nuevo asesor", phone: "" }); this.saveAdvisors(l); };
+    const del = (i) => { const l = list.map(a => Object.assign({}, a)); l.splice(i, 1); this.saveAdvisors(l); };
+    return h("div", null,
+      list.map((a, i) => h("div", { key: a.id || i, style: { display: "flex", gap: "10px", alignItems: "flex-end", padding: "12px 14px", border: "1px solid #E6E6EB", borderRadius: "10px", marginBottom: "10px" } },
+        h("div", { style: { flex: 2 } }, h("label", { style: lbl }, "Nombre"), h("input", { style: Object.assign({}, inp, { width: "100%" }), value: a.name, onChange: e => patch(i, "name", e.target.value) })),
+        h("div", { style: { flex: 1.4 } }, h("label", { style: lbl }, "Teléfono"), h("input", { type: "tel", style: Object.assign({}, inp, { width: "100%" }), value: a.phone || "", placeholder: "10 dígitos", onChange: e => patch(i, "phone", e.target.value) })),
+        h("button", { onClick: () => del(i), style: { padding: "9px 12px", borderRadius: "8px", border: "1px solid #EBB", background: "#FBEAEA", color: "#B02A30", fontWeight: 700, fontSize: "12px" } }, "Eliminar"))),
+      list.length === 0 ? h("div", { style: { font: "500 12px Nunito", color: "#6B6B73", marginBottom: "10px" } }, "No hay asesores. Agrega el primero.") : null,
+      h("button", { onClick: add, style: { width: "100%", marginTop: "2px", padding: "12px", borderRadius: "10px", border: "1px dashed #1b8f51", background: "#EAF7F0", color: "#146b3d", font: "800 13px Nunito" } }, "+ Nuevo asesor"),
+      h("div", { style: { marginTop: "8px", font: "500 10.5px/1.4 Nunito", color: "#A5A5AD" } }, "El teléfono se usa para el botón de WhatsApp. Formato: 10 dígitos (se antepone 52) o número completo con lada."));
+  }
+
+  icoCard() {
+    const h = React.createElement;
+    return h("svg", { viewBox: "0 0 24 24", width: 15, height: 15, fill: "none", stroke: "#1b8f51", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round", style: { flex: "none" } },
+      h("rect", { x: 2.5, y: 5, width: 19, height: 14, rx: 2 }),
+      h("path", { d: "M2.5 9.5h19" }));
+  }
+  icoBank() {
+    const h = React.createElement;
+    return h("svg", { viewBox: "0 0 24 24", width: 15, height: 15, fill: "none", stroke: "#1b8f51", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round", style: { flex: "none" } },
+      h("path", { d: "M3 9.5L12 4l9 5.5" }),
+      h("path", { d: "M5 10.5v7.5M9.5 10.5v7.5M14.5 10.5v7.5M19 10.5v7.5" }),
+      h("path", { d: "M3 20h18" }));
+  }
+  payEyebrow(icon, text) {
+    const h = React.createElement;
+    return h("div", { style: { display: "flex", alignItems: "center", gap: "7px" } }, icon,
+      h("span", { style: this.st.eyebrow }, text));
+  }
+
+  metaCell(label, value) {
+    const h = React.createElement;
+    return h("div", null,
+      h("div", { style: { font: "600 9.5px Nunito", letterSpacing: ".1em", textTransform: "uppercase", color: "#A5A5AD" } }, label),
+      h("div", { style: { font: "700 13px Nunito", color: "#111", marginTop: "3px" } }, value));
+  }
+
+  // --- Iconos y helpers de tarjeta ---
+  svgIcon(name, color, size) {
+    const h = React.createElement;
+    const paths = {
+      star: "M12 2l2.94 6.26 6.86.72-5.13 4.6 1.46 6.74L12 17.6 5.99 20.9l1.46-6.74-5.13-4.6 6.86-.72z",
+      bolt: "M13 2L4.5 13.5H11l-1 8.5 8.5-12H12z",
+      arrowup: "M12 3l7.5 8H15v10H9V11H4.5z",
+      diamond: "M5.5 3h13l3 5-9.5 13L3 8z"
+    };
+    return h("svg", { viewBox: "0 0 24 24", width: size, height: size, fill: color, style: { display: "block" } }, h("path", { d: paths[name] || paths.star }));
+  }
+  checkIcon(color) {
+    const h = React.createElement;
+    return h("svg", { viewBox: "0 0 24 24", width: 19, height: 19, style: { flex: "none", marginTop: "1px" } },
+      h("circle", { cx: 12, cy: 12, r: 11, fill: color }),
+      h("path", { d: "M7 12.4l3.3 3.3L17 9", fill: "none", stroke: "#fff", strokeWidth: 2.3, strokeLinecap: "round", strokeLinejoin: "round" }));
+  }
+  parseBold(text) {
+    const h = React.createElement;
+    return String(text).split("**").map((seg, i) => i % 2 === 1 ? h("strong", { key: i, style: { fontWeight: 800, color: "#111" } }, seg) : seg);
+  }
+  cardDisplayValue(item) {
+    const p = item.cfg;
+    if (p.productId === "elite") {
+      if (p.eliteOption === "hasta300") return { bigText: "Hasta 300", unit: "propiedades" };
+      if (p.eliteOption === "301a500") return { bigText: "301 a 500", unit: "propiedades" };
+      return { bigNum: (Number(p.inventory) || 0).toLocaleString("es-MX"), unit: "propiedades" };
+    }
+    if (p.productId === "oportunidades") {
+      const n = p.oppOption === "inventario" ? (Number(p.inventory) || 0) : Number(p.oppOption);
+      return { bigNum: n.toLocaleString("es-MX"), unit: "" };
+    }
+    const q = Number(p.quantity) || 0;
+    return { bigNum: String(q), unit: "" };
+  }
+
+  cardHeader(r, t, meta) {
+    const h = React.createElement;
+    return h("div", { style: { padding: "15px 18px", minHeight: "132px", background: "linear-gradient(135deg," + t.main + "," + t.accent + ")", color: "#fff", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "12px" } },
+      h("div", { style: { display: "flex", gap: "11px", alignItems: "flex-start" } },
+        h("div", { style: { width: "34px", height: "34px", borderRadius: "9px", background: "rgba(255,255,255,.2)", display: "flex", alignItems: "center", justifyContent: "center", flex: "none" } }, this.svgIcon(meta.icon, "#fff", 19)),
+        h("div", null,
+          h("div", { style: { font: "800 16px Nunito", letterSpacing: "-.01em" } }, r.productName),
+          h("div", { style: { font: "500 11.5px/1.35 Nunito", color: "rgba(255,255,255,.88)", marginTop: "3px", maxWidth: "230px" } }, meta.tagline))),
+      meta.badge ? h("div", { style: { border: "1.5px solid rgba(255,255,255,.6)", borderRadius: "999px", padding: "4px 10px", font: "700 9.5px Nunito", letterSpacing: ".08em", textTransform: "uppercase", whiteSpace: "nowrap", flex: "none" } }, meta.badge) : null);
+  }
+  cardValueBlock(item, r, t, meta) {
+    const h = React.createElement;
+    const d = this.cardDisplayValue(item);
+    return h("div", { style: { padding: "18px 18px 10px", textAlign: "center", minHeight: "120px", display: "flex", flexDirection: "column", justifyContent: "center" } },
+      h("div", { style: { font: "600 11px Nunito", color: "#6B6B73", marginBottom: "5px" } }, meta.valueLabel),
+      d.bigNum != null
+        ? h("div", null,
+          h("div", { style: { font: "800 46px/1 Nunito", color: t.main, letterSpacing: "-.02em" } }, d.bigNum),
+          d.unit ? h("div", { style: { font: "600 12.5px Nunito", color: "#6B6B73", marginTop: "3px" } }, d.unit) : null)
+        : h("div", { style: { font: "800 27px/1.12 Nunito", color: t.main, letterSpacing: "-.01em" } }, d.bigText + (d.unit ? " " + d.unit : "")));
+  }
+  cardBenefits(benefits, t) {
+    const h = React.createElement;
+    return h("div", { style: { padding: "6px 18px 14px" } },
+      benefits.map((b, i) => h("div", { key: i, style: { display: "flex", gap: "9px", alignItems: "flex-start", marginBottom: "9px" } },
+        this.checkIcon(t.accent),
+        h("div", { style: { font: "500 12.5px/1.4 Nunito", color: "#2A2A2E" } }, this.parseBold(b)))));
+  }
+  cardPriceFooter(item, r, t) {
+    const h = React.createElement, U = window.PC.utils;
+    return h("div", { style: { marginTop: "auto", padding: "14px 18px", background: "#fff", borderTop: "1px solid " + t.border, display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px" } },
+      h("span", { style: { font: "500 13px Nunito", color: "#6B6B73" } }, "Periodo"),
+      h("span", { style: { font: "800 14px Nunito", color: "#111" } }, r.periodLabel + (item.extraMonths ? " (+" + item.extraMonths + " mes cortesía)" : "")));
+  }
+  cardPromoStrip(r, t) {
+    const h = React.createElement;
+    if (!r.appliedPromotion) return null;
+    return h("div", { style: { margin: "0 18px 14px", padding: "9px 12px", borderRadius: "9px", background: t.soft, border: "1px dashed " + t.chip, display: "flex", gap: "8px", alignItems: "flex-start" } },
+      h("span", { style: { color: t.chip, fontWeight: 800, fontSize: "13px" } }, "★"),
+      h("div", null,
+        h("div", { style: { font: "800 11px Nunito", color: t.main } }, r.appliedPromotion.label || "Promoción"),
+        r.appliedPromotion.description ? h("div", { style: { font: "500 11px/1.35 Nunito", color: "#2A2A2E", marginTop: "2px" } }, r.appliedPromotion.description) : null));
+  }
+
+  manualPromoStrip(item, t) {
+    const h = React.createElement, C = window.PC.config;
+    const c = item.cfg;
+    if (!c.promoOn) return null;
+    const qty = Number(c.promoQty) || 0;
+    if (qty <= 0) return null;
+    const name = (C.productMeta[c.promoProduct] || {}).name || c.promoProduct;
+    return h("div", { style: { margin: "0 18px 14px", padding: "9px 12px", borderRadius: "9px", background: t.soft, border: "1px dashed " + t.chip, display: "flex", gap: "8px", alignItems: "flex-start" } },
+      h("span", { style: { color: t.chip, fontWeight: 800, fontSize: "13px" } }, "★"),
+      h("div", null,
+        h("div", { style: { font: "800 11px Nunito", color: t.main } }, "Promo"),
+        h("div", { style: { font: "500 11px/1.35 Nunito", color: "#2A2A2E", marginTop: "2px" } }, qty + " × " + name + " de cortesía")));
+  }
+
+  renderProductCard(item, idx, count) {
+    const h = React.createElement;
+    const r = item.result, t = this.themes[r.theme] || this.themes.green;
+    const meta = this.pcfg(r.productId);
+    const benefits = meta.benefits;
+    const width = count === 1 ? "100%" : "calc(50% - 9px)";
+    return h("div", { style: { display: "flex", flexDirection: "column", width: width, maxWidth: count === 1 ? "560px" : "none", minWidth: "300px", border: "1px solid " + t.border, borderRadius: "14px", overflow: "hidden", background: "#fff", boxShadow: "0 4px 16px -10px rgba(17,17,17,.22)" } },
+      this.cardHeader(r, t, meta),
+      this.cardValueBlock(item, r, t, meta),
+      this.cardBenefits(benefits, t),
+      this.manualPromoStrip(item, t),
+      this.cardPriceFooter(item, r, t));
+  }
+
+  renderVsBody(data) {
+    const h = React.createElement, C = window.PC.config;
+    const col = (item, tag) => {
+      const r = item.result, t = this.themes[r.theme] || this.themes.green;
+      const meta = this.pcfg(r.productId), benefits = meta.benefits;
+      return h("div", { style: { flex: 1, display: "flex", flexDirection: "column", border: "1px solid " + t.border, borderRadius: "14px", overflow: "hidden", background: "#fff", boxShadow: "0 4px 16px -10px rgba(17,17,17,.22)" } },
+        h("div", { style: { padding: "7px", background: "#111", color: "#fff", textAlign: "center", font: "800 11px Nunito", letterSpacing: ".14em" } }, "OPCIÓN " + tag),
+        this.cardHeader(r, t, meta),
+        this.cardValueBlock(item, r, t, meta),
+        this.cardBenefits(benefits, t),
+        this.manualPromoStrip(item, t),
+        this.cardPriceFooter(item, r, t));
+    };
+    return h("div", { style: { display: "flex", gap: "14px", alignItems: "stretch" } },
+      col(data.items[0], "A"),
+      h("div", { style: { display: "flex", alignItems: "center", font: "800 15px Nunito", color: "#A5A5AD" } }, "VS"),
+      col(data.items[1], "B"));
+  }
+
+  renderTotal(info, pkgPromo) {
+    const h = React.createElement, U = window.PC.utils;
+    const row = (label, value, o) => { o = o || {}; return h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "18px", marginBottom: o.mb || "5px" } },
+      h("span", { style: { font: "500 12px Nunito", color: o.labelColor || "#6B6B73" } }, label),
+      h("span", { style: { font: "600 13px Nunito", color: o.valueColor || "#111", textDecoration: o.strike ? "line-through" : "none" } }, value)); };
+    return h("div", { style: { border: "1px solid rgba(17,17,17,.1)", borderRadius: "12px", padding: "18px 22px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "24px", background: "rgba(17,17,17,.045)", color: "#111", flexWrap: "wrap" } },
+      h("div", { style: { flex: 1, textAlign: "left", minWidth: "180px" } },
+        h("div", { style: { font: "800 22px Nunito", letterSpacing: ".01em", textTransform: "uppercase", color: "#6B6B73" } }, info.preferential ? "Total de inversión (precio preferencial)" : "Total de inversión"),
+        pkgPromo ? h("div", { style: { font: "600 12px Nunito", color: "#16763F", marginTop: "6px" } }, "Incluye: " + ((pkgPromo.display || {}).label || pkgPromo.name)) : null),
+      h("div", { style: { minWidth: "260px" } },
+        row("Precio total sin IVA", U.money(info.totalSinIVA), { strike: info.descPct > 0, valueColor: info.descPct > 0 ? "#A5A5AD" : "#111" }),
+        (info.descPct > 0) ? row("Descuento", "−" + info.descPct + "%", { labelColor: "#1b8f51", valueColor: "#1b8f51" }) : null,
+        row("Precio final sin IVA", U.money(info.finalSinIVA)),
+        h("div", { style: { height: "1px", background: "rgba(17,17,17,.12)", margin: "8px 0" } }),
+        h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "18px" } },
+          h("span", { style: { font: "800 12px Nunito", color: "#146b3d" } }, "Precio final con IVA"),
+          h("span", { style: { font: "800 28px Nunito", letterSpacing: "-.02em", color: "#1b8f51" } }, U.money(info.finalConIVA)))));
+  }
+
+  // ===================== ADMIN: EDITOR DE PROMOCIONES =====================
+  renderAdmin() {
+    const h = React.createElement, PR = window.PC.PromotionEngine;
+    const promos = PR.getPromotions();
+    const effectOpts = ["discount_pct", "discount_fixed", "fixed_price", "replace_price", "extra_months", "bundle_discount_pct", "bundle_discount_fixed", "preferential_price"].map(x => ({ value: x, label: x }));
+
+    const savePromo = (list) => { PR.savePromotions(list); this.forceUpdate(); };
+    const patch = (i, key, val) => { const l = promos.slice(); l[i] = Object.assign({}, l[i], { [key]: val }); savePromo(l); };
+    const patchEffect = (i, key, val) => { const l = promos.slice(); l[i] = Object.assign({}, l[i], { effect: Object.assign({}, l[i].effect, { [key]: val }) }); savePromo(l); };
+    const patchApplies = (i, key, val) => { const l = promos.slice(); l[i] = Object.assign({}, l[i], { appliesTo: Object.assign({}, l[i].appliesTo, { [key]: val }) }); savePromo(l); };
+
+    const inp = { padding: "6px 8px", border: "1px solid #D0D0D8", borderRadius: "6px", fontSize: "12px", width: "100%" };
+
+    return h("div", { style: { position: "fixed", inset: 0, background: "rgba(17,17,17,.55)", zIndex: 50, display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "30px", overflow: "auto" } },
+      h("div", { style: { width: "860px", maxWidth: "100%", background: "#fff", borderRadius: "14px", overflow: "hidden" } },
+        h("div", { style: { padding: "18px 24px", borderBottom: "1px solid #E6E6EB", display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, background: "#fff", zIndex: 2 } },
+          h("div", null, h("div", { style: { font: "800 17px Nunito" } }, "Administración de promociones"),
+            h("div", { style: { font: "500 12px Nunito", color: "#6B6B73" } }, "Cambios guardados en este navegador (localStorage). No afecta el motor de cálculo.")),
+          h("button", { onClick: () => this.setState({ showAdmin: false }), style: { padding: "8px 14px", borderRadius: "8px", border: "1px solid #D0D0D8", background: "#fff", fontWeight: 700 } }, "Cerrar")),
+
+        h("div", { style: { padding: "18px 24px" } },
+          h("div", { style: { display: "flex", gap: "8px", marginBottom: "16px", flexWrap: "wrap" } },
+            h("button", { onClick: () => { const l = promos.concat([this.blankPromo()]); savePromo(l); }, style: this.adminBtn("#1b8f51", "#fff") }, "+ Nueva promoción"),
+            h("button", { onClick: () => { PR.resetPromotions(); this.forceUpdate(); }, style: this.adminBtn("#fff", "#B02A30", "#EBB") }, "Restablecer a default"),
+            h("button", { onClick: () => this.setState({ importText: JSON.stringify(promos, null, 2) }), style: this.adminBtn("#fff", "#2A2A2E", "#D0D0D8") }, "Exportar / copiar JSON")),
+
+          promos.map((p, i) => h("div", { key: p.id + i, style: { border: "1px solid #E6E6EB", borderRadius: "10px", padding: "14px", marginBottom: "12px", background: p.active ? "#FBFCFB" : "#FafafA" } },
+            h("div", { style: { display: "flex", gap: "10px", alignItems: "center", marginBottom: "10px" } },
+              h("label", { style: { display: "flex", gap: "6px", alignItems: "center", font: "700 12px Nunito" } },
+                h("input", { type: "checkbox", checked: !!p.active, onChange: e => patch(i, "active", e.target.checked) }), p.active ? "Activa" : "Inactiva"),
+              h("input", { style: Object.assign({}, inp, { flex: 1, fontWeight: 700 }), value: p.name, onChange: e => patch(i, "name", e.target.value) }),
+              h("button", { onClick: () => { const l = promos.filter((_, j) => j !== i); savePromo(l); }, style: { border: "none", background: "none", color: "#D7373F", fontWeight: 700, fontSize: "12px" } }, "Eliminar")),
+            h("div", { style: { display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "8px" } },
+              this.adminField("Inicia", h("input", { type: "date", style: inp, value: p.startsAt, onChange: e => patch(i, "startsAt", e.target.value) })),
+              this.adminField("Termina", h("input", { type: "date", style: inp, value: p.endsAt, onChange: e => patch(i, "endsAt", e.target.value) })),
+              this.adminField("Prioridad", h("input", { type: "number", style: inp, value: p.priority, onChange: e => patch(i, "priority", Number(e.target.value)) })),
+              this.adminField("Acumulable", h("select", { style: inp, value: String(!!p.stackable), onChange: e => patch(i, "stackable", e.target.value === "true") }, h("option", { value: "false" }, "No"), h("option", { value: "true" }, "Sí"))),
+              this.adminField("Efecto", h("select", { style: inp, value: p.effect.type, onChange: e => patchEffect(i, "type", e.target.value) }, effectOpts.map(o => h("option", { key: o.value, value: o.value }, o.label)))),
+              this.adminField("Valor", h("input", { type: "number", style: inp, value: p.effect.value, onChange: e => patchEffect(i, "value", Number(e.target.value)) })),
+              this.adminField("Exclusiva", h("select", { style: inp, value: String(!!p.exclusive), onChange: e => patch(i, "exclusive", e.target.value === "true") }, h("option", { value: "false" }, "No"), h("option", { value: "true" }, "Sí"))),
+              this.adminField("Modos", h("input", { style: inp, value: (p.appliesTo.modes || []).join(","), onChange: e => patchApplies(i, "modes", e.target.value.split(",").map(x => x.trim()).filter(Boolean)) }))),
+            h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginTop: "8px" } },
+              this.adminField("Productos requeridos (coma)", h("input", { style: inp, value: (p.appliesTo.requiredProducts || []).join(","), onChange: e => { const v = e.target.value.split(",").map(x => x.trim()).filter(Boolean); patchApplies(i, "requiredProducts", v.length ? v : null); } })),
+              this.adminField("Etiqueta visible", h("input", { style: inp, value: (p.display || {}).label || "", onChange: e => { const l = promos.slice(); l[i] = Object.assign({}, l[i], { display: Object.assign({}, l[i].display, { label: e.target.value }) }); savePromo(l); } }))),
+            this.adminField("Descripción visible", h("input", { style: Object.assign({}, inp, { marginTop: "8px" }), value: (p.display || {}).description || "", onChange: e => { const l = promos.slice(); l[i] = Object.assign({}, l[i], { display: Object.assign({}, l[i].display, { description: e.target.value }) }); savePromo(l); } })))),
+
+          this.state.importText !== "" ? h("div", { style: { marginTop: "12px" } },
+            h("div", { style: { font: "700 12px Nunito", marginBottom: "6px" } }, "JSON de configuración (pega para importar, o copia para pegar en promotions.js):"),
+            h("textarea", { value: this.state.importText, onChange: e => this.setState({ importText: e.target.value }), style: { width: "100%", height: "180px", padding: "10px", border: "1px solid #D0D0D8", borderRadius: "8px", font: "500 11px/1.5 Nunito" } }),
+            h("div", { style: { display: "flex", gap: "8px", marginTop: "8px" } },
+              h("button", { onClick: () => { try { const parsed = JSON.parse(this.state.importText); if (Array.isArray(parsed)) { PR.savePromotions(parsed); this.setState({ importText: "" }); } else alert("El JSON debe ser un arreglo."); } catch (er) { alert("JSON inválido: " + er.message); } }, style: this.adminBtn("#1b8f51", "#fff") }, "Importar este JSON"),
+              h("button", { onClick: () => { navigator.clipboard && navigator.clipboard.writeText(this.state.importText); }, style: this.adminBtn("#fff", "#2A2A2E", "#D0D0D8") }, "Copiar"),
+              h("button", { onClick: () => this.setState({ importText: "" }), style: this.adminBtn("#fff", "#6B6B73", "#D0D0D8") }, "Ocultar"))) : null)));
+  }
+  adminBtn(bg, fg, bd) { return { padding: "9px 14px", borderRadius: "8px", border: "1px solid " + (bd || bg), background: bg, color: fg, fontWeight: 700, fontSize: "12.5px" }; }
+  adminField(label, control) { return React.createElement("div", null, React.createElement("div", { style: { font: "600 9.5px Nunito", textTransform: "uppercase", letterSpacing: ".08em", color: "#A5A5AD", marginBottom: "4px" } }, label), control); }
+  blankPromo() {
+    return { id: "promo_" + Math.random().toString(36).slice(2, 8), name: "Nueva promoción", active: false, startsAt: this.state.proposalDate, endsAt: this.state.proposalValidUntil, priority: 50, stackable: false, exclusive: false, appliesTo: { modes: ["individual", "paquete", "vs"], requiredProducts: null, zones: ["FULLPRICE", "CDMX_EDOMEX", "JALISCO_NL", "QUERETARO", "RESTO"], periods: ["mensual", "trimestral", "semestral", "anual"], minInventory: null, maxInventory: null, minQty: null, maxQty: null }, effect: { type: "discount_pct", value: 10, appliesOn: "product_after_manual" }, display: { label: "Promoción", description: "" }, excludes: [] };
+  }
+
+  // ===================== RENDER =====================
+  renderApp() {
+    const h = React.createElement;
+    if (!this.state.ready) {
+      return h("div", { style: { height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: "#6B6B73", font: "600 14px Nunito" } }, "Cargando calculadora…");
+    }
+    const data = this.computeAll();
+    return h("div", { style: { display: "flex", minHeight: "100vh" } },
+      this.renderPanel(data),
+      this.renderProposal(data),
+      this.state.showAdmin ? this.renderAdmin() : null,
+      this.state.showPwd ? this.renderPwd() : null,
+      this.state.showProductAdmin ? this.renderProductAdmin() : null);
+  }
+
+  renderVals() { return { app: this.renderApp() }; }
+}
+</script>
+</body>
+</html>
