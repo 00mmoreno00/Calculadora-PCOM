@@ -13,6 +13,7 @@ window.PC.Validators = (function () {
   function validateProduct(cfg, result) {
     const missing = [];
     const errors = [];
+    const pricedByCsvOrFormula = !!(result && result.finalPrice > 0 && !(result.errors || []).length);
 
     if (!cfg.productId) missing.push("Selecciona un producto");
     if (!cfg.period) missing.push("Selecciona un periodo");
@@ -30,13 +31,13 @@ window.PC.Validators = (function () {
     }
     if (cfg.productId === "destacados") {
       const q = Number(cfg.quantity) || 0;
-      if (q < D.destacados.minQty || q > D.destacados.maxQty)
-        missing.push("Cantidad Destacados (" + D.destacados.minQty + "–" + D.destacados.maxQty + ")");
+      if (q < D.destacados.minQty || (!pricedByCsvOrFormula && q > D.destacados.maxQty))
+        missing.push("Cantidad Destacados (mínimo " + D.destacados.minQty + ")");
     }
     if (cfg.productId === "prime") {
       const q = Number(cfg.quantity) || 0;
-      if (q < D.prime.minQty || q > D.prime.maxQty)
-        missing.push("Cantidad Prime (" + D.prime.minQty + "–" + D.prime.maxQty + ")");
+      if (q < D.prime.minQty || (!pricedByCsvOrFormula && q > D.prime.maxQty))
+        missing.push("Cantidad Prime (mínimo " + D.prime.minQty + ")");
     }
 
     const pct = Number(cfg.manualDiscountPct) || 0;
@@ -81,10 +82,11 @@ window.PC.Validators = (function () {
 
     if (!state.advisorId) missing.push("Selecciona un asesor");
     if (!state.clientName || !state.clientName.trim()) missing.push("Nombre del cliente o empresa");
+    if (!state.stateName) missing.push("Estado del cliente");
     if (!state.zone) missing.push("Zona de pricing");
     if (!state.proposalValidUntil) missing.push("Vigencia de la propuesta");
 
-    const zw = zoneWarning(state.state, state.zone);
+    const zw = zoneWarning(state.stateName, state.zone);
     if (zw && zw.level === "warning") warnings.push(zw.text);
 
     const completeCount = productValidations.filter(v => v.complete).length;
