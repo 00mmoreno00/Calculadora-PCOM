@@ -150,3 +150,64 @@ window.PC.PromotionEngine = (function () {
     PRODUCT_EFFECTS, PACKAGE_EFFECTS
   };
 })();
+
+/* ============================================================
+   Patch de UI para el admin de productos.
+   Hace que cada selector "Agregar estado..." muestre todos los
+   estados disponibles, sin bloquearlos porque estén en otra zona.
+   ============================================================ */
+(function () {
+  "use strict";
+
+  function getStates() {
+    return (window.PC && window.PC.config && window.PC.config.states) ? window.PC.config.states : [];
+  }
+
+  function selectedChipStates(row) {
+    const chipsBox = row && row.querySelector("div[style*='flex-wrap']");
+    if (!chipsBox) return [];
+    return Array.from(chipsBox.querySelectorAll("span")).map(chip =>
+      (chip.textContent || "").replace("×", "").trim()
+    ).filter(Boolean);
+  }
+
+  function fixStateSelectors() {
+    const editor = document.querySelector("[data-zone-discount-editor-final]");
+    if (!editor) return;
+
+    const allStates = getStates();
+    if (!allStates.length) return;
+
+    Array.from(editor.querySelectorAll("select")).forEach(select => {
+      const first = select.options && select.options[0] ? select.options[0].textContent : "";
+      if (!/Agregar estado/i.test(first || "")) return;
+
+      const row = select.closest("div[style*='grid-template-columns']");
+      const alreadySelected = selectedChipStates(row);
+      const currentValues = Array.from(select.options).map(opt => opt.value);
+
+      // El selector debe mostrar todos los estados que no estén ya en la cajita de esa misma zona.
+      allStates.forEach(st => {
+        if (alreadySelected.indexOf(st) >= 0) return;
+        if (currentValues.indexOf(st) >= 0) return;
+        const opt = document.createElement("option");
+        opt.value = st;
+        opt.textContent = st;
+        select.appendChild(opt);
+      });
+
+      // Quita el mensaje heredado que decía que todos los estados ya fueron agregados.
+      Array.from(select.options).forEach(opt => {
+        if (/Todos los estados ya fueron agregados/i.test(opt.textContent || "")) opt.remove();
+      });
+    });
+  }
+
+  const start = function () {
+    setInterval(fixStateSelectors, 300);
+    setTimeout(fixStateSelectors, 100);
+  };
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
+  else start();
+})();
