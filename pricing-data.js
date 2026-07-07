@@ -9,8 +9,9 @@
      (son múltiplos exactos del mensual).
    - DESTACADOS: tabla de TOTAL de contrato por cantidad de avisos y
      periodo (no lineal -> lookup obligatorio). No depende de zona.
-   - PRIME: precio fijo por anuncio por mes ($699). Total = 699 x qty x meses.
-     Tabla y fórmula dan el mismo resultado. No depende de zona.
+   - PRIME: precio fijo por anuncio por mes. Total = unit x qty x meses.
+     Si el CSV oficial sólo trae Prime,1,Mensual, se toma esa fila como
+     precio unitario y el resto se calcula por fórmula.
    ============================================================ */
 window.PC = window.PC || {};
 window.PC.pricingData = (function () {
@@ -24,7 +25,7 @@ window.PC.pricingData = (function () {
     anual:      { label: "Anual",      months: 12 }
   };
 
-  return {
+  const data = {
     PERIODS,
 
     // ----------------------------------------------------------------
@@ -69,7 +70,7 @@ window.PC.pricingData = (function () {
     // ----------------------------------------------------------------
     destacados: {
       minQty: 1,
-      maxQty: 10, // TODO_REEMPLAZAR: extender la tabla para permitir más avisos
+      maxQty: 10, // La app puede reemplazar por CSV oficial cuando exista detalle.
       unitMonthlyRef: 599, // precio por anuncio/mes de referencia (1 mes)
       table: {
         mensual:    [599, 1198, 1797, 2396, 2995, 3594, 4193, 4792, 5391, 5990],
@@ -80,14 +81,78 @@ window.PC.pricingData = (function () {
     },
 
     // ----------------------------------------------------------------
-    // PRIME — precio fijo por anuncio por mes. Sin descuento por periodo.
-    // Total = unit x qty x meses. Tabla (default) == fórmula.
+    // PRIME — precio fijo por anuncio por mes.
+    // La fila base oficial puede venir en data/precios/prime.csv:
+    //   Prime,1,,Mensual,699,0,699
+    // Si no existe detalle para otra cantidad/vigencia, el cálculo es:
+    //   precio unitario mensual × cantidad × meses de vigencia.
     // ----------------------------------------------------------------
     prime: {
       minQty: 1,
-      maxQty: 10, // TODO_REEMPLAZAR: extender si se requiere más avisos
-      unit: 699,  // precio por anuncio por mes (fijo, +IVA)
-      defaultCalcMode: "tabla" // "tabla" | "formula" (ambos disponibles)
+      maxQty: 9999,
+      unit: 699,
+      defaultCalcMode: "formula"
     }
   };
+
+  function splitLine(line, delimiter) {
+    const out = [];
+    let cur = "";
+    let quoted = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (quoted) {
+        if (ch === '"') {
+          if (line[i + 1] === '"') { cur += '"'; i++; }
+          else quoted = false;
+        } else cur += ch;
+      } else if (ch === '"') quoted = true;
+      else if (ch === delimiter) { out.push(cur.trim()); cur = ""; }
+      else cur += ch;
+    }
+    out.push(cur.trim());
+    return out;
+  }
+
+  function delimiter(line) {
+    const commas = (line.match(/,/g) || []).length;
+    const semis = (line.match(/;/g) || []).length;
+    const tabs = (line.match(/\t/g) || []).length;
+    if (tabs > 0 && tabs >= commas && tabs >= semis) return "\t";
+    return semis > commas ? ";" : ",";
+  }
+
+  function num(v) {
+    const n = Number(String(v == null ? "" : v).replace(/[$,%\s]/g, ""));
+    return isFinite(n) ? n : null;
+  }
+
+  // Carga ligera de la fila base de Prime. No reemplaza el catálogo oficial;
+  // sólo mantiene sincronizado el precio unitario de la fórmula con el CSV.
+  try {
+    if (typeof fetch === "function") {
+      fetch("data/precios/prime.csv")
+        .then(r => r.ok ? r.text() : "")
+        .then(text => {
+          const lines = String(text || "").replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n").split("\n").filter(x => x.trim());
+          if (lines.length < 2) return;
+          const d = delimiter(lines[0]);
+          const h = splitLine(lines[0], d).map(x => x.toLowerCase());
+          const idx = name => h.indexOf(name);
+          const pI = idx("producto"), oI = idx("oferta"), vI = idx("vigencia"), fI = idx("preciofinal");
+          if (pI < 0 || oI < 0 || vI < 0 || fI < 0) return;
+          for (let i = 1; i < lines.length; i++) {
+            const c = splitLine(lines[i], d);
+            const isPrime = String(c[pI] || "").trim().toLowerCase() === "prime";
+            const isBase = String(c[oI] || "").trim() === "1";
+            const isMonthly = String(c[vI] || "").trim().toLowerCase() === "mensual";
+            const price = num(c[fI]);
+            if (isPrime && isBase && isMonthly && price > 0) { data.prime.unit = price; break; }
+          }
+        })
+        .catch(() => {});
+    }
+  } catch (e) { }
+
+  return data;
 })();
