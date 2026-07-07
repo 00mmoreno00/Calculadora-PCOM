@@ -1,25 +1,29 @@
 Producto,Oferta,Zona,Vigencia,PrecioBase,Descuento,PrecioFinal
-Oportunidades Ilimitadas,Paquete 10,CDMX_EDOMEX,Mensual,,,479
-Oportunidades Ilimitadas,Paquete 40,CDMX_EDOMEX,Mensual,,,1599
-Oportunidades Ilimitadas,Paquete 80,CDMX_EDOMEX,Mensual,,,2399
-Oportunidades Ilimitadas,Paquete 140,CDMX_EDOMEX,Mensual,,,3996
-Oportunidades Ilimitadas,Paquete 300,CDMX_EDOMEX,Mensual,,,6399
-Oportunidades Ilimitadas,Paquete 500,CDMX_EDOMEX,Mensual,,,7359
-Oportunidades Ilimitadas,Paquete 10,JALISCO_NL,Mensual,,,299
-Oportunidades Ilimitadas,Paquete 40,JALISCO_NL,Mensual,,,1000
-Oportunidades Ilimitadas,Paquete 80,JALISCO_NL,Mensual,,,1500
-Oportunidades Ilimitadas,Paquete 140,JALISCO_NL,Mensual,,,2498
-Oportunidades Ilimitadas,Paquete 300,JALISCO_NL,Mensual,,,3999
-Oportunidades Ilimitadas,Paquete 500,JALISCO_NL,Mensual,,,4599
-Oportunidades Ilimitadas,Paquete 10,QUERETARO,Mensual,,,210
-Oportunidades Ilimitadas,Paquete 40,QUERETARO,Mensual,,,700
-Oportunidades Ilimitadas,Paquete 80,QUERETARO,Mensual,,,1050
-Oportunidades Ilimitadas,Paquete 140,QUERETARO,Mensual,,,1748
-Oportunidades Ilimitadas,Paquete 300,QUERETARO,Mensual,,,2800
-Oportunidades Ilimitadas,Paquete 500,QUERETARO,Mensual,,,3220
-Oportunidades Ilimitadas,Paquete 10,RESTO,Mensual,,,180
-Oportunidades Ilimitadas,Paquete 40,RESTO,Mensual,,,600
-Oportunidades Ilimitadas,Paquete 80,RESTO,Mensual,,,900
-Oportunidades Ilimitadas,Paquete 140,RESTO,Mensual,,,1499
-Oportunidades Ilimitadas,Paquete 300,RESTO,Mensual,,,2400
-Oportunidades Ilimitadas,Paquete 500,RESTO,Mensual,,,2760
+Oportunidades Ilimitadas,Paquete 10,CDMX / Estado de México,Mensual,599,20,479
+Oportunidades Ilimitadas,Paquete 40,CDMX / Estado de México,Mensual,1999,20,1599
+Oportunidades Ilimitadas,Paquete 80,CDMX / Estado de México,Mensual,2999,20,2399
+Oportunidades Ilimitadas,Paquete 140,CDMX / Estado de México,Mensual,4995,20,3996
+Oportunidades Ilimitadas,Paquete 300,CDMX / Estado de México,Mensual,7999,20,6399
+Oportunidades Ilimitadas,Paquete 500,CDMX / Estado de México,Mensual,9199,20,7359
+Oportunidades Ilimitadas,Por cada 500 extras,CDMX / Estado de México,Mensual,1380,20,1104
+Oportunidades Ilimitadas,Paquete 10,Jalisco / Nuevo León,Mensual,599,50,299
+Oportunidades Ilimitadas,Paquete 40,Jalisco / Nuevo León,Mensual,1999,50,1000
+Oportunidades Ilimitadas,Paquete 80,Jalisco / Nuevo León,Mensual,2999,50,1500
+Oportunidades Ilimitadas,Paquete 140,Jalisco / Nuevo León,Mensual,4995,50,2498
+Oportunidades Ilimitadas,Paquete 300,Jalisco / Nuevo León,Mensual,7999,50,3999
+Oportunidades Ilimitadas,Paquete 500,Jalisco / Nuevo León,Mensual,9199,50,4599
+Oportunidades Ilimitadas,Por cada 500 extras,Jalisco / Nuevo León,Mensual,1380,50,690
+Oportunidades Ilimitadas,Paquete 10,Querétaro,Mensual,599,65,210
+Oportunidades Ilimitadas,Paquete 40,Querétaro,Mensual,1999,65,700
+Oportunidades Ilimitadas,Paquete 80,Querétaro,Mensual,2999,65,1050
+Oportunidades Ilimitadas,Paquete 140,Querétaro,Mensual,4995,65,1748
+Oportunidades Ilimitadas,Paquete 300,Querétaro,Mensual,7999,65,2800
+Oportunidades Ilimitadas,Paquete 500,Querétaro,Mensual,9199,65,3220
+Oportunidades Ilimitadas,Por cada 500 extras,Querétaro,Mensual,1380,65,483
+Oportunidades Ilimitadas,Paquete 10,Resto del país,Mensual,599,70,180
+Oportunidades Ilimitadas,Paquete 40,Resto del país,Mensual,1999,70,600
+Oportunidades Ilimitadas,Paquete 80,Resto del país,Mensual,2999,70,900
+Oportunidades Ilimitadas,Paquete 140,Resto del país,Mensual,4995,70,1499
+Oportunidades Ilimitadas,Paquete 300,Resto del país,Mensual,7999,70,2400
+Oportunidades Ilimitadas,Paquete 500,Resto del país,Mensual,9199,70,2760
+Oportunidades Ilimitadas,Por cada 500 extras,Resto del país,Mensual,1380,70,414
