@@ -35,11 +35,12 @@ Compatible con **GitHub Pages**.
 - **Asesores / bancos / textos / beneficios:** `config.js`.
 
 ## Administración dentro de la app
-- **Ícono ⚙ (contraseña `12345`)** → gestión de productos (nombre, tope de descuento,
-  precio base, cobertura de inventario, características, estados donde aplica) y de
-  **asesores** (alta/edición/baja con nombre y teléfono). Se guarda en el navegador
-  (localStorage) y puede restablecerse.
-- **`?admin=true`** en la URL → editor visual de promociones.
+- **Persistencia en navegador desactivada.** La app NO usa localStorage/sessionStorage/
+  IndexedDB. Todos los datos se leen siempre de los archivos fuente: asesores y
+  productos desde `config.js`, precios desde `data/precios/*.csv` y `pricing-data.js`,
+  y promociones desde `promotions.js`. Refrescar la página nunca recupera cambios
+  previos guardados en el navegador.
+- Para actualizar datos, edita los archivos fuente correspondientes (ver tabla arriba).
 
 ## Pendientes marcados `TODO_REEMPLAZAR`
 Busca `TODO_REEMPLAZAR` en `config.js` y `pricing-data.js` para sustituir datos de

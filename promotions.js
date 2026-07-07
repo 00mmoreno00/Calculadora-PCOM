@@ -1,7 +1,7 @@
 /* ============================================================
    promotions.js — CATÁLOGO DE PROMOCIONES (editable cada mes).
-   NO tocar el motor de cálculo para cambiar promos: editar aquí,
-   o usar el modo admin (?admin=true) que guarda en localStorage.
+   NO tocar el motor de cálculo para cambiar promos: editar aquí
+   directamente (sin persistencia en navegador).
    ------------------------------------------------------------
    Tipos de efecto soportados (effect.type):
      Nivel producto:

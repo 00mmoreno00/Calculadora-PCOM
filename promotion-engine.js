@@ -3,9 +3,8 @@
    Decide QUÉ promoción aplica; NO calcula el precio final (eso lo hace
    pricing-engine con el efecto que este motor selecciona).
    ------------------------------------------------------------
-   Fuente de promociones:
-     1) localStorage (si el modo admin guardó una configuración)
-     2) window.PC.defaultPromotions (archivo promotions.js)
+   Fuente de promociones (única):
+     window.PC.defaultPromotions (archivo promotions.js). Sin persistencia en navegador.
    ============================================================ */
 window.PC = window.PC || {};
 window.PC.PromotionEngine = (function () {
@@ -17,26 +16,17 @@ window.PC.PromotionEngine = (function () {
   const PRODUCT_EFFECTS = ["discount_pct", "discount_fixed", "fixed_price", "replace_price", "extra_months", "bonus_months"];
   const PACKAGE_EFFECTS = ["bundle_discount_pct", "bundle_discount_fixed", "preferential_price", "free_product"];
 
-  // --------- Fuente de datos (admin/localStorage o default) ---------
+  // --------- Fuente de datos: SIEMPRE promotions.js (sin persistencia) ---------
   function getPromotions() {
-    try {
-      const raw = localStorage.getItem(LS_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) return parsed;
-      }
-    } catch (e) { /* localStorage no disponible: usar default */ }
     return (window.PC.defaultPromotions || []).slice();
   }
 
-  function savePromotions(list) {
-    try { localStorage.setItem(LS_KEY, JSON.stringify(list)); return true; }
-    catch (e) { return false; }
+  function savePromotions() {
+    // Persistencia desactivada: las promociones se editan en promotions.js.
+    return false;
   }
 
-  function resetPromotions() {
-    try { localStorage.removeItem(LS_KEY); } catch (e) { }
-  }
+  function resetPromotions() { /* Sin persistencia: nada que restablecer. */ }
 
   function isWithinDates(promo, date) {
     const start = U.fromISO(promo.startsAt);

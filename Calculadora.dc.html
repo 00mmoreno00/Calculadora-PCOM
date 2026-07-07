@@ -100,18 +100,14 @@ class Component extends DCLogic {
   };
 
   PWD = "12345";
-  PRODUCT_LS = "pc_product_config_v1";
-  ADV_LS = "pc_advisors_v1";
-  DRAFT_LS = "pc_draft_v1";
   PRODUCT_IDS = ["elite", "oportunidades", "destacados", "prime"];
   DRAFT_FIELDS = ["advisorId", "clientName", "clientInventory", "clientStatus", "stateName", "zone", "zoneManual", "mode", "proposalDate", "proposalValidUntil", "folio", "proposalNotes", "products"];
 
-  // Catálogo de asesores (localStorage o default de config).
+  // Catálogo de asesores: SIEMPRE desde config.js. Sin persistencia en navegador.
   getAdvisors() {
-    try { const raw = localStorage.getItem(this.ADV_LS); if (raw) { const a = JSON.parse(raw); if (Array.isArray(a)) return a; } } catch (e) { }
     return (window.PC.config.advisors || []).map(a => Object.assign({}, a));
   }
-  saveAdvisors(list) { try { localStorage.setItem(this.ADV_LS, JSON.stringify(list)); } catch (e) { } this.forceUpdate(); }
+  saveAdvisors() { /* Sin persistencia: los asesores viven en config.js. */ }
 
   // Paleta por producto (verde / dorado / azul) para la propuesta y PDF.
   themes = {
@@ -247,25 +243,10 @@ class Component extends DCLogic {
   }
 
   // ===================== BORRADOR / COPIAR / LIMPIAR =====================
-  saveDraft() {
-    try {
-      const o = {}; this.DRAFT_FIELDS.forEach(k => o[k] = this.state[k]);
-      localStorage.setItem(this.DRAFT_LS, JSON.stringify({ savedAt: Date.now(), data: o }));
-      this.flash("Borrador guardado ✓");
-    } catch (e) { this.flash("No se pudo guardar el borrador"); }
-  }
-  hasDraft() { try { return !!localStorage.getItem(this.DRAFT_LS); } catch (e) { return false; } }
-  loadDraft() {
-    try {
-      const raw = localStorage.getItem(this.DRAFT_LS);
-      if (!raw) { this.flash("No hay borrador guardado"); return; }
-      const parsed = JSON.parse(raw);
-      const o = parsed && parsed.data ? parsed.data : parsed;
-      if (!o) { this.flash("Borrador vacío"); return; }
-      this.setState(Object.assign({}, o, { exportError: "" }));
-      this.flash("Borrador cargado");
-    } catch (e) { this.flash("No se pudo cargar el borrador"); }
-  }
+  // Borradores desactivados: la app no guarda datos en el navegador.
+  saveDraft() { }
+  hasDraft() { return false; }
+  loadDraft() { }
   clearAll() {
     const U = window.PC.utils, C = window.PC.config;
     const today = U.todayLocal();
@@ -464,15 +445,9 @@ class Component extends DCLogic {
     return { pdf: pdf, blob: pdf.output("blob"), filename: "Propuesta_" + safe + ".pdf" };
   }
 
-  // Overrides de producto guardados en localStorage (admin).
-  getProductOverrides() {
-    try { const raw = localStorage.getItem(this.PRODUCT_LS); if (raw) return JSON.parse(raw) || {}; } catch (e) { }
-    return {};
-  }
-  saveProductOverrides(obj) {
-    try { localStorage.setItem(this.PRODUCT_LS, JSON.stringify(obj)); } catch (e) { }
-    this.forceUpdate();
-  }
+  // Sin overrides: productos, precios y metadatos vienen de config.js, pricing-data.js y data/precios/*.
+  getProductOverrides() { return {}; }
+  saveProductOverrides() { /* Sin persistencia en navegador. */ }
   // Configuración efectiva de un producto (default + override). Soporta productos personalizados.
   pcfg(id) {
     const C = window.PC.config;
@@ -595,8 +570,8 @@ class Component extends DCLogic {
             h("div", { style: { font: "800 17px/1 Nunito", letterSpacing: "-.02em" } }, "Calculadora comercial"),
             h("div", { style: { font: "500 12px/1.3 Nunito", color: "#6B6B73", marginTop: "3px" } }, C.company.name + " · uso interno")),
           h("div", { style: { display: "flex", gap: "8px", alignItems: "center" } },
-            s.admin ? h("button", { onClick: () => this.setState({ showAdmin: true }), style: { padding: "7px 11px", borderRadius: "8px", border: "1px solid #1b8f51", background: "#E4F5EC", color: "#146b3d", fontWeight: 700, fontSize: "12px" } }, "Admin promos") : null,
-            h("button", { title: "Administración de productos", onClick: () => this.setState({ showPwd: true, pwdInput: "", pwdError: "" }), style: { width: "36px", height: "36px", borderRadius: "8px", border: "1px solid #D0D0D8", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 } }, this.icoGear())))),
+            null,
+            null))),
 
       // 1. Asesor
       this.section("Sección 01", "Asesor asignado",
@@ -962,7 +937,7 @@ class Component extends DCLogic {
   csvPeriodInfo(productId, offerLabel, period, zoneId, stateName) {
     const ov = this.getProductOverrides()[productId] || {};
     const localRows = (ov.priceCSV && Array.isArray(ov.priceCSV.rows)) ? ov.priceCSV.rows : null;
-    // Fuente oficial: catálogo cargado de /data/precios. localStorage solo si hay borrador local.
+    // Fuente oficial única: catálogo cargado de /data/precios.
     const rowsSrc = (localRows && localRows.length) ? localRows : (this._priceCatalogRows || []);
     if (!rowsSrc.length) return null;
     const pname = (this.pcfg(productId).name || "").toLowerCase();
@@ -1307,6 +1282,25 @@ class Component extends DCLogic {
       h("span", { style: { font: "500 13px Nunito", color: "#6B6B73" } }, "Periodo"),
       h("span", { style: { font: "800 14px Nunito", color: "#111" } }, r.periodLabel + (item.extraMonths ? " (+" + item.extraMonths + " mes cortesía)" : "")));
   }
+  // Footer del modo VS: resumen comercial completo por tarjeta (mismos valores
+  // que miniPriceSummary del panel izquierdo). Solo se usa en Comparativo de productos.
+  vsPriceFooter(item, r, t) {
+    const h = React.createElement, U = window.PC.utils;
+    const row = (label, value, o) => { o = o || {}; return h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "12px", marginBottom: o.mb || "4px" } },
+      h("span", { style: { font: (o.strong ? "800 " : "500 ") + (o.big ? "13px" : "12px") + " Nunito", color: o.labelColor || "#6B6B73" } }, label),
+      h("span", { style: { font: (o.strong ? "800 " : "700 ") + (o.big ? "18px" : "13px") + " Nunito", color: o.valueColor || "#111", textDecoration: o.strike ? "line-through" : "none" } }, value)); };
+    const listPrice = (r.zoneListPrice && r.zoneListPrice > r.finalPrice) ? r.zoneListPrice : r.originalPrice;
+    const discPct = listPrice > 0 ? Math.round((listPrice - r.finalPrice) / listPrice * 100) : 0;
+    const hasDisc = discPct > 0;
+    const periodTxt = r.periodLabel + (item.extraMonths ? " (+" + item.extraMonths + " mes cortesía)" : "");
+    return h("div", { style: { marginTop: "auto", padding: "14px 18px", background: "#fff", borderTop: "1px solid " + t.border } },
+      row("Periodo", periodTxt, { valueColor: "#111" }),
+      row("Precio total sin IVA", U.money(listPrice), { strike: hasDisc, valueColor: hasDisc ? "#A5A5AD" : "#111" }),
+      hasDisc ? row("Descuento", "−" + discPct + "%", { labelColor: "#1b8f51", valueColor: "#1b8f51" }) : null,
+      hasDisc ? row("Precio final sin IVA", U.money(r.finalPrice)) : null,
+      h("div", { style: { height: "1px", background: "#E0E0E6", margin: "7px 0" } }),
+      row("Precio final con IVA", U.money(r.finalPriceIVA), { strong: true, big: true, labelColor: "#146b3d", valueColor: "#1b8f51", mb: "0" }));
+  }
   cardPromoStrip(r, t) {
     const h = React.createElement;
     if (!r.appliedPromotion) return null;
@@ -1356,7 +1350,7 @@ class Component extends DCLogic {
         this.cardValueBlock(item, r, t, meta),
         this.cardBenefits(benefits, t),
         this.manualPromoStrip(item, t),
-        this.cardPriceFooter(item, r, t));
+        this.vsPriceFooter(item, r, t));
     };
     return h("div", { style: { display: "flex", gap: "14px", alignItems: "stretch" } },
       col(data.items[0], "A"),
@@ -1400,7 +1394,7 @@ class Component extends DCLogic {
       h("div", { style: { width: "860px", maxWidth: "100%", background: "#fff", borderRadius: "14px", overflow: "hidden" } },
         h("div", { style: { padding: "18px 24px", borderBottom: "1px solid #E6E6EB", display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, background: "#fff", zIndex: 2 } },
           h("div", null, h("div", { style: { font: "800 17px Nunito" } }, "Administración de promociones"),
-            h("div", { style: { font: "500 12px Nunito", color: "#6B6B73" } }, "Cambios guardados en este navegador (localStorage). No afecta el motor de cálculo.")),
+            h("div", { style: { font: "500 12px Nunito", color: "#6B6B73" } }, "Solo lectura. Las promociones se editan en promotions.js.")),
           h("button", { onClick: () => this.setState({ showAdmin: false }), style: { padding: "8px 14px", borderRadius: "8px", border: "1px solid #D0D0D8", background: "#fff", fontWeight: 700 } }, "Cerrar")),
 
         h("div", { style: { padding: "18px 24px" } },
