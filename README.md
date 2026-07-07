@@ -36,9 +36,11 @@ Compatible con **GitHub Pages**.
 
 ## Administración dentro de la app
 - **Ícono ⚙ (contraseña `12345`)** → gestión de productos (nombre, tope de descuento,
-  precio base, cobertura de inventario, características, estados donde aplica) y de
-  **asesores** (alta/edición/baja con nombre y teléfono). Se guarda en el navegador
+  precio base, cobertura de inventario, características, topes de descuento por zona)
+  y de **asesores** (alta/edición/baja con nombre y teléfono). Se guarda en el navegador
   (localStorage) y puede restablecerse.
+- Si hay topes de descuento por zona configurados en un producto, el tope general del
+  producto queda como respaldo y debe deshabilitarse visualmente.
 - **`?admin=true`** en la URL → editor visual de promociones.
 
 ## Pendientes marcados `TODO_REEMPLAZAR`
