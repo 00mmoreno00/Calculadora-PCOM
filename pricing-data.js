@@ -9,9 +9,9 @@
      (son múltiplos exactos del mensual).
    - DESTACADOS: tabla de TOTAL de contrato por cantidad de avisos y
      periodo (no lineal -> lookup obligatorio). No depende de zona.
-   - PRIME: precio fijo por anuncio por mes. Total = unit x qty x meses.
-     Si el CSV oficial sólo trae Prime,1,Mensual, se toma esa fila como
-     precio unitario y el resto se calcula por fórmula.
+   - UNIT_FORMULA GLOBAL: para productos unitarios vigentes o nuevos,
+     si no existe detalle exacto en CSV, se puede usar una fila base
+     Producto,1,Mensual y calcular unitario × cantidad × meses.
    ============================================================ */
 window.PC = window.PC || {};
 window.PC.pricingData = (function () {
@@ -66,12 +66,12 @@ window.PC.pricingData = (function () {
     // ----------------------------------------------------------------
     // DESTACADOS — TOTAL de contrato por cantidad (1..10) y periodo.
     // Valores = columna "Pago x N meses" de la tabla del cliente.
-    // Índice = cantidad - 1. maxQty configurable (extender tabla al crecer).
+    // Índice = cantidad - 1. El CSV oficial puede reemplazar este fallback.
     // ----------------------------------------------------------------
     destacados: {
       minQty: 1,
-      maxQty: 10, // La app puede reemplazar por CSV oficial cuando exista detalle.
-      unitMonthlyRef: 599, // precio por anuncio/mes de referencia (1 mes)
+      maxQty: 10,
+      unitMonthlyRef: 599,
       table: {
         mensual:    [599, 1198, 1797, 2396, 2995, 3594, 4193, 4792, 5391, 5990],
         trimestral: [999, 1998, 2898, 3696, 4500, 5094, 5859, 6648, 7398, 8160],
@@ -84,16 +84,44 @@ window.PC.pricingData = (function () {
     // PRIME — precio fijo por anuncio por mes.
     // La fila base oficial puede venir en data/precios/prime.csv:
     //   Prime,1,,Mensual,699,0,699
-    // Si no existe detalle para otra cantidad/vigencia, el cálculo es:
-    //   precio unitario mensual × cantidad × meses de vigencia.
+    // Si no existe detalle para otra cantidad/vigencia, aplica unit_formula.
     // ----------------------------------------------------------------
     prime: {
       minQty: 1,
       maxQty: 9999,
       unit: 699,
       defaultCalcMode: "formula"
-    }
+    },
+
+    // Mapa global de precios unitarios mensuales detectados desde CSV.
+    // Llave: producto normalizado + zona normalizada. Zona vacía = general.
+    unitFormulaPrices: {},
+
+    normalizeKey,
+    normalizeZone,
+    getUnitFormulaMonthlyPrice
   };
+
+  function normalizeKey(s) {
+    return String(s || "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim()
+      .replace(/\s+/g, " ");
+  }
+
+  function normalizeZone(s) {
+    return String(s || "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[&/,]|(^|\s)y(\s|$)/g, " ")
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim()
+      .replace(/\s+/g, " ");
+  }
 
   function splitLine(line, delimiter) {
     const out = [];
@@ -127,30 +155,58 @@ window.PC.pricingData = (function () {
     return isFinite(n) ? n : null;
   }
 
-  // Carga ligera de la fila base de Prime. No reemplaza el catálogo oficial;
-  // sólo mantiene sincronizado el precio unitario de la fórmula con el CSV.
+  function setUnitFormulaPrice(productName, zone, price) {
+    const p = normalizeKey(productName);
+    const z = normalizeZone(zone);
+    if (!p || !(price > 0)) return;
+    data.unitFormulaPrices[p + "|" + z] = price;
+    if (p === "prime" && !z) data.prime.unit = price;
+  }
+
+  function getUnitFormulaMonthlyPrice(productId, productName, zoneId, zoneLabel) {
+    const productKeys = [normalizeKey(productId), normalizeKey(productName)].filter(Boolean);
+    const zoneKeys = [normalizeZone(zoneId), normalizeZone(zoneLabel), ""].filter((x, i, a) => a.indexOf(x) === i);
+    for (let i = 0; i < productKeys.length; i++) {
+      for (let j = 0; j < zoneKeys.length; j++) {
+        const val = data.unitFormulaPrices[productKeys[i] + "|" + zoneKeys[j]];
+        if (val > 0) return val;
+      }
+    }
+    return null;
+  }
+
+  function ingestCsv(text) {
+    const lines = String(text || "").replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n").split("\n").filter(x => x.trim());
+    if (lines.length < 2) return;
+    const d = delimiter(lines[0]);
+    const h = splitLine(lines[0], d).map(x => normalizeKey(x));
+    const idx = name => h.indexOf(normalizeKey(name));
+    const pI = idx("Producto"), oI = idx("Oferta"), zI = idx("Zona"), vI = idx("Vigencia"), fI = idx("PrecioFinal");
+    if (pI < 0 || oI < 0 || vI < 0 || fI < 0) return;
+    for (let i = 1; i < lines.length; i++) {
+      const c = splitLine(lines[i], d);
+      const oferta = String(c[oI] || "").trim();
+      const vigencia = normalizeKey(c[vI]);
+      const price = num(c[fI]);
+      if (oferta === "1" && vigencia === "mensual" && price > 0) setUnitFormulaPrice(c[pI], zI >= 0 ? c[zI] : "", price);
+    }
+  }
+
+  // Carga ligera de filas base unit_formula desde los CSV oficiales.
+  // No reemplaza el catálogo oficial de la calculadora; sólo habilita fórmula
+  // cuando no existe una fila exacta para cantidad/vigencia.
   try {
     if (typeof fetch === "function") {
-      fetch("data/precios/prime.csv")
-        .then(r => r.ok ? r.text() : "")
-        .then(text => {
-          const lines = String(text || "").replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n").split("\n").filter(x => x.trim());
-          if (lines.length < 2) return;
-          const d = delimiter(lines[0]);
-          const h = splitLine(lines[0], d).map(x => x.toLowerCase());
-          const idx = name => h.indexOf(name);
-          const pI = idx("producto"), oI = idx("oferta"), vI = idx("vigencia"), fI = idx("preciofinal");
-          if (pI < 0 || oI < 0 || vI < 0 || fI < 0) return;
-          for (let i = 1; i < lines.length; i++) {
-            const c = splitLine(lines[i], d);
-            const isPrime = String(c[pI] || "").trim().toLowerCase() === "prime";
-            const isBase = String(c[oI] || "").trim() === "1";
-            const isMonthly = String(c[vI] || "").trim().toLowerCase() === "mensual";
-            const price = num(c[fI]);
-            if (isPrime && isBase && isMonthly && price > 0) { data.prime.unit = price; break; }
-          }
+      fetch("data/precios/index.json")
+        .then(r => r.ok ? r.json() : null)
+        .then(idx => {
+          if (!idx || !Array.isArray(idx.files)) return [];
+          return Promise.all(idx.files.map(f => fetch(f.file).then(r => r.ok ? r.text() : "").catch(() => "")));
         })
-        .catch(() => {});
+        .then(files => { (files || []).forEach(ingestCsv); })
+        .catch(() => {
+          fetch("data/precios/prime.csv").then(r => r.ok ? r.text() : "").then(ingestCsv).catch(() => {});
+        });
     }
   } catch (e) { }
 
