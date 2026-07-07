@@ -1,0 +1,42 @@
+name: Fix state selector options
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch promotions selector options
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('promotions.js')
+          text = path.read_text(encoding='utf-8')
+          old = '''        const alreadyUsed = usedStates(policy, rule.id);
+        const availableStates = getStates().filter(st => (rule.states || []).indexOf(st) < 0 && alreadyUsed.indexOf(st) < 0);'''
+          new = '''        const availableStates = getStates().filter(st => (rule.states || []).indexOf(st) < 0);'''
+          if old not in text:
+              raise SystemExit('No se encontró el filtro de estados a reemplazar')
+          text = text.replace(old, new, 1)
+          text = text.replace('Los estados ya asignados no aparecen en otros selectores.', 'Puedes reutilizar estados en distintas zonas si lo necesitas.')
+          path.write_text(text, encoding='utf-8')
+          PY
+      - name: Remove workflow
+        run: rm -f .github/workflows/fix-state-selector-options.yml
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add promotions.js .github/workflows/fix-state-selector-options.yml
+          if git diff --cached --quiet; then
+            echo "No changes"
+          else
+            git commit -m "Muestra todos los estados en selectores de zona"
+            git push
+          fi
