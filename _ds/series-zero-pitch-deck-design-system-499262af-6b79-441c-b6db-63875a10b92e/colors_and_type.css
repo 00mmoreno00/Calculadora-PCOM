@@ -199,3 +199,13 @@
 
 .t-purple { color: var(--purple); }
 .t-green  { color: var(--green); }
+
+/* Calculadora comercial: campo obsoleto de Prime. */
+div:has(> label + select > option[value="tabla"]):has(> label + select > option[value="formula"]) {
+  visibility: collapse !important;
+  max-height: 0 !important;
+  overflow: hidden !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+}
