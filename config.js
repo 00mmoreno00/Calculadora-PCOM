@@ -40,13 +40,12 @@ window.PC.config = (function () {
     ],
     suggestZone: function (state) { return this.stateToZone[state] || "RESTO"; },
     advisors: [
-      { id: "a0", name: "Mayra Moreno",   email: "mayra.moreno@propiedades.com",   phone: "525580218070" },
-      { id: "a1", name: "Ana Martínez",   email: "ana.martinez@propiedades.com",   phone: "525512345678" },
-      { id: "a2", name: "Carlos Rivera",  email: "carlos.rivera@propiedades.com",  phone: "525587654321" },
-      { id: "a3", name: "Diana López",    email: "diana.lopez@propiedades.com",    phone: "" },
-      { id: "a4", name: "Jorge Fuentes",  email: "jorge.fuentes@propiedades.com",  phone: "525599998888" }
+      { id: "a0", name: "Luis Brena",   email: "luis.brena@propiedades.com",   phone: "5215597712824" },
+      { id: "a1", name: "Doranely Gonzalez",   email: "doranely.gonzalez@propiedades.com",   phone: "5215594486001" },
+      { id: "a2", name: "Hanad Martinez",  email: "hanad.martinez@propiedades.com",  phone: "5563177104" },
+      { id: "a3", name: "Claudia Mariscal",    email: "claudia.mariscal@propiedades.com",    phone: "5576947101" }
     ],
-    contactCenter: { name: "Contact Center Propiedades.com", phone: "525500000000" },
+    contactCenter: { name: "Contact Center Propiedades.com", phone: "5520613046" },
     payments: {
       msiPaypal: { enabled: true, label: "Meses sin intereses (MSI) vía PayPal", detail: "Disponible con cualquier tarjeta de crédito. El cobro total se aplica en tu tarjeta." },
       transfer: { enabled: true, label: "Transferencia bancaria / depósito" }
