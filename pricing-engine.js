@@ -20,6 +20,16 @@ window.PC.PricingEngine = (function () {
     return (D.PERIODS[period] && D.PERIODS[period].months) || 1;
   }
 
+  function productQty(cfg) {
+    return Math.max(1, Math.round(Number(cfg.quantity) || 1));
+  }
+
+  function unitFormulaMonthly(cfg, meta) {
+    if (!D.getUnitFormulaMonthlyPrice) return null;
+    const zoneObj = (CFG.zones || []).find(z => z.id === cfg.zone) || {};
+    return D.getUnitFormulaMonthlyPrice(cfg.productId, meta.name, cfg.zone, zoneObj.label);
+  }
+
   // ---- ELITE: precio mensual + cobertura de inventario -------------
   function eliteMonthly(cfg) {
     const warnings = [];
@@ -120,7 +130,7 @@ window.PC.PricingEngine = (function () {
     };
   }
 
-  // ---- PRIME: total por cantidad y periodo (tabla=fórmula) ---------
+  // ---- PRIME: total por cantidad y periodo (fórmula) ---------------
   function primeTotal(cfg) {
     const warnings = [], errors = [];
     const q = Math.round(Number(cfg.quantity) || 0);
@@ -128,7 +138,6 @@ window.PC.PricingEngine = (function () {
     if (q < p.minQty) errors.push("Prime requiere mínimo " + p.minQty + " aviso.");
     if (q > p.maxQty) errors.push("Prime: máximo " + p.maxQty + " avisos configurados.");
     const qEff = U.clamp(q, p.minQty, p.maxQty);
-    // Modo tabla y fórmula dan idéntico resultado: unit x qty x meses.
     const total = p.unit * qEff * months(cfg.period);
     return {
       total, listTotal: total, coveredLabel: q + " aviso(s) Prime",
@@ -179,27 +188,42 @@ window.PC.PricingEngine = (function () {
       breakdown.push("Prime " + r.calcMode + ": " + window.PC.pricingData.prime.unit + " × " + r.quantity + " × " + m + " mes(es) = " + U.money(regionalPrice));
     } else {
       // Producto personalizado (admin): se cobra por precio base × cantidad × meses.
-      const q = Math.round(Number(cfg.quantity) || 1);
+      const q = productQty(cfg);
       regionalPrice = (Number(cfg.basePriceOverride) || 0) * q * m;
       listPrice = regionalPrice;
       coveredLabel = q + " unidad(es)"; quantity = q;
-      if (!cfg.basePriceOverride) errors.push("El producto personalizado requiere un precio base (admin).");
+      if (!cfg.basePriceOverride) errors.push("El producto personalizado requiere un precio base (admin) o una fila base CSV para unit_formula.");
       breakdown.push("Producto personalizado: base × " + q + " × " + m + " mes(es) = " + U.money(regionalPrice));
     }
 
-    // 1b) Precio base configurado en admin (opcional). Si se define, reemplaza
-    //     el precio calculado por tablas. Elite/Oportunidades: base mensual × meses.
-    //     Destacados/Prime: base por aviso × cantidad × meses.
+    // 1b) Precio base configurado en admin o derivado de CSV exacto.
+    //     Si existe, reemplaza el cálculo de fallback y elimina errores de límite de tabla.
     if (cfg.basePriceOverride != null && cfg.basePriceOverride !== "" && Number(cfg.basePriceOverride) > 0) {
       const bp = Number(cfg.basePriceOverride);
       if (cfg.productId === "elite" || cfg.productId === "oportunidades") {
         regionalPrice = bp * m;
       } else {
-        const q = Number(cfg.quantity) || 1;
+        const q = productQty(cfg);
         regionalPrice = bp * q * m;
+        quantity = q;
       }
       listPrice = regionalPrice;
-      breakdown.push("Precio base configurado (admin): " + U.money(regionalPrice));
+      errors.length = 0;
+      breakdown.push("Precio base configurado / CSV exacto: " + U.money(regionalPrice));
+    } else if (cfg.productId !== "elite" && cfg.productId !== "oportunidades") {
+      // 1c) Regla global unit_formula:
+      //     si no hay detalle exacto, busca Producto + Oferta=1 + Vigencia=Mensual
+      //     en los CSV oficiales y calcula unitario × cantidad × meses.
+      const unit = unitFormulaMonthly(cfg, meta);
+      if (unit != null && Number(unit) > 0) {
+        const q = productQty(cfg);
+        regionalPrice = Number(unit) * q * m;
+        listPrice = regionalPrice;
+        quantity = q;
+        if (!coveredLabel || coveredLabel === "0 unidad(es)") coveredLabel = q + " unidad(es)";
+        errors.length = 0;
+        breakdown.push("Regla unit_formula: " + U.money(unit) + " × " + q + " × " + m + " mes(es) = " + U.money(regionalPrice));
+      }
     }
 
     const originalPrice = regionalPrice; // precio tachado (estándar de zona)
