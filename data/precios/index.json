@@ -1,0 +1,25 @@
+{
+  "version": "2026-07",
+  "files": [
+    {
+      "productId": "elite",
+      "productName": "Elite",
+      "file": "data/precios/elite.csv"
+    },
+    {
+      "productId": "oportunidades_ilimitadas",
+      "productName": "Oportunidades Ilimitadas",
+      "file": "data/precios/oportunidades_ilimitadas.csv"
+    },
+    {
+      "productId": "destacados",
+      "productName": "Destacados",
+      "file": "data/precios/destacados.csv"
+    },
+    {
+      "productId": "prime",
+      "productName": "Prime",
+      "file": "data/precios/prime.csv"
+    }
+  ]
+}

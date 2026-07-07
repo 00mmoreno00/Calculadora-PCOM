@@ -1,0 +1,9 @@
+Producto;Oferta;Zona;Vigencia;PrecioBase;Descuento;PrecioFinal
+Elite;Hasta 300 propiedades;CDMX_EDOMEX;Mensual;;;8500
+Elite;301 a 500 propiedades;CDMX_EDOMEX;Mensual;;;11050
+Elite;Hasta 300 propiedades;JALISCO_NL;Mensual;;;4750
+Elite;301 a 500 propiedades;JALISCO_NL;Mensual;;;6413
+Elite;Hasta 300 propiedades;QUERETARO;Mensual;;;3500
+Elite;301 a 500 propiedades;QUERETARO;Mensual;;;4725
+Elite;Hasta 300 propiedades;RESTO;Mensual;;;3000
+Elite;301 a 500 propiedades;RESTO;Mensual;;;4050

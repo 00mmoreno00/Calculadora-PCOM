@@ -1,0 +1,213 @@
+{
+  "plugins": [
+    "react",
+    "import"
+  ],
+  "rules": {
+    "react/forbid-elements": [
+      "warn",
+      {
+        "forbid": []
+      }
+    ],
+    "no-restricted-imports": [
+      "warn",
+      {
+        "patterns": [
+          {
+            "group": [
+              "slides/**"
+            ],
+            "message": "Import design-system components from 'index.js', not component internals."
+          }
+        ]
+      }
+    ],
+    "no-restricted-syntax": [
+      "warn",
+      {
+        "selector": "Literal[value=/#[0-9a-fA-F]{3,8}\\b/]",
+        "message": "Raw hex color — use a design-system color token via var()."
+      },
+      {
+        "selector": "Literal[value=/\\b\\d+px\\b/]",
+        "message": "Raw px value — use a design-system spacing token via var()."
+      },
+      {
+        "selector": "Literal[value=/font-family\\s*:\\s*(?!['\\\"]?(?:Manrope|JetBrains Mono))/i]",
+        "message": "Font not provided by the design system. Available: Manrope, JetBrains Mono."
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": [
+        "**/index.js"
+      ],
+      "rules": {
+        "no-restricted-imports": "off"
+      }
+    }
+  ],
+  "x-omelette": {
+    "components": {},
+    "tokens": [
+      "--black",
+      "--dur-base",
+      "--dur-fast",
+      "--dur-slow",
+      "--ease-in-out",
+      "--ease-out",
+      "--font-display",
+      "--font-mono",
+      "--font-sans",
+      "--fs-body",
+      "--fs-body-slide",
+      "--fs-bullet",
+      "--fs-display",
+      "--fs-eyebrow",
+      "--fs-h1",
+      "--fs-h2",
+      "--fs-h3",
+      "--fs-h4",
+      "--fs-mega",
+      "--fs-meta",
+      "--gray-100",
+      "--gray-200",
+      "--gray-300",
+      "--green",
+      "--green-deep",
+      "--green-soft",
+      "--ink-2",
+      "--ink-3",
+      "--ink-4",
+      "--lh-loose",
+      "--lh-prose",
+      "--lh-snug",
+      "--lh-tight",
+      "--negative",
+      "--positive",
+      "--purple",
+      "--purple-deep",
+      "--purple-soft",
+      "--radius-0",
+      "--radius-1",
+      "--radius-2",
+      "--radius-3",
+      "--radius-pill",
+      "--rule-display",
+      "--rule-hair",
+      "--rule-ink",
+      "--rule-purple",
+      "--rule-thin",
+      "--s-1",
+      "--s-10",
+      "--s-11",
+      "--s-2",
+      "--s-3",
+      "--s-4",
+      "--s-5",
+      "--s-6",
+      "--s-7",
+      "--s-8",
+      "--s-9",
+      "--shadow-1",
+      "--shadow-2",
+      "--shadow-3",
+      "--slide-gutter",
+      "--slide-pad-x",
+      "--slide-pad-y",
+      "--tracking-eyebrow",
+      "--tracking-mega",
+      "--tracking-tight",
+      "--w-bold",
+      "--w-med",
+      "--w-reg",
+      "--w-semi",
+      "--w-xbold",
+      "--warning",
+      "--white"
+    ],
+    "tokenKinds": {
+      "--purple": "color",
+      "--purple-deep": "color",
+      "--purple-soft": "color",
+      "--green": "color",
+      "--green-deep": "color",
+      "--green-soft": "color",
+      "--black": "color",
+      "--ink-2": "color",
+      "--ink-3": "color",
+      "--ink-4": "color",
+      "--white": "color",
+      "--gray-100": "color",
+      "--gray-200": "color",
+      "--gray-300": "color",
+      "--positive": "color",
+      "--negative": "color",
+      "--warning": "color",
+      "--font-sans": "font",
+      "--font-mono": "font",
+      "--font-display": "font",
+      "--fs-eyebrow": "spacing",
+      "--fs-meta": "spacing",
+      "--fs-body": "spacing",
+      "--fs-body-slide": "spacing",
+      "--fs-bullet": "spacing",
+      "--fs-h4": "spacing",
+      "--fs-h3": "spacing",
+      "--fs-h2": "spacing",
+      "--fs-h1": "spacing",
+      "--fs-display": "spacing",
+      "--fs-mega": "spacing",
+      "--w-reg": "other",
+      "--w-med": "other",
+      "--w-semi": "other",
+      "--w-bold": "other",
+      "--w-xbold": "other",
+      "--lh-tight": "other",
+      "--lh-snug": "other",
+      "--lh-prose": "other",
+      "--lh-loose": "other",
+      "--tracking-eyebrow": "font",
+      "--tracking-tight": "font",
+      "--tracking-mega": "font",
+      "--s-1": "spacing",
+      "--s-2": "spacing",
+      "--s-3": "spacing",
+      "--s-4": "spacing",
+      "--s-5": "spacing",
+      "--s-6": "spacing",
+      "--s-7": "spacing",
+      "--s-8": "spacing",
+      "--s-9": "spacing",
+      "--s-10": "spacing",
+      "--s-11": "spacing",
+      "--slide-pad-x": "spacing",
+      "--slide-pad-y": "spacing",
+      "--slide-gutter": "spacing",
+      "--rule-hair": "color",
+      "--rule-thin": "color",
+      "--rule-ink": "color",
+      "--rule-purple": "color",
+      "--rule-display": "color",
+      "--radius-0": "radius",
+      "--radius-1": "radius",
+      "--radius-2": "radius",
+      "--radius-3": "radius",
+      "--radius-pill": "radius",
+      "--shadow-1": "shadow",
+      "--shadow-2": "shadow",
+      "--shadow-3": "shadow",
+      "--ease-out": "other",
+      "--ease-in-out": "other",
+      "--dur-fast": "other",
+      "--dur-base": "other",
+      "--dur-slow": "other"
+    },
+    "fontFamilies": [
+      "JetBrains Mono",
+      "Manrope"
+    ]
+  }
+}
