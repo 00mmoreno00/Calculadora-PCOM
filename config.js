@@ -159,3 +159,38 @@ window.PC.config = (function () {
     }
   };
 })();
+
+// Mejora de UX para búsqueda de asesor:
+// mantiene el asesor default cuando el buscador está vacío, pero al escribir
+// selecciona automáticamente la primera coincidencia visible en el dropdown.
+(function () {
+  if (window.PC.__advisorSearchEnhancer) return;
+  window.PC.__advisorSearchEnhancer = true;
+
+  function norm(s) {
+    return String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+  }
+
+  function isAdvisorSearchInput(el) {
+    return el && el.tagName === "INPUT" && String(el.getAttribute("placeholder") || "").toLowerCase().indexOf("buscar asesor") >= 0;
+  }
+
+  function applyAdvisorSearchSelection(input) {
+    const q = norm(input.value);
+    if (!q) return;
+    const wrapper = input.parentElement;
+    const select = wrapper ? wrapper.querySelector("select") : null;
+    if (!select) return;
+    const options = Array.from(select.options || []);
+    const match = options.find(opt => norm(opt.textContent).indexOf(q) >= 0);
+    if (!match || select.value === match.value) return;
+    select.value = match.value;
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  document.addEventListener("input", function (event) {
+    const input = event.target;
+    if (!isAdvisorSearchInput(input)) return;
+    window.setTimeout(function () { applyAdvisorSearchSelection(input); }, 80);
+  }, true);
+})();
