@@ -39,6 +39,8 @@ Compatible con **GitHub Pages**.
   precio base, cobertura de inventario, características, topes de descuento por zona)
   y de **asesores** (alta/edición/baja con nombre y teléfono). Se guarda en el navegador
   (localStorage) y puede restablecerse.
+- Las zonas de descuento del producto son dinámicas: se pueden agregar, eliminar y asociar
+  a uno o varios estados mediante etiquetas.
 - Si hay topes de descuento por zona configurados en un producto, el tope general del
   producto queda como respaldo y debe deshabilitarse visualmente.
 - **`?admin=true`** en la URL → editor visual de promociones.
