@@ -398,9 +398,15 @@ class Component extends DCLogic {
         zone: cfg.zone, period: p.period, inventory: p.inventory, quantity: p.quantity, date
       };
       const promoEval = PR.evaluateForProduct(promoCtx);
-      // La promoción solo se aplica si el comercial activó "Promo".
-      // Sin promo activa y sin descuento manual, no debe aparecer descuento alguno.
-      const result = PE.computePrice(cfg, p.promoOn ? promoEval.applied : null);
+      // El botón "Promo" es SOLO para capturar una cortesía/bonificación manual
+      // (cantidad + producto, ver manualPromoStrip). NUNCA debe disparar un
+      // efecto de precio de promotions.js (descuento %, monto fijo o precio
+      // especial): esos tipos jamás se pasan al motor de precios desde aquí,
+      // sin importar si "Promo" está activo. Solo efectos que no tocan el
+      // precio (cortesía de meses) pueden aplicarse, y solo con "Promo" activo.
+      const PRICE_EFFECTS = ["discount_pct", "discount_fixed", "fixed_price", "replace_price"];
+      const isPriceEffect = !!(promoEval.applied && PRICE_EFFECTS.indexOf(promoEval.applied.effect.type) >= 0);
+      const result = PE.computePrice(cfg, (p.promoOn && !isPriceEffect) ? promoEval.applied : null);
       result.productName = pc.name; // nombre configurable (admin)
       result.theme = pc.theme;      // tema configurable (admin)
       // Descuento de ZONA proveniente del CSV (precio de lista vs precio final).
