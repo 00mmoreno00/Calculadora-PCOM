@@ -39,7 +39,7 @@
     @media (max-width: 980px){
       .pc-shell{flex-direction:column}
       .pc-panel{width:100% !important;min-width:0 !important;max-width:100% !important;height:auto !important;border-right:none !important;border-bottom:1px solid #E0E0E6}
-      .pc-proposal-pane{height:auto !important;padding:20px 14px !important;overflow-x:auto}
+      .pc-proposal-pane{height:auto !important;padding:20px 14px !important;overflow-x:hidden}
     }
     @media (max-width: 560px){
       .pc-panel{padding:0 12px 32px !important}
@@ -124,8 +124,32 @@ class Component extends DCLogic {
         this.init();
       }
     }, 60);
+    this._onResize = () => this.fitProposal();
+    window.addEventListener("resize", this._onResize);
   }
-  componentWillUnmount() { if (this._poll) clearInterval(this._poll); }
+  componentDidUpdate() { this.fitProposal(); }
+  componentWillUnmount() {
+    if (this._poll) clearInterval(this._poll);
+    if (this._onResize) window.removeEventListener("resize", this._onResize);
+    if (this._fitRAF) cancelAnimationFrame(this._fitRAF);
+  }
+
+  // Escala el documento de propuesta (fijo a 820px) para que quepa en cualquier pantalla,
+  // conservando su maquetación exacta. En pantallas anchas se muestra a tamaño real y centrado.
+  fitProposal() {
+    if (this._fitRAF) cancelAnimationFrame(this._fitRAF);
+    this._fitRAF = requestAnimationFrame(() => {
+      const pane = this.proposalPaneRef, outer = this.scaleOuterRef, inner = this.scaleInnerRef;
+      const doc = document.getElementById("pc-proposal");
+      if (!pane || !outer || !inner || !doc) return;
+      const cs = getComputedStyle(pane);
+      const avail = pane.clientWidth - parseFloat(cs.paddingLeft || 0) - parseFloat(cs.paddingRight || 0);
+      const s = Math.min(1, avail / 820);
+      inner.style.transform = s < 1 ? "scale(" + s + ")" : "none";
+      outer.style.width = (820 * s) + "px";
+      outer.style.height = s < 1 ? (doc.offsetHeight * s) + "px" : "auto";
+    });
+  }
 
   init() {
     const U = window.PC.utils, C = window.PC.config;
@@ -430,7 +454,16 @@ class Component extends DCLogic {
   async buildPdf() {
     const node = document.getElementById("pc-proposal");
     if (!node || !window.html2canvas || !window.jspdf) throw new Error("Librerías no cargadas.");
-    const canvas = await window.html2canvas(node, { scale: 2, backgroundColor: "#ffffff", useCORS: true, windowWidth: node.scrollWidth });
+    // Neutraliza el escalado responsivo para capturar el documento a tamaño completo (820px).
+    const _inner = this.scaleInnerRef, _outer = this.scaleOuterRef;
+    const _t = _inner ? _inner.style.transform : "", _h = _outer ? _outer.style.height : "", _w = _outer ? _outer.style.width : "";
+    const _restore = () => { if (_inner) _inner.style.transform = _t; if (_outer) { _outer.style.height = _h; _outer.style.width = _w; } this.fitProposal(); };
+    if (_inner) _inner.style.transform = "none";
+    if (_outer) { _outer.style.height = "auto"; _outer.style.width = "820px"; }
+    let canvas;
+    try { canvas = await window.html2canvas(node, { scale: 2, backgroundColor: "#ffffff", useCORS: true, windowWidth: node.scrollWidth }); }
+    catch (e) { _restore(); throw e; }
+    _restore();
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF("p", "pt", "a4");
     const pw = pdf.internal.pageSize.getWidth();
@@ -770,8 +803,10 @@ class Component extends DCLogic {
       totalBlock = this.renderTotal({ totalSinIVA: totalSinIVA, finalSinIVA: c.total, finalConIVA: c.totalIVA, descPct: descPct, preferential: c.subtotal !== c.total }, data.pkg.eval.applied);
     }
 
-    return h("div", { className: "pc-proposal-pane", style: { flex: 1, height: "100vh", overflowY: "auto", background: "#EDEDF1", padding: "28px 32px" } },
-      h("div", { id: "pc-proposal", style: { width: "820px", margin: "0 auto", background: "#fff", boxShadow: "0 10px 40px -18px rgba(17,17,17,.25)", borderRadius: "4px", overflow: "hidden" } },
+    return h("div", { className: "pc-proposal-pane", ref: (el) => { this.proposalPaneRef = el; }, style: { flex: 1, height: "100vh", overflowY: "auto", background: "#EDEDF1", padding: "28px 32px" } },
+      h("div", { className: "pc-scale-outer", ref: (el) => { this.scaleOuterRef = el; }, style: { margin: "0 auto", width: "820px", maxWidth: "100%" } },
+      h("div", { className: "pc-scale-inner", ref: (el) => { this.scaleInnerRef = el; }, style: { width: "820px", transformOrigin: "top left" } },
+      h("div", { id: "pc-proposal", style: { width: "820px", background: "#fff", boxShadow: "0 10px 40px -18px rgba(17,17,17,.25)", borderRadius: "4px", overflow: "hidden" } },
         // Header
         h("div", { style: { padding: "34px 44px 22px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" } },
           h("img", { src: C.company.logoSrc, alt: C.company.name, style: { height: "40px" } }),
@@ -834,7 +869,7 @@ class Component extends DCLogic {
 
         // Legal
         h("div", { style: { padding: "16px 44px 30px", borderTop: "1px solid #E6E6EB" } },
-          h("div", { style: { font: "500 10.5px/1.5 Nunito", color: "#A5A5AD" } }, C.legalNote)))
+          h("div", { style: { font: "500 10.5px/1.5 Nunito", color: "#A5A5AD" } }, C.legalNote)))))
     );
   }
 
