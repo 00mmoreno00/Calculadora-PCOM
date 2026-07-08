@@ -40,9 +40,10 @@ window.PC.config = (function () {
     ],
     suggestZone: function (state) { return this.stateToZone[state] || "RESTO"; },
     advisors: [
-      { id: "a0", name: "Luis Brena",   email: "luis.brena@propiedades.com",   phone: "5215597712824" },
+      { id: "a0", name: "Daniel Brena",   email: "luis.brena@propiedades.com",   phone: "5215597712824" },
       { id: "a1", name: "Doranely Gonzalez",   email: "doranely.gonzalez@propiedades.com",   phone: "5215594486001" },
       { id: "a2", name: "Hanad Martinez",  email: "hanad.martinez@propiedades.com",  phone: "5563177104" },
+       { id: "a3", name: "Tanya Sanchez",    email: "tanya.sanchez@propiedades.com",    phone: "5597710411" },
       { id: "a3", name: "Claudia Mariscal",    email: "claudia.mariscal@propiedades.com",    phone: "5576947101" }
     ],
     contactCenter: { name: "Contact Center Propiedades.com", phone: "5520613046" },
