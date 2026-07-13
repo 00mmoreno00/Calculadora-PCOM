@@ -4,7 +4,9 @@
    pricing-engine con el efecto que este motor selecciona).
    ------------------------------------------------------------
    Fuente de promociones (única):
-     window.PC.defaultPromotions (archivo promotions.js). Sin persistencia en navegador.
+     window.PC.defaultPromotions (archivo promotions.js). Las ediciones desde
+     el panel de administración se aplican aquí en memoria de inmediato; se
+     graban en promotions.js en disco vía AdminFS (ver Calculadora.dc.html).
    ============================================================ */
 window.PC = window.PC || {};
 window.PC.PromotionEngine = (function () {
@@ -16,17 +18,25 @@ window.PC.PromotionEngine = (function () {
   const PRODUCT_EFFECTS = ["discount_pct", "discount_fixed", "fixed_price", "replace_price", "extra_months", "bonus_months"];
   const PACKAGE_EFFECTS = ["bundle_discount_pct", "bundle_discount_fixed", "preferential_price", "free_product"];
 
-  // --------- Fuente de datos: SIEMPRE promotions.js (sin persistencia) ---------
+  // --------- Fuente de datos: window.PC.defaultPromotions (promotions.js) ---------
+  // savePromotions actualiza la copia EN MEMORIA de inmediato (vista previa
+  // en vivo); grabar el archivo promotions.js en disco es un paso aparte
+  // que dispara el panel de administración (ver Calculadora.dc.html).
+  let original = null;
+
   function getPromotions() {
     return (window.PC.defaultPromotions || []).slice();
   }
 
-  function savePromotions() {
-    // Persistencia desactivada: las promociones se editan en promotions.js.
-    return false;
+  function savePromotions(list) {
+    if (original === null) original = (window.PC.defaultPromotions || []).slice();
+    window.PC.defaultPromotions = (list || []).slice();
+    return true;
   }
 
-  function resetPromotions() { /* Sin persistencia: nada que restablecer. */ }
+  function resetPromotions() {
+    if (original !== null) window.PC.defaultPromotions = original.slice();
+  }
 
   function isWithinDates(promo, date) {
     const start = U.fromISO(promo.startsAt);

@@ -15,6 +15,7 @@
   <script src="_ds/series-zero-pitch-deck-design-system-499262af-6b79-441c-b6db-63875a10b92e/_ds_bundle.js"></script>
   <script src="utils.js"></script>
   <script src="config.js"></script>
+  <script src="admin-fs.js"></script>
   <script src="pricing-data.js"></script>
   <script src="promotions.js"></script>
   <script src="pricing-engine.js"></script>
@@ -55,7 +56,6 @@ class Component extends DCLogic {
   state = {
     ready: false,
     admin: false,
-    showAdmin: false,
     exporting: false,
     exportError: "",
     showBreakdown: false,
@@ -104,7 +104,7 @@ class Component extends DCLogic {
   PRODUCT_IDS = ["elite", "oportunidades", "destacados", "prime"];
   DRAFT_FIELDS = ["advisorId", "clientName", "clientPhone", "clientInventory", "clientStatus", "stateName", "zone", "zoneManual", "mode", "proposalDate", "proposalValidUntil", "folio", "proposalNotes", "products"];
 
-  // Catálogo de asesores: SIEMPRE desde config.js. Sin persistencia en navegador.
+  // Catálogo de asesores: viven en config.js (window.PC.config.advisors).
   getAdvisors() {
     return (window.PC.config.advisors || []).map(a => Object.assign({}, a));
   }
@@ -115,7 +115,12 @@ class Component extends DCLogic {
     const list = this.getAdvisors();
     return cc && cc.id ? [Object.assign({}, cc)].concat(list) : list;
   }
-  saveAdvisors() { /* Sin persistencia: los asesores viven en config.js. */ }
+  // Se aplica en memoria de inmediato (edición en vivo). Grabar en disco
+  // es un paso aparte, explícito, vía el botón Guardar (persistConfigJs).
+  saveAdvisors(list) {
+    window.PC.config.advisors = list || [];
+    this.forceUpdate();
+  }
 
   // Paleta por producto (verde / dorado / azul) para la propuesta y PDF.
   themes = {
@@ -493,9 +498,47 @@ class Component extends DCLogic {
     return { pdf: pdf, blob: pdf.output("blob"), filename: "Propuesta_" + safe + ".pdf" };
   }
 
-  // Sin overrides: productos, precios y metadatos vienen de config.js, pricing-data.js y data/precios/*.
-  getProductOverrides() { return {}; }
-  saveProductOverrides() { /* Sin persistencia en navegador. */ }
+  // Overrides de producto: viven en config.js (window.PC.config.productOverrides).
+  // Se aplican en memoria de inmediato (edición en vivo). Grabar en disco es
+  // un paso aparte, explícito, vía el botón Guardar (persistConfigJs).
+  getProductOverrides() { return window.PC.config.productOverrides || {}; }
+  saveProductOverrides(all) {
+    window.PC.config.productOverrides = all || {};
+    this.forceUpdate();
+  }
+  // Regenera config.js a partir del estado en memoria (advisors + productOverrides)
+  // y lo escribe en disco si hay carpeta conectada (AdminFS); si no, avisa que el
+  // cambio solo vive en esta sesión.
+  async persistConfigJs() {
+    const AFS = window.PC.AdminFS;
+    if (!AFS || !AFS.isConnected()) {
+      if (AFS && !AFS.isSupported()) {
+        const original = await this.currentConfigJsTextOrNull();
+        const draft = original ? this.buildConfigJsText(original) : null;
+        if (draft) { AFS.downloadText("config.js", draft); this.flash("Tu navegador no soporta guardar directo: se descargó config.js actualizado"); return; }
+      }
+      this.flash("Cambio aplicado en esta sesión (conecta la carpeta del proyecto para guardarlo en config.js)");
+      return;
+    }
+    try {
+      const original = await AFS.readText("config.js");
+      const text = this.buildConfigJsText(original);
+      await AFS.writeText("config.js", text);
+      this.flash("config.js actualizado ✓");
+    } catch (e) {
+      this.flash("No se pudo escribir config.js: " + (e && e.message ? e.message : e));
+    }
+  }
+  buildConfigJsText(original) {
+    const AFS = window.PC.AdminFS;
+    let text = original;
+    text = AFS.replaceArrayLiteral(text, "advisors: [", AFS.serializeAdvisors(window.PC.config.advisors));
+    text = AFS.replaceArrayLiteral(text, "productOverrides: {", AFS.serializeProductOverrides(window.PC.config.productOverrides));
+    return text;
+  }
+  async currentConfigJsTextOrNull() {
+    try { const r = await fetch("config.js"); return r.ok ? r.text() : null; } catch (e) { return null; }
+  }
   // Configuración efectiva de un producto (default + override). Soporta productos personalizados.
   pcfg(id) {
     const C = window.PC.config;
@@ -618,8 +661,7 @@ class Component extends DCLogic {
             h("div", { style: { font: "800 17px/1 Nunito", letterSpacing: "-.02em" } }, "Calculadora comercial"),
             h("div", { style: { font: "500 12px/1.3 Nunito", color: "#6B6B73", marginTop: "3px" } }, C.company.name + " · uso interno")),
           h("div", { style: { display: "flex", gap: "8px", alignItems: "center" } },
-            null,
-            null))),
+            h("button", { onClick: () => this.setState({ showPwd: true }), title: "Administración", style: { width: "34px", height: "34px", borderRadius: "8px", border: "1px solid #D0D0D8", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center" } }, this.icoGear())))),
 
       // 1. Asesor
       this.section("Sección 01", "Asesor asignado",
@@ -987,10 +1029,9 @@ class Component extends DCLogic {
   // Devuelve { final, base, discountPct } del renglón del CSV (o null). base/discountPct
   // reflejan el descuento de ZONA capturado en el CSV (PrecioBase + Descuento).
   csvPeriodInfo(productId, offerLabel, period, zoneId, stateName) {
-    const ov = this.getProductOverrides()[productId] || {};
-    const localRows = (ov.priceCSV && Array.isArray(ov.priceCSV.rows)) ? ov.priceCSV.rows : null;
-    // Fuente oficial única: catálogo cargado de /data/precios.
-    const rowsSrc = (localRows && localRows.length) ? localRows : (this._priceCatalogRows || []);
+    // Fuente oficial única: catálogo cargado de /data/precios (se actualiza en
+    // memoria al instante cuando se guarda un CSV desde el panel de admin).
+    const rowsSrc = this._priceCatalogRows || [];
     if (!rowsSrc.length) return null;
     const pname = (this.pcfg(productId).name || "").toLowerCase();
     const ol = String(offerLabel || "").toLowerCase().trim();
@@ -1044,22 +1085,80 @@ class Component extends DCLogic {
     this.setState({ csvDraft: { id: id, text: text, result: result } });
     this.flash(result.errors.length ? (result.errors.length + " error(es) en el CSV") : (result.rows.length + " fila(s) válidas ✓"));
   }
-  saveCsvDraft(id) {
+  // Filas ya cargadas (del CSV oficial o de una sesión previa) para un producto.
+  csvRowsForProduct(id) {
+    const pname = (this.pcfg(id).name || "").toLowerCase();
+    return (this._priceCatalogRows || []).filter(r => {
+      const rp = (r.producto || "").toLowerCase().trim();
+      return rp === pname || rp === String(id).toLowerCase();
+    });
+  }
+  // Reconstruye texto CSV a partir de filas ya parseadas (para mostrarlas en
+  // el textarea del editor sin haber tenido que guardar el texto crudo).
+  rowsToCsvText(rows) {
+    const esc = (v) => { v = String(v == null ? "" : v); return /[,"\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+    const lines = rows.map(r => [r.producto, r.oferta, r.zona, r.estados, r.vigencia, r.precioBase, r.descuento, r.precioFinal].map(esc).join(","));
+    return ["Producto,Oferta,Zona,Estados,Vigencia,PrecioBase,Descuento,PrecioFinal"].concat(lines).join("\n");
+  }
+  // Nombre de archivo oficial para el CSV de un producto (coincide con
+  // data/precios/index.json para los 4 productos base; para personalizados
+  // usa el propio id).
+  csvFileForProduct(id) {
+    const map = { elite: "elite.csv", oportunidades: "oportunidades_ilimitadas.csv", destacados: "destacados.csv", prime: "prime.csv" };
+    return "data/precios/" + (map[id] || (id + ".csv"));
+  }
+  // Reemplaza en _priceCatalogRows las filas del producto por las recién
+  // validadas, para que el cálculo las use al instante sin esperar un fetch.
+  mergeCsvRowsInMemory(id, rows) {
+    const pname = (this.pcfg(id).name || "").toLowerCase();
+    const keep = (this._priceCatalogRows || []).filter(r => {
+      const rp = (r.producto || "").toLowerCase().trim();
+      return rp && rp !== pname && rp !== String(id).toLowerCase();
+    });
+    this._priceCatalogRows = keep.concat(rows);
+  }
+  // Agrega la entrada del producto a data/precios/index.json si no existe aún.
+  async ensureIndexJsonEntry(id, file) {
+    const AFS = window.PC.AdminFS;
+    let idx;
+    try { idx = JSON.parse(await AFS.readText("data/precios/index.json")); }
+    catch (e) { idx = { version: "", files: [] }; }
+    if (!Array.isArray(idx.files)) idx.files = [];
+    if (!idx.files.some(f => f.file === file)) {
+      idx.files.push({ productId: id, productName: this.pcfg(id).name, file: file });
+      await AFS.writeText("data/precios/index.json", JSON.stringify(idx, null, 2));
+    }
+  }
+  async saveCsvDraft(id) {
     const d = this.state.csvDraft; if (!d || d.id !== id) { this.flash("Nada que guardar"); return; }
     const result = d.result || this.validateCSV(d.text);
     if (result.errors.length) { this.setState({ csvDraft: { id: id, text: d.text, result: result } }); this.flash("Corrige los errores antes de guardar"); return; }
-    const all = Object.assign({}, this.getProductOverrides());
-    all[id] = Object.assign({}, all[id], { priceCSV: { text: d.text, header: result.header, rows: result.rows, savedAt: Date.now() } });
-    this.saveProductOverrides(all);
+    this.mergeCsvRowsInMemory(id, result.rows);
     this.setState({ csvDraft: null });
-    this.flash("Precios guardados ✓");
+    this.forceUpdate();
+    const AFS = window.PC.AdminFS;
+    if (!AFS || !AFS.isConnected()) {
+      if (AFS && !AFS.isSupported()) AFS.downloadText(this.csvFileForProduct(id).split("/").pop(), d.text);
+      this.flash("Precios aplicados en esta sesión (conecta la carpeta del proyecto para guardarlos en /data/precios)");
+      return;
+    }
+    try {
+      const file = this.csvFileForProduct(id);
+      await AFS.writeText(file, d.text);
+      await this.ensureIndexJsonEntry(id, file);
+      this.flash(file + " actualizado ✓");
+    } catch (e) {
+      this.flash("No se pudo escribir el CSV: " + (e && e.message ? e.message : e));
+    }
   }
   clearCsv(id) {
-    const all = Object.assign({}, this.getProductOverrides());
-    if (all[id]) { all[id] = Object.assign({}, all[id]); delete all[id].priceCSV; }
-    this.saveProductOverrides(all);
+    const pname = (this.pcfg(id).name || "").toLowerCase();
+    this._priceCatalogRows = (this._priceCatalogRows || []).filter(r => {
+      const rp = (r.producto || "").toLowerCase().trim();
+      return rp && rp !== pname && rp !== String(id).toLowerCase();
+    });
     this.setState({ csvDraft: null });
-    this.flash("CSV de precios eliminado");
+    this.flash("CSV quitado de esta sesión (el archivo en /data/precios no se borra automáticamente)");
   }
 
   renderProductAdmin() {
@@ -1082,8 +1181,8 @@ class Component extends DCLogic {
     const editForm = (id) => {
       const pc = this.pcfg(id), t = this.themes[pc.theme] || this.themes.green;
       const feats = (this.pcfg(id).benefits) || [];
-      const ov = this.getProductOverrides()[id] || {};
-      const csv = ov.priceCSV || null;
+      const savedRows = this.csvRowsForProduct(id);
+      const csv = savedRows.length ? { rows: savedRows, text: this.rowsToCsvText(savedRows) } : null;
       const draft = (this.state.csvDraft && this.state.csvDraft.id === id) ? this.state.csvDraft : null;
       const text = draft ? draft.text : (csv ? csv.text : "");
       const result = draft ? draft.result : null;
@@ -1124,7 +1223,7 @@ class Component extends DCLogic {
             h("div", { style: { flex: 1 } }, h("label", { style: lbl }, "Nombre del producto"), h("input", { style: Object.assign({}, inp, { font: "800 15px Nunito", color: t.main }), value: pc.name, onChange: e => patch(id, "name", e.target.value) }))),
           h("div", { style: { display: "flex", gap: "8px" } },
             h("button", { onClick: () => this.setState({ adminEditingId: null, csvDraft: null }), style: { padding: "9px 14px", borderRadius: "8px", border: "1px solid #D0D0D8", background: "#fff", color: "#2A2A2E", fontWeight: 700, fontSize: "12px" } }, "← Volver a la lista"),
-            h("button", { onClick: () => this.setState({ adminEditingId: null }), style: { padding: "9px 18px", borderRadius: "8px", border: "none", background: "#1b8f51", color: "#fff", font: "800 12.5px Nunito", boxShadow: "0 6px 18px -8px rgba(27,143,81,.6)" } }, "Guardar"))),
+            h("button", { onClick: () => { this.persistConfigJs(); this.setState({ adminEditingId: null }); }, style: { padding: "9px 18px", borderRadius: "8px", border: "none", background: "#1b8f51", color: "#fff", font: "800 12.5px Nunito", boxShadow: "0 6px 18px -8px rgba(27,143,81,.6)" } }, "Guardar"))),
 
         // Color / ícono (solo productos personalizados, para su identidad visual)
         pc.custom ? h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "18px" } },
@@ -1146,7 +1245,7 @@ class Component extends DCLogic {
               h("label", { style: fileBtn }, this.icoUpload(), "Subir archivo CSV",
                 h("input", { type: "file", accept: ".csv,text/csv", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; if (!f) return; const rd = new FileReader(); rd.onload = () => this.setState({ csvDraft: { id: id, text: String(rd.result || ""), result: null } }); rd.readAsText(f); e.target.value = ""; } })),
               csv ? h("span", { style: { font: "600 11.5px Nunito", color: "#146b3d" } }, "Guardado: " + csv.rows.length + " fila(s)") : h("span", { style: { font: "600 11.5px Nunito", color: "#A5A5AD" } }, "Sin CSV (se usa la lógica actual)")),
-            h("div", { style: { marginBottom: "8px", padding: "9px 11px", borderRadius: "8px", background: "#EEF4FF", border: "1px solid #C4D6F6", font: "600 11px/1.45 Nunito", color: "#1B4F9E" } }, "Para publicar precios oficiales para todo el equipo, sube el CSV al proyecto en /data/precios/ y actualiza index.json. localStorage sólo es para pruebas o borradores."),
+            h("div", { style: { marginBottom: "8px", padding: "9px 11px", borderRadius: "8px", background: "#EEF4FF", border: "1px solid #C4D6F6", font: "600 11px/1.45 Nunito", color: "#1B4F9E" } }, "\"Guardar precios\" aplica el CSV al instante en esta sesión. Si conectaste la carpeta del proyecto (botón arriba), también se escribe en /data/precios/ y se registra en index.json para todo el equipo."),
             h("textarea", { value: text, onChange: e => this.setCsvText(id, e.target.value), spellCheck: false, placeholder: "Producto,Oferta,Zona,Estados,Vigencia,PrecioBase,Descuento,PrecioFinal\nElite,Hasta 300 propiedades,,,Mensual,8500,0,8500\nOportunidades Ilimitadas,Paquete 10,,,Mensual,599,0,599", style: { width: "100%", minHeight: "130px", padding: "11px", border: "1px solid #D0D0D8", borderRadius: "8px", font: "500 11.5px/1.55 ui-monospace, Menlo, monospace", color: "#2A2A2E", resize: "vertical" } }),
             h("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap", marginTop: "8px" } },
               h("button", { onClick: () => this.validateCsvDraft(id), style: { padding: "9px 15px", borderRadius: "8px", border: "1px solid #D0D0D8", background: "#fff", color: "#2A2A2E", font: "700 12.5px Nunito" } }, "Validar CSV"),
@@ -1171,7 +1270,7 @@ class Component extends DCLogic {
               previewTable(previewRows),
               h("div", { style: { font: "500 10.5px Nunito", color: "#A5A5AD", marginTop: "6px" } }, "* Precio final calculado desde PrecioBase y Descuento.")) : null)),
 
-        h("button", { onClick: () => this.setState({ adminEditingId: null }), style: { width: "100%", marginTop: "10px", padding: "13px", borderRadius: "10px", border: "none", background: "#1b8f51", color: "#fff", font: "800 14px Nunito", boxShadow: "0 6px 18px -8px rgba(27,143,81,.6)" } }, "Guardar y volver"));
+        h("button", { onClick: () => { this.persistConfigJs(); this.setState({ adminEditingId: null }); }, style: { width: "100%", marginTop: "10px", padding: "13px", borderRadius: "10px", border: "none", background: "#1b8f51", color: "#fff", font: "800 14px Nunito", boxShadow: "0 6px 18px -8px rgba(27,143,81,.6)" } }, "Guardar y volver"));
     };
 
     const newProduct = () => {
@@ -1191,7 +1290,7 @@ class Component extends DCLogic {
           h("span", { style: { width: "28px", height: "28px", borderRadius: "7px", background: t.accent, display: "flex", alignItems: "center", justifyContent: "center", flex: "none" } }, this.svgIcon(pc.icon, "#fff", 15)),
           h("div", null,
             h("div", { style: { font: "800 14px Nunito", color: "#111" } }, pc.name),
-            (() => { const cfg = this.getProductOverrides()[id] || {}; const n = (cfg.priceCSV && cfg.priceCSV.rows) ? cfg.priceCSV.rows.length : 0; return h("div", { style: { font: "600 10.5px Nunito", color: pc.disabled ? "#A5A5AD" : "#146b3d" } }, (pc.disabled ? "Oculto" : "Vigente") + (pc.custom ? " · personalizado" : "") + (n ? (" · CSV: " + n + " fila(s)") : " · sin CSV")); })())),
+            (() => { const n = this.csvRowsForProduct(id).length; return h("div", { style: { font: "600 10.5px Nunito", color: pc.disabled ? "#A5A5AD" : "#146b3d" } }, (pc.disabled ? "Oculto" : "Vigente") + (pc.custom ? " · personalizado" : "") + (n ? (" · CSV: " + n + " fila(s)") : " · sin CSV")); })())),
         h("div", { style: { display: "flex", gap: "6px" } },
           h("button", { onClick: () => this.setState({ adminEditingId: id, csvDraft: null }), style: { padding: "7px 12px", borderRadius: "7px", border: "1px solid #D0D0D8", background: "#fff", color: "#2A2A2E", fontWeight: 700, fontSize: "12px" } }, "Editar"),
           h("button", { onClick: () => { if (!window.confirm("¿Eliminar \"" + pc.name + "\"? Ya no aparecerá en la calculadora.")) return; if (pc.custom) removeCustom(id); else patch(id, "removed", true); }, style: { padding: "7px 12px", borderRadius: "7px", border: "1px solid #EBB", background: "#FBEAEA", color: "#B02A30", fontWeight: 700, fontSize: "12px" } }, "Eliminar")));
@@ -1205,17 +1304,26 @@ class Component extends DCLogic {
 
     const tab = this.state.adminTab;
     const tabBtn = (key, label) => h("button", { onClick: () => this.setState({ adminTab: key, adminEditingId: null }), style: { padding: "8px 16px", borderRadius: "8px", border: "1px solid " + (tab === key ? "#1b8f51" : "#D0D0D8"), background: tab === key ? "#1b8f51" : "#fff", color: tab === key ? "#fff" : "#2A2A2E", font: "700 13px Nunito" } }, label);
-    const body = tab === "asesores" ? this.renderAdvisorManager() : prodBody;
-    const title = tab === "asesores" ? "Administración de asesores" : "Administración de productos";
-    const sub = tab === "asesores" ? "Nombre y teléfono (para WhatsApp)" : (this.state.adminEditingId ? "Editando producto" : "Productos vigentes");
+    const body = tab === "asesores" ? this.renderAdvisorManager() : (tab === "promociones" ? this.renderPromotionsAdminBody() : prodBody);
+    const title = tab === "asesores" ? "Administración de asesores" : (tab === "promociones" ? "Administración de promociones" : "Administración de productos");
+    const sub = tab === "asesores" ? "Nombre y teléfono (para WhatsApp)" : (tab === "promociones" ? "Vigencia, condiciones y efecto de cada promoción" : (this.state.adminEditingId ? "Editando producto" : "Productos vigentes"));
+
+    const AFS = window.PC.AdminFS;
+    const connected = AFS && AFS.isConnected();
+    const folderBtn = h("button", {
+      onClick: async () => { try { await AFS.connect(); this.forceUpdate(); this.flash("Carpeta conectada: " + AFS.folderName()); } catch (e) { this.flash("No se conectó la carpeta: " + (e && e.message ? e.message : e)); } },
+      style: { padding: "7px 12px", borderRadius: "7px", border: "1px solid " + (connected ? "#9ED3B4" : "#D0D0D8"), background: connected ? "#EAF7F0" : "#fff", color: connected ? "#146b3d" : "#2A2A2E", fontWeight: 700, fontSize: "12px" }
+    }, connected ? ("Carpeta conectada: " + AFS.folderName() + " ✓") : (AFS && AFS.isSupported() ? "Conectar carpeta del proyecto" : "Guardado directo no disponible en este navegador"));
 
     return h("div", { style: { position: "fixed", inset: 0, background: "rgba(17,17,17,.55)", zIndex: 60, display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "30px", overflow: "auto" } },
       h("div", { style: { width: "780px", maxWidth: "100%", background: "#fff", borderRadius: "14px", overflow: "hidden" } },
         h("div", { style: { padding: "18px 24px 0", position: "sticky", top: 0, background: "#fff", zIndex: 2 } },
-          h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } },
+          h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" } },
             h("div", { style: { display: "flex", alignItems: "center", gap: "8px" } }, this.icoGear(), h("div", null, h("div", { style: { font: "800 17px Nunito" } }, title), h("div", { style: { font: "500 12px Nunito", color: "#6B6B73" } }, sub))),
-            h("button", { onClick: () => this.setState({ showProductAdmin: false, adminEditingId: null }), style: { padding: "8px 14px", borderRadius: "8px", border: "1px solid #D0D0D8", background: "#fff", fontWeight: 700 } }, "Cerrar")),
-          h("div", { style: { display: "flex", gap: "8px", padding: "14px 0", borderBottom: "1px solid #E6E6EB" } }, tabBtn("productos", "Productos"), tabBtn("asesores", "Asesores"))),
+            h("div", { style: { display: "flex", alignItems: "center", gap: "8px" } },
+              folderBtn,
+              h("button", { onClick: () => this.setState({ showProductAdmin: false, adminEditingId: null }), style: { padding: "8px 14px", borderRadius: "8px", border: "1px solid #D0D0D8", background: "#fff", fontWeight: 700 } }, "Cerrar"))),
+          h("div", { style: { display: "flex", gap: "8px", padding: "14px 0", borderBottom: "1px solid #E6E6EB" } }, tabBtn("productos", "Productos"), tabBtn("asesores", "Asesores"), tabBtn("promociones", "Promociones"))),
         h("div", { style: { padding: "18px 24px" } }, body)));
   }
 
@@ -1234,8 +1342,8 @@ class Component extends DCLogic {
         h("button", { onClick: () => del(i), style: { padding: "9px 12px", borderRadius: "8px", border: "1px solid #EBB", background: "#FBEAEA", color: "#B02A30", fontWeight: 700, fontSize: "12px" } }, "Eliminar"))),
       list.length === 0 ? h("div", { style: { font: "500 12px Nunito", color: "#6B6B73", marginBottom: "10px" } }, "No hay asesores. Agrega el primero.") : null,
       h("button", { onClick: add, style: { width: "100%", marginTop: "2px", padding: "12px", borderRadius: "10px", border: "1px dashed #1b8f51", background: "#EAF7F0", color: "#146b3d", font: "800 13px Nunito" } }, "+ Nuevo asesor"),
-      h("button", { onClick: () => { this.saveAdvisors(this.getAdvisors()); this.flash("Asesores guardados ✓"); }, style: { width: "100%", marginTop: "12px", padding: "13px", borderRadius: "10px", border: "none", background: "#1b8f51", color: "#fff", font: "800 14px Nunito", boxShadow: "0 6px 18px -8px rgba(27,143,81,.6)" } }, "Guardar"),
-      h("div", { style: { marginTop: "8px", font: "500 10.5px/1.4 Nunito", color: "#A5A5AD" } }, "El teléfono se usa para el botón de WhatsApp. Formato: 10 dígitos (se antepone 52) o número completo con lada. Los cambios se guardan automáticamente."));
+      h("button", { onClick: () => this.persistConfigJs(), style: { width: "100%", marginTop: "12px", padding: "13px", borderRadius: "10px", border: "none", background: "#1b8f51", color: "#fff", font: "800 14px Nunito", boxShadow: "0 6px 18px -8px rgba(27,143,81,.6)" } }, "Guardar"),
+      h("div", { style: { marginTop: "8px", font: "500 10.5px/1.4 Nunito", color: "#A5A5AD" } }, "El teléfono se usa para el botón de WhatsApp. Formato: 10 dígitos (se antepone 52) o número completo con lada. Los cambios de arriba se aplican al instante; \"Guardar\" es lo que los escribe en config.js."));
   }
 
   icoCard() {
@@ -1431,7 +1539,29 @@ class Component extends DCLogic {
   }
 
   // ===================== ADMIN: EDITOR DE PROMOCIONES =====================
-  renderAdmin() {
+  // Cuerpo de la pestaña "Promociones" del modal de administración unificado.
+  // Las ediciones se aplican al instante en memoria (vista previa en vivo);
+  // "Guardar en disco" es lo que las escribe de verdad en promotions.js.
+  async persistPromotionsJs() {
+    const AFS = window.PC.AdminFS;
+    const list = window.PC.PromotionEngine.getPromotions();
+    if (!AFS || !AFS.isConnected()) {
+      if (AFS && !AFS.isSupported()) {
+        try { const original = await (await fetch("promotions.js")).text(); AFS.downloadText("promotions.js", AFS.replaceArrayLiteral(original, "window.PC.defaultPromotions = [", AFS.serializePromotions(list))); this.flash("Tu navegador no soporta guardar directo: se descargó promotions.js actualizado"); return; } catch (e) { }
+      }
+      this.flash("Cambios aplicados en esta sesión (conecta la carpeta del proyecto para guardarlos en promotions.js)");
+      return;
+    }
+    try {
+      const original = await AFS.readText("promotions.js");
+      const text = AFS.replaceArrayLiteral(original, "window.PC.defaultPromotions = [", AFS.serializePromotions(list));
+      await AFS.writeText("promotions.js", text);
+      this.flash("promotions.js actualizado ✓");
+    } catch (e) {
+      this.flash("No se pudo escribir promotions.js: " + (e && e.message ? e.message : e));
+    }
+  }
+  renderPromotionsAdminBody() {
     const h = React.createElement, PR = window.PC.PromotionEngine;
     const promos = PR.getPromotions();
     const effectOpts = ["discount_pct", "discount_fixed", "fixed_price", "replace_price", "extra_months", "bundle_discount_pct", "bundle_discount_fixed", "preferential_price"].map(x => ({ value: x, label: x }));
@@ -1443,18 +1573,12 @@ class Component extends DCLogic {
 
     const inp = { padding: "6px 8px", border: "1px solid #D0D0D8", borderRadius: "6px", fontSize: "12px", width: "100%" };
 
-    return h("div", { style: { position: "fixed", inset: 0, background: "rgba(17,17,17,.55)", zIndex: 50, display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "30px", overflow: "auto" } },
-      h("div", { style: { width: "860px", maxWidth: "100%", background: "#fff", borderRadius: "14px", overflow: "hidden" } },
-        h("div", { style: { padding: "18px 24px", borderBottom: "1px solid #E6E6EB", display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, background: "#fff", zIndex: 2 } },
-          h("div", null, h("div", { style: { font: "800 17px Nunito" } }, "Administración de promociones"),
-            h("div", { style: { font: "500 12px Nunito", color: "#6B6B73" } }, "Solo lectura. Las promociones se editan en promotions.js.")),
-          h("button", { onClick: () => this.setState({ showAdmin: false }), style: { padding: "8px 14px", borderRadius: "8px", border: "1px solid #D0D0D8", background: "#fff", fontWeight: 700 } }, "Cerrar")),
-
-        h("div", { style: { padding: "18px 24px" } },
+    return h("div", null,
           h("div", { style: { display: "flex", gap: "8px", marginBottom: "16px", flexWrap: "wrap" } },
             h("button", { onClick: () => { const l = promos.concat([this.blankPromo()]); savePromo(l); }, style: this.adminBtn("#1b8f51", "#fff") }, "+ Nueva promoción"),
-            h("button", { onClick: () => { PR.resetPromotions(); this.forceUpdate(); }, style: this.adminBtn("#fff", "#B02A30", "#EBB") }, "Restablecer a default"),
-            h("button", { onClick: () => this.setState({ importText: JSON.stringify(promos, null, 2) }), style: this.adminBtn("#fff", "#2A2A2E", "#D0D0D8") }, "Exportar / copiar JSON")),
+            h("button", { onClick: () => { PR.resetPromotions(); this.forceUpdate(); }, style: this.adminBtn("#fff", "#B02A30", "#EBB") }, "Restablecer a lo cargado"),
+            h("button", { onClick: () => this.setState({ importText: JSON.stringify(promos, null, 2) }), style: this.adminBtn("#fff", "#2A2A2E", "#D0D0D8") }, "Exportar / copiar JSON"),
+            h("button", { onClick: () => this.persistPromotionsJs(), style: this.adminBtn("#1b8f51", "#fff") }, "Guardar en disco")),
 
           promos.map((p, i) => h("div", { key: p.id + i, style: { border: "1px solid #E6E6EB", borderRadius: "10px", padding: "14px", marginBottom: "12px", background: p.active ? "#FBFCFB" : "#FafafA" } },
             h("div", { style: { display: "flex", gap: "10px", alignItems: "center", marginBottom: "10px" } },
@@ -1482,7 +1606,7 @@ class Component extends DCLogic {
             h("div", { style: { display: "flex", gap: "8px", marginTop: "8px" } },
               h("button", { onClick: () => { try { const parsed = JSON.parse(this.state.importText); if (Array.isArray(parsed)) { PR.savePromotions(parsed); this.setState({ importText: "" }); } else alert("El JSON debe ser un arreglo."); } catch (er) { alert("JSON inválido: " + er.message); } }, style: this.adminBtn("#1b8f51", "#fff") }, "Importar este JSON"),
               h("button", { onClick: () => { navigator.clipboard && navigator.clipboard.writeText(this.state.importText); }, style: this.adminBtn("#fff", "#2A2A2E", "#D0D0D8") }, "Copiar"),
-              h("button", { onClick: () => this.setState({ importText: "" }), style: this.adminBtn("#fff", "#6B6B73", "#D0D0D8") }, "Ocultar"))) : null)));
+              h("button", { onClick: () => this.setState({ importText: "" }), style: this.adminBtn("#fff", "#6B6B73", "#D0D0D8") }, "Ocultar"))) : null);
   }
   adminBtn(bg, fg, bd) { return { padding: "9px 14px", borderRadius: "8px", border: "1px solid " + (bd || bg), background: bg, color: fg, fontWeight: 700, fontSize: "12.5px" }; }
   adminField(label, control) { return React.createElement("div", null, React.createElement("div", { style: { font: "600 9.5px Nunito", textTransform: "uppercase", letterSpacing: ".08em", color: "#A5A5AD", marginBottom: "4px" } }, label), control); }
@@ -1500,7 +1624,6 @@ class Component extends DCLogic {
     return h("div", { className: "pc-shell", style: { display: "flex", minHeight: "100vh" } },
       this.renderPanel(data),
       this.renderProposal(data),
-      this.state.showAdmin ? this.renderAdmin() : null,
       this.state.showPwd ? this.renderPwd() : null,
       this.state.showProductAdmin ? this.renderProductAdmin() : null,
       this.state.toast ? h("div", { style: { position: "fixed", left: "50%", bottom: "26px", transform: "translateX(-50%)", zIndex: 80, background: "#111", color: "#fff", padding: "11px 22px", borderRadius: "999px", font: "700 13px Nunito", boxShadow: "0 12px 34px -12px rgba(0,0,0,.55)" } }, this.state.toast) : null);

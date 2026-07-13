@@ -98,7 +98,11 @@ window.PC.config = (function () {
       oportunidades: { name: "Oportunidades Ilimitadas", theme: "green", icon: "bolt",    badge: "Complemento", valueLabel: "Cobertura", tagline: "Recibe oportunidades de compradores activos, sin costo por propiedad" },
       destacados:    { name: "Destacados",               theme: "gold",  icon: "arrowup", badge: "Complemento", valueLabel: "Cobertura", tagline: "Posiciona tus mejores propiedades al tope de los resultados" },
       prime:         { name: "Prime",                    theme: "blue",  icon: "diamond", badge: "Complemento", valueLabel: "Cobertura", tagline: "Posiciona tus mejores propiedades al tope de los resultados" }
-    }
+    },
+    // Overrides de producto guardados desde el panel de administración
+    // (nombre, tema, ícono, beneficios, tope de descuento, precio base,
+    // estados, oculto, productos personalizados). Vacío = sin overrides.
+    productOverrides: {}
   };
 })();
 
