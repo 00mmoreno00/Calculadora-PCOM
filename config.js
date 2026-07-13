@@ -94,7 +94,7 @@ window.PC.config = (function () {
       ]
     },
     productMeta: {
-      elite:         { name: "Elite",                    theme: "green", icon: "star",    badge: "Recomendado", valueLabel: "Cobertura", tagline: "Publicaciones con etiqueta Exclusivo · Primeros resultados de búsqueda" },
+      elite:         { name: "Elite",                    theme: "green", icon: "star",    badge: "Complemento", valueLabel: "Cobertura", tagline: "Publicaciones con etiqueta Exclusivo · Primeros resultados de búsqueda" },
       oportunidades: { name: "Oportunidades Ilimitadas", theme: "green", icon: "bolt",    badge: "Complemento", valueLabel: "Cobertura", tagline: "Recibe oportunidades de compradores activos, sin costo por propiedad" },
       destacados:    { name: "Destacados",               theme: "gold",  icon: "arrowup", badge: "Complemento", valueLabel: "Cobertura", tagline: "Posiciona tus mejores propiedades al tope de los resultados" },
       prime:         { name: "Prime",                    theme: "blue",  icon: "diamond", badge: "Complemento", valueLabel: "Cobertura", tagline: "Posiciona tus mejores propiedades al tope de los resultados" }

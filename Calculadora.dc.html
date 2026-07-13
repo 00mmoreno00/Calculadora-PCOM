@@ -46,6 +46,18 @@
       .pc-panel{padding:0 12px 32px !important}
       .pc-proposal-pane{padding:16px 10px !important}
     }
+    /* Fila de tarjetas de producto (paquete/comparativo): responsive, sin
+       valores fijos atados a "4 tarjetas". Por default todas caben en una
+       sola fila; en pantallas angostas se acomodan en menos columnas. */
+    .pc-cards-row{display:flex;flex-wrap:nowrap;gap:14px;justify-content:center;align-items:stretch}
+    .pc-cards-row .pc-card{flex:1 1 0;min-width:0}
+    @media (max-width: 900px){
+      .pc-cards-row{flex-wrap:wrap}
+      .pc-cards-row .pc-card{flex:1 1 calc(50% - 7px)}
+    }
+    @media (max-width: 520px){
+      .pc-cards-row .pc-card{flex:1 1 100%}
+    }
   </style>
 </helmet>
 <div style="min-height:100vh">{{ app }}</div>
@@ -97,7 +109,12 @@ class Component extends DCLogic {
     toast: "",
 
     // Editor CSV de precios (borrador en memoria mientras se edita)
-    csvDraft: null
+    csvDraft: null,
+
+    // Alto sincronizado de los encabezados de tarjeta de producto (se mide
+    // en vivo tras cada render para que todos los encabezados visibles
+    // queden a la misma altura; ver registerCardHeaderEl/syncCardHeaderHeights).
+    cardHeaderH: null
   };
 
   PWD = "12345";
@@ -122,6 +139,10 @@ class Component extends DCLogic {
     this.forceUpdate();
   }
 
+  // Refs de encabezados de tarjeta de producto recolectados en cada render
+  // (ver registerCardHeaderEl / syncCardHeaderHeights).
+  _cardHeaderEls = [];
+
   // Paleta por producto (verde / dorado / azul) para la propuesta y PDF.
   themes = {
     green: { main: "#16763F", accent: "#1E9D5B", soft: "#E4F5EC", border: "#C3E7D2", chip: "#1E9D5B" },
@@ -139,8 +160,23 @@ class Component extends DCLogic {
     }, 60);
     this._onResize = () => this.fitProposal();
     window.addEventListener("resize", this._onResize);
+    this.syncCardHeaderHeights();
   }
-  componentDidUpdate() { this.fitProposal(); }
+  componentDidUpdate() { this.fitProposal(); this.syncCardHeaderHeights(); }
+  // Recolecta, en cada pasada de render, los encabezados de tarjeta de
+  // producto que se dibujaron (ver cardHeader). Se reinicia al principio de
+  // renderApp() para no arrastrar referencias de una pasada anterior.
+  registerCardHeaderEl = (el) => { if (el) this._cardHeaderEls.push(el); };
+  // Iguala la altura de todos los encabezados visibles al más alto que
+  // necesite su propio contenido (nunca recorta: min-height solo puede
+  // crecer). Se llama tras cada render; si el máximo cambia, un solo
+  // re-render adicional aplica la nueva altura a todos.
+  syncCardHeaderHeights() {
+    const els = this._cardHeaderEls || [];
+    if (!els.length) return;
+    const max = Math.max(...els.map(el => el.scrollHeight));
+    if (max > 0 && max !== this.state.cardHeaderH) this.setState({ cardHeaderH: max });
+  }
   componentWillUnmount() {
     if (this._poll) clearInterval(this._poll);
     if (this._onResize) window.removeEventListener("resize", this._onResize);
@@ -848,7 +884,7 @@ class Component extends DCLogic {
     // Cuerpo por modo
     let body;
     if (s.mode === "vs") body = this.renderVsBody(data);
-    else body = h("div", { style: { display: "flex", flexWrap: "nowrap", gap: "14px", justifyContent: "center", alignItems: "stretch" } }, data.items.map((it, i) => this.renderProductCard(it, i, data.items.length)));
+    else body = h("div", { className: "pc-cards-row" }, data.items.map((it, i) => this.renderProductCard(it, i, data.items.length)));
 
     // Total
     let totalBlock = null;
@@ -1420,15 +1456,32 @@ class Component extends DCLogic {
     return 0.74; // 4 productos
   }
   px(n, scale) { return Math.round(n * scale) + "px"; }
+  // Encabezado de tarjeta: la etiqueta va en su propia fila, alineada a la
+  // derecha (esquina superior), para que NUNCA compita por ancho con el
+  // título ni lo obligue a truncarse — sin importar qué tan angosta sea la
+  // tarjeta ni qué tan largo sea el nombre del producto. Debajo, ícono+título
+  // en una fila y la descripción a todo el ancho disponible.
+  // La altura (minHeight) se sincroniza entre todas las tarjetas visibles
+  // vía this.state.cardHeaderH (ver syncCardHeaderHeights) para que los
+  // encabezados de toda la fila queden alineados.
   cardHeader(r, t, meta, scale) {
     const h = React.createElement, s = scale || 1, px = (n) => this.px(n, s);
-    return h("div", { style: { padding: px(15) + " " + px(18), minHeight: px(132), background: "linear-gradient(135deg," + t.main + "," + t.accent + ")", color: "#fff", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: px(12) } },
-      h("div", { style: { display: "flex", gap: px(11), alignItems: "flex-start" } },
+    const syncedH = this.state.cardHeaderH;
+    return h("div", {
+      ref: this.registerCardHeaderEl,
+      style: {
+        boxSizing: "border-box", display: "flex", flexDirection: "column",
+        padding: px(15) + " " + px(18),
+        minHeight: syncedH ? syncedH + "px" : "auto",
+        background: "linear-gradient(135deg," + t.main + "," + t.accent + ")", color: "#fff"
+      }
+    },
+      meta.badge ? h("div", { style: { display: "flex", justifyContent: "flex-end", marginBottom: px(6) } },
+        h("div", { style: { border: "1.5px solid rgba(255,255,255,.6)", borderRadius: "999px", padding: px(3) + " " + px(9), font: "700 " + px(9) + " Nunito", letterSpacing: ".06em", textTransform: "uppercase", whiteSpace: "nowrap", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis" } }, meta.badge)) : null,
+      h("div", { style: { display: "flex", gap: px(11), alignItems: "center" } },
         h("div", { style: { width: px(34), height: px(34), borderRadius: px(9), background: "rgba(255,255,255,.2)", display: "flex", alignItems: "center", justifyContent: "center", flex: "none" } }, this.svgIcon(meta.icon, "#fff", Math.round(19 * s))),
-        h("div", null,
-          h("div", { style: { font: "800 " + px(16) + " Nunito", letterSpacing: "-.01em" } }, r.productName),
-          h("div", { style: { font: "500 " + px(11.5) + "/1.35 Nunito", color: "rgba(255,255,255,.88)", marginTop: px(3) } }, meta.tagline))),
-      meta.badge ? h("div", { style: { border: "1.5px solid rgba(255,255,255,.6)", borderRadius: "999px", padding: px(4) + " " + px(10), font: "700 " + px(9.5) + " Nunito", letterSpacing: ".08em", textTransform: "uppercase", whiteSpace: "nowrap", flex: "none" } }, meta.badge) : null);
+        h("div", { style: { font: "800 " + px(16) + " Nunito", letterSpacing: "-.01em" } }, r.productName)),
+      h("div", { style: { font: "500 " + px(11.5) + "/1.35 Nunito", color: "rgba(255,255,255,.88)", marginTop: px(6), width: "100%" } }, meta.tagline));
   }
   cardValueBlock(item, r, t, meta, scale) {
     const h = React.createElement, s = scale || 1, px = (n) => this.px(n, s);
@@ -1504,10 +1557,11 @@ class Component extends DCLogic {
     const meta = this.pcfg(r.productId);
     const benefits = meta.benefits;
     const scale = this.cardScale(count);
+    const className = count === 1 ? "" : "pc-card";
     const sizeStyle = count === 1
-      ? { width: "100%", maxWidth: "380px", minWidth: "320px", margin: "0 auto", flex: "none" }
-      : { flex: "1 1 0", minWidth: 0 };
-    return h("div", { style: Object.assign({ display: "flex", flexDirection: "column", border: "1px solid " + t.border, borderRadius: "14px", overflow: "hidden", background: "#fff", boxShadow: "0 18px 30px -14px rgba(17,17,17,.4), 0 4px 12px -8px rgba(17,17,17,.2)" }, sizeStyle) },
+      ? { width: "100%", maxWidth: "380px", minWidth: "320px", margin: "0 auto" }
+      : {};
+    return h("div", { className: className, style: Object.assign({ display: "flex", flexDirection: "column", border: "1px solid " + t.border, borderRadius: "14px", overflow: "hidden", background: "#fff", boxShadow: "0 18px 30px -14px rgba(17,17,17,.4), 0 4px 12px -8px rgba(17,17,17,.2)" }, sizeStyle) },
       this.cardHeader(r, t, meta, scale),
       this.cardValueBlock(item, r, t, meta, scale),
       this.cardBenefits(benefits, t, scale),
@@ -1633,6 +1687,7 @@ class Component extends DCLogic {
   // ===================== RENDER =====================
   renderApp() {
     const h = React.createElement;
+    this._cardHeaderEls = [];
     if (!this.state.ready) {
       return h("div", { style: { height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: "#6B6B73", font: "600 14px Nunito" } }, "Cargando calculadora…");
     }
