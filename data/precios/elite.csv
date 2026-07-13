@@ -1,13 +1,13 @@
 Producto,Oferta,Zona,Vigencia,PrecioBase,Descuento,PrecioFinal
-Elite,Hasta 300 Propiedades,CDMX / Estado de México,Mensual,8500,0,8500
-Elite,Hasta 300 Propiedades,Jalisco / Nuevo León,Mensual,4750,0,4750
-Elite,Hasta 300 Propiedades,Querétaro,Mensual,3500,0,3500
-Elite,Hasta 300 Propiedades,Resto del país,Mensual,3000,0,3000
-Elite,Hasta 500 Propiedades,CDMX / Estado de México,Mensual,11050,0,11050
-Elite,Hasta 500 Propiedades,Jalisco / Nuevo León,Mensual,6413,0,6413
-Elite,Hasta 500 Propiedades,Querétaro,Mensual,4725,0,4725
-Elite,Hasta 500 Propiedades,Resto del país,Mensual,4050,0,4050
-Elite,Por cada 500 extras,CDMX / Estado de México,Mensual,3315,0,3315
-Elite,Por cada 500 extras,Jalisco / Nuevo León,Mensual,1924,0,1924
-Elite,Por cada 500 extras,Querétaro,Mensual,1418,0,1418
-Elite,Por cada 500 extras,Resto del país,Mensual,1215,0,1215
+Elite,Hasta 300 Propiedades,CDMX / Estado de México,Mensual,10625,20,8500
+Elite,Hasta 300 Propiedades,Jalisco / Nuevo León,Mensual,9500,50,4750
+Elite,Hasta 300 Propiedades,Querétaro,Mensual,10000,65,3500
+Elite,Hasta 300 Propiedades,Resto del país,Mensual,10000,70,3000
+Elite,Hasta 500 Propiedades,CDMX / Estado de México,Mensual,13813,20,11050
+Elite,Hasta 500 Propiedades,Jalisco / Nuevo León,Mensual,12826,50,6413
+Elite,Hasta 500 Propiedades,Querétaro,Mensual,13500,65,4725
+Elite,Hasta 500 Propiedades,Resto del país,Mensual,13500,70,4050
+Elite,Por cada 500 extras,CDMX / Estado de México,Mensual,4144,20,3315
+Elite,Por cada 500 extras,Jalisco / Nuevo León,Mensual,3848,50,1924
+Elite,Por cada 500 extras,Querétaro,Mensual,4051,65,1418
+Elite,Por cada 500 extras,Resto del país,Mensual,4050,70,1215

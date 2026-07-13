@@ -483,15 +483,19 @@ class Component extends DCLogic {
     catch (e) { _restore(); throw e; }
     _restore();
     const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF("p", "pt", "a4");
+    // Tamaño Carta SIEMPRE, en una sola página: si el contenido capturado no
+    // cabe completo a lo ancho de la hoja, se reduce proporcionalmente (nunca
+    // se recorta ni se reparte en más páginas). Las tarjetas de producto ya
+    // se compactan solas al haber más de un producto (ver cardScale) para que
+    // esta reducción extra sea mínima.
+    const pdf = new jsPDF("p", "pt", "letter");
     const pw = pdf.internal.pageSize.getWidth();
     const ph = pdf.internal.pageSize.getHeight();
     const imgH = canvas.height * pw / canvas.width;
     const img = canvas.toDataURL("image/jpeg", 0.95);
-    let position = 0, heightLeft = imgH;
-    pdf.addImage(img, "JPEG", 0, position, pw, imgH);
-    heightLeft -= ph;
-    while (heightLeft > 0) { position -= ph; pdf.addPage(); pdf.addImage(img, "JPEG", 0, position, pw, imgH); heightLeft -= ph; }
+    const fit = Math.min(1, ph / imgH);
+    const drawW = pw * fit, drawH = imgH * fit;
+    pdf.addImage(img, "JPEG", (pw - drawW) / 2, 0, drawW, drawH);
     const safe = (this.state.clientName || "Cliente").trim().replace(/[^\wáéíóúñÁÉÍÓÚÑ\- ]+/g, "").replace(/\s+/g, "_") || "Cliente";
     return { pdf: pdf, blob: pdf.output("blob"), filename: "Propuesta_" + safe + ".pdf" };
   }
@@ -844,7 +848,7 @@ class Component extends DCLogic {
     // Cuerpo por modo
     let body;
     if (s.mode === "vs") body = this.renderVsBody(data);
-    else body = h("div", { style: { display: "flex", flexWrap: "wrap", gap: "18px", justifyContent: "center" } }, data.items.map((it, i) => this.renderProductCard(it, i, data.items.length)));
+    else body = h("div", { style: { display: "flex", flexWrap: "nowrap", gap: "14px", justifyContent: "center", alignItems: "stretch" } }, data.items.map((it, i) => this.renderProductCard(it, i, data.items.length)));
 
     // Total
     let totalBlock = null;
@@ -865,7 +869,7 @@ class Component extends DCLogic {
       h("div", { className: "pc-scale-inner", ref: (el) => { this.scaleInnerRef = el; }, style: { width: "820px", transformOrigin: "top left" } },
       h("div", { id: "pc-proposal", style: { width: "820px", background: "#fff", boxShadow: "0 10px 40px -18px rgba(17,17,17,.25)", borderRadius: "4px", overflow: "hidden" } },
         // Header
-        h("div", { style: { padding: "34px 44px 22px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" } },
+        h("div", { style: { padding: "22px 44px 14px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" } },
           h("img", { src: C.company.logoSrc, alt: C.company.name, style: { height: "40px" } }),
           h("div", { style: { textAlign: "right" } },
             h("div", { style: { font: "800 15px Nunito", letterSpacing: "-.01em" } }, "Propuesta comercial"),
@@ -875,26 +879,26 @@ class Component extends DCLogic {
         h("div", { style: { height: "1px", background: "#E0E0E6", margin: "0 44px" } }),
 
         // Cliente + intro
-        h("div", { style: { padding: "24px 44px" } },
-          h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "14px", marginBottom: "20px" } },
+        h("div", { style: { padding: "14px 44px 8px" } },
+          h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px", marginBottom: "12px" } },
             this.metaCell("Cliente", s.clientName || "—"),
             this.metaCell("Celular", s.clientPhone || "—"),
             this.metaCell("Estado", s.stateName || "—"),
             this.metaCell("Zona de pricing", zoneLabel),
             this.metaCell("Inventario", s.clientInventory ? (s.clientInventory + " propiedades") : "—"),
             this.metaCell("Asesor", adv ? adv.name : "—")),
-          h("p", { style: { font: "500 13.5px/1.6 Nunito", color: "#2A2A2E", margin: "0 0 6px" } }, C.introMessage),
-          h("div", { style: { font: "800 22px Nunito", color: "#111", margin: "18px 0 4px", letterSpacing: "-.02em" } }, modeTitle)),
+          h("p", { style: { font: "500 13px/1.5 Nunito", color: "#2A2A2E", margin: "0 0 4px" } }, C.introMessage),
+          h("div", { style: { font: "800 20px Nunito", color: "#111", margin: "10px 0 2px", letterSpacing: "-.02em" } }, modeTitle)),
 
         // Cuerpo
-        h("div", { style: { padding: "0 44px 8px" } }, body),
+        h("div", { style: { padding: "0 44px 6px" } }, body),
 
         // Total
-        totalBlock ? h("div", { style: { padding: "8px 44px 4px" } }, totalBlock) : null,
+        totalBlock ? h("div", { style: { padding: "4px 44px 0" } }, totalBlock) : null,
 
         // Pagos + banco
-        h("div", { style: { padding: "8px 44px 22px", marginTop: "18px" } },
-          h("div", { style: { background: "rgba(27,143,81,.06)", border: "1px solid rgba(27,143,81,.18)", borderRadius: "12px", padding: "20px 24px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "28px" } },
+        h("div", { style: { padding: "4px 44px 14px", marginTop: "10px" } },
+          h("div", { style: { background: "rgba(27,143,81,.06)", border: "1px solid rgba(27,143,81,.18)", borderRadius: "12px", padding: "14px 22px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" } },
             h("div", null,
               this.payEyebrow(this.icoCard(), "Formas de pago"),
               h("ul", { style: { margin: "10px 0 0", paddingLeft: "16px", font: "500 12.5px/1.7 Nunito", color: "#2A2A2E" } },
@@ -910,24 +914,24 @@ class Component extends DCLogic {
                 h("div", null, h("b", null, "RFC: "), C.bank.rfc))))),
 
         // Ejecutivo + whatsapp + vigencia
-        h("div", { style: { padding: "8px 44px 14px" } },
-        h("div", { style: { background: "rgba(17,17,17,.045)", border: "1px solid rgba(17,17,17,.1)", borderRadius: "12px", padding: "18px 22px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px", flexWrap: "wrap" } },
+        h("div", { style: { padding: "4px 44px 8px" } },
+        h("div", { style: { background: "rgba(17,17,17,.045)", border: "1px solid rgba(17,17,17,.1)", borderRadius: "12px", padding: "13px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px", flexWrap: "wrap" } },
           h("div", null,
             h("div", { style: this.st.eyebrow }, "Ejecutivo comercial"),
-            h("div", { style: { font: "700 14px Nunito", marginTop: "5px" } }, adv ? adv.name : "—"),
+            h("div", { style: { font: "700 14px Nunito", marginTop: "4px" } }, adv ? adv.name : "—"),
             adv && adv.email ? h("div", { style: { font: "500 12px Nunito", color: "#6B6B73" } }, adv.email) : null,
-            h("div", { style: { font: "800 12px Nunito", color: "#1b8f51", marginTop: "8px" } }, "Vigencia de la propuesta: " + U.formatLong(U.fromISO(s.proposalValidUntil)))),
-          h("a", { href: this.whatsappLink(), target: "_blank", rel: "noopener", style: { display: "inline-flex", alignItems: "center", gap: "8px", padding: "12px 18px", borderRadius: "10px", background: "#1E9D5B", color: "#fff", fontWeight: 800, fontSize: "13px", textDecoration: "none" } },
+            h("div", { style: { font: "800 12px Nunito", color: "#1b8f51", marginTop: "6px" } }, "Vigencia de la propuesta: " + U.formatLong(U.fromISO(s.proposalValidUntil)))),
+          h("a", { href: this.whatsappLink(), target: "_blank", rel: "noopener", style: { display: "inline-flex", alignItems: "center", gap: "8px", padding: "10px 16px", borderRadius: "10px", background: "#1E9D5B", color: "#fff", fontWeight: 800, fontSize: "13px", textDecoration: "none" } },
             h("span", { style: { fontSize: "16px" } }, "✆"), "Contactar por WhatsApp"))),
 
         // Condiciones / notas de la propuesta (opcional)
-        s.proposalNotes && s.proposalNotes.trim() ? h("div", { style: { padding: "4px 44px 8px" } },
+        s.proposalNotes && s.proposalNotes.trim() ? h("div", { style: { padding: "2px 44px 6px" } },
           h("div", { style: this.st.eyebrow }, "Condiciones y notas"),
-          h("div", { style: { font: "500 12px/1.6 Nunito", color: "#2A2A2E", marginTop: "8px", whiteSpace: "pre-wrap" } }, s.proposalNotes)) : null,
+          h("div", { style: { font: "500 12px/1.5 Nunito", color: "#2A2A2E", marginTop: "6px", whiteSpace: "pre-wrap" } }, s.proposalNotes)) : null,
 
         // Legal
-        h("div", { style: { padding: "16px 44px 30px", borderTop: "1px solid #E6E6EB" } },
-          h("div", { style: { font: "500 10.5px/1.5 Nunito", color: "#A5A5AD" } }, C.legalNote)))))
+        h("div", { style: { padding: "10px 44px 16px", borderTop: "1px solid #E6E6EB" } },
+          h("div", { style: { font: "500 10px/1.4 Nunito", color: "#A5A5AD" } }, C.legalNote)))))
     );
   }
 
@@ -1407,57 +1411,66 @@ class Component extends DCLogic {
     return { bigNum: String(q), unit: "" };
   }
 
-  cardHeader(r, t, meta) {
-    const h = React.createElement;
-    return h("div", { style: { padding: "15px 18px", minHeight: "132px", background: "linear-gradient(135deg," + t.main + "," + t.accent + ")", color: "#fff", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "12px" } },
-      h("div", { style: { display: "flex", gap: "11px", alignItems: "flex-start" } },
-        h("div", { style: { width: "34px", height: "34px", borderRadius: "9px", background: "rgba(255,255,255,.2)", display: "flex", alignItems: "center", justifyContent: "center", flex: "none" } }, this.svgIcon(meta.icon, "#fff", 19)),
-        h("div", null,
-          h("div", { style: { font: "800 16px Nunito", letterSpacing: "-.01em" } }, r.productName),
-          h("div", { style: { font: "500 11.5px/1.35 Nunito", color: "rgba(255,255,255,.88)", marginTop: "3px" } }, meta.tagline))),
-      meta.badge ? h("div", { style: { border: "1.5px solid rgba(255,255,255,.6)", borderRadius: "999px", padding: "4px 10px", font: "700 9.5px Nunito", letterSpacing: ".08em", textTransform: "uppercase", whiteSpace: "nowrap", flex: "none" } }, meta.badge) : null);
+  // Factor de reducción de las tarjetas de producto según cuántas se muestren
+  // a la vez, para que la propuesta siga cabiendo en una sola hoja carta.
+  cardScale(count) {
+    if (count <= 1) return 1;
+    if (count === 2) return 0.92;
+    if (count === 3) return 0.82;
+    return 0.74; // 4 productos
   }
-  cardValueBlock(item, r, t, meta) {
-    const h = React.createElement;
+  px(n, scale) { return Math.round(n * scale) + "px"; }
+  cardHeader(r, t, meta, scale) {
+    const h = React.createElement, s = scale || 1, px = (n) => this.px(n, s);
+    return h("div", { style: { padding: px(15) + " " + px(18), minHeight: px(132), background: "linear-gradient(135deg," + t.main + "," + t.accent + ")", color: "#fff", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: px(12) } },
+      h("div", { style: { display: "flex", gap: px(11), alignItems: "flex-start" } },
+        h("div", { style: { width: px(34), height: px(34), borderRadius: px(9), background: "rgba(255,255,255,.2)", display: "flex", alignItems: "center", justifyContent: "center", flex: "none" } }, this.svgIcon(meta.icon, "#fff", Math.round(19 * s))),
+        h("div", null,
+          h("div", { style: { font: "800 " + px(16) + " Nunito", letterSpacing: "-.01em" } }, r.productName),
+          h("div", { style: { font: "500 " + px(11.5) + "/1.35 Nunito", color: "rgba(255,255,255,.88)", marginTop: px(3) } }, meta.tagline))),
+      meta.badge ? h("div", { style: { border: "1.5px solid rgba(255,255,255,.6)", borderRadius: "999px", padding: px(4) + " " + px(10), font: "700 " + px(9.5) + " Nunito", letterSpacing: ".08em", textTransform: "uppercase", whiteSpace: "nowrap", flex: "none" } }, meta.badge) : null);
+  }
+  cardValueBlock(item, r, t, meta, scale) {
+    const h = React.createElement, s = scale || 1, px = (n) => this.px(n, s);
     const d = this.cardDisplayValue(item);
-    return h("div", { style: { padding: "18px 18px 10px", textAlign: "center", minHeight: "120px", display: "flex", flexDirection: "column", justifyContent: "center" } },
-      h("div", { style: { font: "600 11px Nunito", color: "#6B6B73", marginBottom: "5px" } }, meta.valueLabel),
+    return h("div", { style: { padding: px(18) + " " + px(18) + " " + px(10), textAlign: "center", minHeight: px(120), display: "flex", flexDirection: "column", justifyContent: "center" } },
+      h("div", { style: { font: "600 " + px(11) + " Nunito", color: "#6B6B73", marginBottom: px(5) } }, meta.valueLabel),
       d.bigNum != null
         ? h("div", null,
-          h("div", { style: { font: "800 46px/1 Nunito", color: t.main, letterSpacing: "-.02em" } }, d.bigNum),
-          d.unit ? h("div", { style: { font: "600 12.5px Nunito", color: "#6B6B73", marginTop: "3px" } }, d.unit) : null)
-        : h("div", { style: { font: "800 27px/1.12 Nunito", color: t.main, letterSpacing: "-.01em" } }, d.bigText + (d.unit ? " " + d.unit : "")));
+          h("div", { style: { font: "800 " + px(46) + "/1 Nunito", color: t.main, letterSpacing: "-.02em" } }, d.bigNum),
+          d.unit ? h("div", { style: { font: "600 " + px(12.5) + " Nunito", color: "#6B6B73", marginTop: px(3) } }, d.unit) : null)
+        : h("div", { style: { font: "800 " + px(27) + "/1.12 Nunito", color: t.main, letterSpacing: "-.01em" } }, d.bigText + (d.unit ? " " + d.unit : "")));
   }
-  cardBenefits(benefits, t) {
-    const h = React.createElement;
-    return h("div", { style: { padding: "6px 18px 14px" } },
-      benefits.map((b, i) => h("div", { key: i, style: { display: "flex", gap: "9px", alignItems: "flex-start", marginBottom: "9px" } },
+  cardBenefits(benefits, t, scale) {
+    const h = React.createElement, s = scale || 1, px = (n) => this.px(n, s);
+    return h("div", { style: { padding: px(6) + " " + px(18) + " " + px(14) } },
+      benefits.map((b, i) => h("div", { key: i, style: { display: "flex", gap: px(9), alignItems: "flex-start", marginBottom: px(9) } },
         this.checkIcon(t.accent),
-        h("div", { style: { font: "500 12.5px/1.4 Nunito", color: "#2A2A2E" } }, this.parseBold(b)))));
+        h("div", { style: { font: "500 " + px(12.5) + "/1.4 Nunito", color: "#2A2A2E" } }, this.parseBold(b)))));
   }
-  cardPriceFooter(item, r, t) {
-    const h = React.createElement, U = window.PC.utils;
-    return h("div", { style: { marginTop: "auto", padding: "14px 18px", background: "#fff", borderTop: "1px solid " + t.border, display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px" } },
-      h("span", { style: { font: "500 13px Nunito", color: "#6B6B73" } }, "Periodo"),
-      h("span", { style: { font: "800 14px Nunito", color: "#111" } }, r.periodLabel + (item.extraMonths ? " (+" + item.extraMonths + " mes cortesía)" : "")));
+  cardPriceFooter(item, r, t, scale) {
+    const h = React.createElement, U = window.PC.utils, s = scale || 1, px = (n) => this.px(n, s);
+    return h("div", { style: { marginTop: "auto", padding: px(14) + " " + px(18), background: "#fff", borderTop: "1px solid " + t.border, display: "flex", justifyContent: "space-between", alignItems: "center", gap: px(10) } },
+      h("span", { style: { font: "500 " + px(13) + " Nunito", color: "#6B6B73" } }, "Periodo"),
+      h("span", { style: { font: "800 " + px(14) + " Nunito", color: "#111" } }, r.periodLabel + (item.extraMonths ? " (+" + item.extraMonths + " mes cortesía)" : "")));
   }
   // Footer del modo VS: resumen comercial completo por tarjeta (mismos valores
   // que miniPriceSummary del panel izquierdo). Solo se usa en Comparativo de productos.
-  vsPriceFooter(item, r, t) {
-    const h = React.createElement, U = window.PC.utils;
-    const row = (label, value, o) => { o = o || {}; return h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "12px", marginBottom: o.mb || "4px" } },
-      h("span", { style: { font: (o.strong ? "800 " : "500 ") + (o.big ? "13px" : "12px") + " Nunito", color: o.labelColor || "#6B6B73" } }, label),
-      h("span", { style: { font: (o.strong ? "800 " : "700 ") + (o.big ? "18px" : "13px") + " Nunito", color: o.valueColor || "#111", textDecoration: o.strike ? "line-through" : "none" } }, value)); };
+  vsPriceFooter(item, r, t, scale) {
+    const h = React.createElement, U = window.PC.utils, s = scale || 1, px = (n) => this.px(n, s);
+    const row = (label, value, o) => { o = o || {}; return h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: px(12), marginBottom: o.mb != null ? o.mb : px(4) } },
+      h("span", { style: { font: (o.strong ? "800 " : "500 ") + px(o.big ? 13 : 12) + " Nunito", color: o.labelColor || "#6B6B73" } }, label),
+      h("span", { style: { font: (o.strong ? "800 " : "700 ") + px(o.big ? 18 : 13) + " Nunito", color: o.valueColor || "#111", textDecoration: o.strike ? "line-through" : "none" } }, value)); };
     const listPrice = (r.zoneListPrice && r.zoneListPrice > r.finalPrice) ? r.zoneListPrice : r.originalPrice;
     const discPct = listPrice > 0 ? Math.round((listPrice - r.finalPrice) / listPrice * 100) : 0;
     const hasDisc = discPct > 0;
     const periodTxt = r.periodLabel + (item.extraMonths ? " (+" + item.extraMonths + " mes cortesía)" : "");
-    return h("div", { style: { marginTop: "auto", padding: "14px 18px", background: "#fff", borderTop: "1px solid " + t.border } },
+    return h("div", { style: { marginTop: "auto", padding: px(14) + " " + px(18), background: "#fff", borderTop: "1px solid " + t.border } },
       row("Periodo", periodTxt, { valueColor: "#111" }),
       row("Precio total sin IVA", U.money(listPrice), { strike: hasDisc, valueColor: hasDisc ? "#A5A5AD" : "#111" }),
       hasDisc ? row("Descuento", "−" + discPct + "%", { labelColor: "#1b8f51", valueColor: "#1b8f51" }) : null,
       hasDisc ? row("Precio final sin IVA", U.money(r.finalPrice)) : null,
-      h("div", { style: { height: "1px", background: "#E0E0E6", margin: "7px 0" } }),
+      h("div", { style: { height: "1px", background: "#E0E0E6", margin: px(7) + " 0" } }),
       row("Precio final con IVA", U.money(r.finalPriceIVA), { strong: true, big: true, labelColor: "#146b3d", valueColor: "#1b8f51", mb: "0" }));
   }
   cardPromoStrip(r, t) {
@@ -1490,27 +1503,31 @@ class Component extends DCLogic {
     const r = item.result, t = this.themes[r.theme] || this.themes.green;
     const meta = this.pcfg(r.productId);
     const benefits = meta.benefits;
-    const width = count === 1 ? "100%" : "calc(50% - 9px)";
-    return h("div", { style: { display: "flex", flexDirection: "column", width: width, maxWidth: count === 1 ? "380px" : "none", minWidth: count === 1 ? "320px" : "300px", margin: count === 1 ? "0 auto" : "0", border: "1px solid " + t.border, borderRadius: "14px", overflow: "hidden", background: "#fff", boxShadow: "0 18px 30px -14px rgba(17,17,17,.4), 0 4px 12px -8px rgba(17,17,17,.2)" } },
-      this.cardHeader(r, t, meta),
-      this.cardValueBlock(item, r, t, meta),
-      this.cardBenefits(benefits, t),
+    const scale = this.cardScale(count);
+    const sizeStyle = count === 1
+      ? { width: "100%", maxWidth: "380px", minWidth: "320px", margin: "0 auto", flex: "none" }
+      : { flex: "1 1 0", minWidth: 0 };
+    return h("div", { style: Object.assign({ display: "flex", flexDirection: "column", border: "1px solid " + t.border, borderRadius: "14px", overflow: "hidden", background: "#fff", boxShadow: "0 18px 30px -14px rgba(17,17,17,.4), 0 4px 12px -8px rgba(17,17,17,.2)" }, sizeStyle) },
+      this.cardHeader(r, t, meta, scale),
+      this.cardValueBlock(item, r, t, meta, scale),
+      this.cardBenefits(benefits, t, scale),
       this.manualPromoStrip(item, t),
-      this.cardPriceFooter(item, r, t));
+      this.cardPriceFooter(item, r, t, scale));
   }
 
   renderVsBody(data) {
     const h = React.createElement, C = window.PC.config;
+    const scale = this.cardScale(2);
     const col = (item, tag) => {
       const r = item.result, t = this.themes[r.theme] || this.themes.green;
       const meta = this.pcfg(r.productId), benefits = meta.benefits;
       return h("div", { style: { flex: 1, display: "flex", flexDirection: "column", border: "1px solid " + t.border, borderRadius: "14px", overflow: "hidden", background: "#fff", boxShadow: "0 4px 16px -10px rgba(17,17,17,.22)" } },
         h("div", { style: { padding: "7px", background: "#111", color: "#fff", textAlign: "center", font: "800 11px Nunito", letterSpacing: ".14em" } }, "OPCIÓN " + tag),
-        this.cardHeader(r, t, meta),
-        this.cardValueBlock(item, r, t, meta),
-        this.cardBenefits(benefits, t),
+        this.cardHeader(r, t, meta, scale),
+        this.cardValueBlock(item, r, t, meta, scale),
+        this.cardBenefits(benefits, t, scale),
         this.manualPromoStrip(item, t),
-        this.vsPriceFooter(item, r, t));
+        this.vsPriceFooter(item, r, t, scale));
     };
     return h("div", { style: { display: "flex", gap: "14px", alignItems: "stretch" } },
       col(data.items[0], "A"),
@@ -1523,7 +1540,7 @@ class Component extends DCLogic {
     const row = (label, value, o) => { o = o || {}; return h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "18px", marginBottom: o.mb || "5px" } },
       h("span", { style: { font: "500 12px Nunito", color: o.labelColor || "#6B6B73" } }, label),
       h("span", { style: { font: "600 13px Nunito", color: o.valueColor || "#111", textDecoration: o.strike ? "line-through" : "none" } }, value)); };
-    return h("div", { style: { border: "1px solid rgba(17,17,17,.1)", borderRadius: "12px", padding: "18px 22px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "24px", background: "rgba(17,17,17,.045)", color: "#111", flexWrap: "wrap" } },
+    return h("div", { style: { border: "1px solid rgba(17,17,17,.1)", borderRadius: "12px", padding: "13px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "20px", background: "rgba(17,17,17,.045)", color: "#111", flexWrap: "wrap" } },
       h("div", { style: { flex: 1, textAlign: "left", minWidth: "180px" } },
         h("div", { style: { font: "800 22px Nunito", letterSpacing: ".01em", textTransform: "uppercase", color: "#6B6B73" } }, info.preferential ? "Total de inversión (precio preferencial)" : "Total de inversión"),
         pkgPromo ? h("div", { style: { font: "600 12px Nunito", color: "#16763F", marginTop: "6px" } }, "Incluye: " + ((pkgPromo.display || {}).label || pkgPromo.name)) : null),

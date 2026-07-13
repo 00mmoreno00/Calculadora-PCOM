@@ -32,7 +32,7 @@ window.PC.defaultPromotions = [
   {
     id: "promo_bienvenida",
     name: "Bienvenida Propiedades.com",
-    active: true,
+    active: false,
     startsAt: "2026-07-01",
     endsAt: "2026-12-31",
     priority: 10,
@@ -53,7 +53,7 @@ window.PC.defaultPromotions = [
   {
     id: "promo_mes_paquete_oportunidades_destacado",
     name: "Promoción del mes · Oportunidades + Destacados",
-    active: true,
+    active: false,
     startsAt: "2026-07-01",
     endsAt: "2026-07-31",
     priority: 100,
@@ -74,7 +74,7 @@ window.PC.defaultPromotions = [
   {
     id: "promo_destacados_anual_2meses",
     name: "Destacados Anual · 2 meses de cortesía",
-    active: true,
+    active: false,
     startsAt: "2026-07-01",
     endsAt: "2026-08-31",
     priority: 40,

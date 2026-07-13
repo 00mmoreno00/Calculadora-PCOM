@@ -33,11 +33,17 @@ window.PC.pricingData = (function () {
     //   p300  = hasta 300 propiedades
     //   p500  = 301 a 500 propiedades
     //   extra = por cada bloque de 500 adicionales (inventario > 500)
-    // FullPrice: sin dato en las tablas del cliente -> TODO_REEMPLAZAR.
+    // Confirmado con el negocio (2026-07-13): Elite NO tiene un precio de
+    // "lista nacional" único — cada zona tiene su propio precio de lista y su
+    // propio % de descuento (20% CDMX, 50% Jalisco/NL, 65% Querétaro, 70%
+    // Resto). Esos precios de lista + descuento ya están capturados en
+    // data/precios/elite.csv (columnas PrecioBase/Descuento) para mostrar el
+    // precio tachado correcto por zona. La zona FULLPRICE se deja sin precio
+    // a propósito: no aplica para Elite.
     // ----------------------------------------------------------------
     elite: {
       zones: {
-        FULLPRICE:   { p300: null, p500: null, extra: null, _todo: true }, // TODO_REEMPLAZAR
+        FULLPRICE:   { p300: null, p500: null, extra: null, _todo: true },
         CDMX_EDOMEX: { p300: 8500, p500: 11050, extra: 3315 },
         JALISCO_NL:  { p300: 4750, p500: 6413,  extra: 1924 },
         QUERETARO:   { p300: 3500, p500: 4725,  extra: 1418 },
@@ -48,14 +54,14 @@ window.PC.pricingData = (function () {
     // ----------------------------------------------------------------
     // OPORTUNIDADES ILIMITADAS — precio MENSUAL por zona y paquete.
     // Paquetes: 10, 40, 80, 140, 300, 500. extra = por cada 500 extra.
-    // FullPrice: derivado de los % de descuento por zona (lista nacional).
-    //   Revisar/confirmar antes de usar en producción.
+    // FullPrice: lista nacional oficial confirmada por el negocio (2026-07-13).
+    //   Verificado: CDMX/Jalisco/Querétaro/Resto = FULLPRICE × (1 - % descuento
+    //   de zona), cuadra exacto contra los valores regionales de abajo.
     // ----------------------------------------------------------------
     oportunidades: {
       packages: [10, 40, 80, 140, 300, 500],
       zones: {
-        // Lista nacional derivada (0% descuento). TODO_REEMPLAZAR si hay lista oficial.
-        FULLPRICE:   { "10": 600, "40": 2000, "80": 3000, "140": 5000, "300": 8000, "500": 9200, extra: 1380, _todo: true },
+        FULLPRICE:   { "10": 599, "40": 1999, "80": 2999, "140": 4995, "300": 7999, "500": 9199, extra: 1380 },
         CDMX_EDOMEX: { "10": 479, "40": 1599, "80": 2399, "140": 3996, "300": 6399, "500": 7359, extra: 1104 },
         JALISCO_NL:  { "10": 299, "40": 1000, "80": 1500, "140": 2498, "300": 3999, "500": 4599, extra: 690 },
         QUERETARO:   { "10": 210, "40": 700,  "80": 1050, "140": 1748, "300": 2800, "500": 3220, extra: 483 },
