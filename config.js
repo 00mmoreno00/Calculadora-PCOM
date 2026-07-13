@@ -50,7 +50,7 @@ window.PC.config = (function () {
     ],
     contactCenter: {
       id: "contactcenter",
-      name: "Contact Center Propiedades.com",
+      name: "Contact Center",
       email: "contacto@propiedades.com",
       phone: "5520613046"
     },
