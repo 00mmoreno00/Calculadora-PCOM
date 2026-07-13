@@ -71,22 +71,20 @@ window.PC.config = (function () {
     proposalValidityBusinessDays: 7,
     benefits: {
       elite: [
-        'Etiqueta **"Exclusivo"** en todas tus publicaciones',
-        'Posicionamiento **prioritario** sobre publicaciones simples',
-        'Más de **2 millones de personas** podrían ver tus propiedades este mes'
-      ],
-      oportunidades: [
-        'Recibe **oportunidades de compradores** activos',
-        'Contacto **directo** con prospectos interesados',
-        'Escala tu volumen según tu operación',
-        'Sin costo por propiedad, **pagas por oportunidad**'
-      ],
-      destacados: [
-        'Aparecen **por encima** de las publicaciones Elite',
-        'Se muestran en los **primeros resultados**',
-        'Etiqueta **"Destacado"** de alta visibilidad',
-        '**Asignación automática de anuncio a destacar:** el sistema identifica los mejores anuncios de acuerdo a tu inventario y al comportamiento del mercado'
-      ],
+    'Etiqueta distintiva **"Exclusivo"**',
+    'Posiciónate sobre los anuncios simples',
+    'Leads por **WhatsApp incluidos**'
+  ],
+  oportunidades: [
+    'Consulta todos tus leads **sin límites**',
+    'Posiciónate sobre los anuncios gratuitos',
+    'Leads por **WhatsApp incluidos**'
+  ],
+  destacados: [
+    'Aparece en las **primeras páginas**',
+    '**Asignación inteligente** de tus anuncios',
+    'Leads por **WhatsApp incluidos**'
+  ],
       prime: [
         'Aparecen **por encima** de los destacados',
         'Se mantienen **fijos** en los resultados de búsqueda',
