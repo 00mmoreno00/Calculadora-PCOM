@@ -46,9 +46,8 @@ window.PC.config = (function () {
       { id: "a3", name: "Hanad Martinez",  email: "hanad.martinez@propiedades.com",  phone: "5563177104" },
        { id: "a4", name: "Tanya Sanchez",    email: "tanya.sanchez@propiedades.com",    phone: "5597710411" },
        { id: "a5", name: "Lizzette Benitez",    email: "lizzette.benitez@propiedades.com",    phone: "5594483642" },
-      { id: "a6", name: "Claudia Mariscal",    email: "claudia.mariscal@propiedades.com",    phone: "5576947101" }
-    ],
-    contactCenter: { name: "Contact Center Propiedades.com", phone: "5520613046" },
+      { id: "a6", name: "Claudia Mariscal",    email: "claudia.mariscal@propiedades.com",    phone: "5576947101" }],
+    contactCenter: { name: "Contact Center",    email: "contacto@propiedades.com", phone: "5520613046" },
     payments: {
       msiPaypal: { enabled: true, label: "Meses sin intereses (MSI) vía PayPal", detail: "Disponible con cualquier tarjeta de crédito. El cobro total se aplica en tu tarjeta." },
       transfer: { enabled: true, label: "Transferencia bancaria / depósito" }
