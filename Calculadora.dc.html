@@ -21,8 +21,8 @@
   <script src="pricing-engine.js"></script>
   <script src="promotion-engine.js"></script>
   <script src="validators.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" integrity="sha512-BNaRQnYJYiPSqHHDb58B0yaPfCu+Wgds8Gp/gU33kqBtgNS4tSPHuGibyoeqMV/TJlSKda6FXzoEyYGjTe+vXA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha512-qZvrmS2ekKPF2mSznTQsxqPgnpkI4DNTlrdUmTzrDgektczlKNRRhy5X5AAOnx5S09ydFYWWNSfcEqDTTHgtNA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <style>
     *{box-sizing:border-box}
     html,body{margin:0;padding:0}
@@ -184,24 +184,22 @@ class Component extends DCLogic {
   // Carga la fuente OFICIAL de precios: data/precios/index.json + sus CSV.
   // Si algo falla, deja el catálogo vacío y la calculadora usa el fallback actual.
   loadPriceCatalog() {
-    fetch("data/precios/index.json")
-      .then(r => r.ok ? r.json() : null)
-      .then(idx => {
-        if (!idx || !Array.isArray(idx.files)) return null;
-        return Promise.all(idx.files.map(f =>
-          fetch(f.file).then(r => r.ok ? r.text() : "").then(txt => {
-            const res = this.validateCSV(txt);
-            return res.errors.length ? [] : res.rows;
-          }).catch(() => [])
-        ));
-      })
-      .then(all => { if (all) { this._priceCatalogRows = [].concat.apply([], all); this.forceUpdate(); } })
+    // Reutiliza la misma descarga que ya hace pricing-data.js (index.json +
+    // CSV oficiales) en vez de volver a pedirla por su cuenta.
+    window.PC.pricingData.fetchCatalogFiles()
+      .then(files => (files || []).map(f => {
+        const res = this.validateCSV(f.text);
+        return res.errors.length ? [] : res.rows;
+      }))
+      .then(all => { this._priceCatalogRows = [].concat.apply([], all); this.forceUpdate(); })
       .catch(() => { });
   }
 
   makeFolio(d) {
     const U = window.PC.utils;
-    const r = Math.floor(1000 + Math.random() * 9000);
+    // Sufijo de 6 dígitos (900,000 combinaciones) para reducir el riesgo de
+    // folios repetidos el mismo día entre varias propuestas.
+    const r = Math.floor(100000 + Math.random() * 900000);
     return "P-" + d.getFullYear() + U.pad(d.getMonth() + 1) + U.pad(d.getDate()) + "-" + r;
   }
 
@@ -880,9 +878,10 @@ class Component extends DCLogic {
         h("div", { style: { padding: "24px 44px" } },
           h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "14px", marginBottom: "20px" } },
             this.metaCell("Cliente", s.clientName || "—"),
-            this.metaCell("Inventario", s.clientInventory ? (s.clientInventory + " propiedades") : "—"),
+            this.metaCell("Celular", s.clientPhone || "—"),
             this.metaCell("Estado", s.stateName || "—"),
             this.metaCell("Zona de pricing", zoneLabel),
+            this.metaCell("Inventario", s.clientInventory ? (s.clientInventory + " propiedades") : "—"),
             this.metaCell("Asesor", adv ? adv.name : "—")),
           h("p", { style: { font: "500 13.5px/1.6 Nunito", color: "#2A2A2E", margin: "0 0 6px" } }, C.introMessage),
           h("div", { style: { font: "800 22px Nunito", color: "#111", margin: "18px 0 4px", letterSpacing: "-.02em" } }, modeTitle)),

@@ -160,6 +160,11 @@ window.PC.pricingData = (function () {
     const z = normalizeZone(zone);
     if (!p || !(price > 0)) return;
     data.unitFormulaPrices[p + "|" + z] = price;
+    // Prime SÍ se sincroniza aquí a propósito: prime.unit es el precio unitario
+    // que usa el modo "fórmula" (unit × cantidad × meses) cuando no hay fila
+    // exacta en el CSV para la cantidad pedida. Mantenerlo igual a la fila
+    // Oferta=1/Mensual de data/precios/prime.csv evita que ese fallback quede
+    // desactualizado si el CSV cambia.
     if (p === "prime" && !z) data.prime.unit = price;
   }
 
@@ -192,23 +197,34 @@ window.PC.pricingData = (function () {
     }
   }
 
+  // Descarga index.json + todos los CSV oficiales UNA sola vez (la promesa se
+  // cachea y se comparte con quien más la necesite, ej. Calculadora.dc.html,
+  // para no duplicar la misma descarga de red).
+  let catalogFilesPromise = null;
+  function fetchCatalogFiles() {
+    if (catalogFilesPromise) return catalogFilesPromise;
+    catalogFilesPromise = fetch("data/precios/index.json")
+      .then(r => r.ok ? r.json() : null)
+      .then(idx => {
+        if (!idx || !Array.isArray(idx.files)) return [];
+        return Promise.all(idx.files.map(f =>
+          fetch(f.file).then(r => r.ok ? r.text() : "").then(text => ({ file: f.file, text: text })).catch(() => ({ file: f.file, text: "" }))
+        ));
+      })
+      .catch(() => []);
+    return catalogFilesPromise;
+  }
+
   // Carga ligera de filas base unit_formula desde los CSV oficiales.
   // No reemplaza el catálogo oficial de la calculadora; sólo habilita fórmula
-  // cuando no existe una fila exacta para cantidad/vigencia.
+  // cuando no existe una fila exacta para cantidad/vigencia. fetchCatalogFiles()
+  // ya degrada a [] si algo falla, así que aquí no queda nada más que hacer.
   try {
     if (typeof fetch === "function") {
-      fetch("data/precios/index.json")
-        .then(r => r.ok ? r.json() : null)
-        .then(idx => {
-          if (!idx || !Array.isArray(idx.files)) return [];
-          return Promise.all(idx.files.map(f => fetch(f.file).then(r => r.ok ? r.text() : "").catch(() => "")));
-        })
-        .then(files => { (files || []).forEach(ingestCsv); })
-        .catch(() => {
-          fetch("data/precios/prime.csv").then(r => r.ok ? r.text() : "").then(ingestCsv).catch(() => {});
-        });
+      fetchCatalogFiles().then(files => { (files || []).forEach(f => ingestCsv(f.text)); });
     }
   } catch (e) { }
 
+  data.fetchCatalogFiles = fetchCatalogFiles;
   return data;
 })();
