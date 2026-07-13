@@ -63,6 +63,7 @@ class Component extends DCLogic {
     // Asesor + cliente
     advisorId: "",
     clientName: "",
+    clientPhone: "",
     clientInventory: "",
     clientStatus: "Prospecto",
     stateName: "",
@@ -101,7 +102,7 @@ class Component extends DCLogic {
 
   PWD = "12345";
   PRODUCT_IDS = ["elite", "oportunidades", "destacados", "prime"];
-  DRAFT_FIELDS = ["advisorId", "clientName", "clientInventory", "clientStatus", "stateName", "zone", "zoneManual", "mode", "proposalDate", "proposalValidUntil", "folio", "proposalNotes", "products"];
+  DRAFT_FIELDS = ["advisorId", "clientName", "clientPhone", "clientInventory", "clientStatus", "stateName", "zone", "zoneManual", "mode", "proposalDate", "proposalValidUntil", "folio", "proposalNotes", "products"];
 
   // Catálogo de asesores: SIEMPRE desde config.js. Sin persistencia en navegador.
   getAdvisors() {
@@ -285,7 +286,7 @@ class Component extends DCLogic {
     const advs = this.getAdvisorsWithContactCenter();
     this.setState({
       advisorId: advs[0] ? advs[0].id : "",
-      clientName: "", clientInventory: "", clientStatus: "Prospecto",
+      clientName: "", clientPhone: "", clientInventory: "", clientStatus: "Prospecto",
       stateName: "", zone: "", zoneManual: false,
       mode: "individual", advisorSearch: "", proposalNotes: "",
       proposalDate: U.toISO(today),
@@ -631,6 +632,7 @@ class Component extends DCLogic {
       this.section("Sección 02", "Datos del cliente",
         h("div", null,
           this.field("Cliente o empresa", h("input", { style: this.st.input, value: s.clientName, placeholder: "Nombre del cliente o empresa", onChange: e => this.set("clientName", e.target.value) })),
+          this.field("Número celular", h("input", { type: "tel", style: this.st.input, value: s.clientPhone, placeholder: "Ej. 5512345678", onChange: e => this.set("clientPhone", e.target.value) })),
           this.field("Inventario del cliente", h("input", { type: "number", min: "0", style: this.st.input, value: s.clientInventory, placeholder: "Ej. 250", onChange: e => this.set("clientInventory", e.target.value) })))),
 
       // 3. Estado y zona
