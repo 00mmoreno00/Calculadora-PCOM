@@ -107,6 +107,13 @@ class Component extends DCLogic {
   getAdvisors() {
     return (window.PC.config.advisors || []).map(a => Object.assign({}, a));
   }
+  // Igual que getAdvisors() pero anteponiendo el Contact Center, para que sea
+  // la opción (y el valor por defecto) de la Sección 01 "Asesor asignado".
+  getAdvisorsWithContactCenter() {
+    const cc = window.PC.config.contactCenter;
+    const list = this.getAdvisors();
+    return cc && cc.id ? [Object.assign({}, cc)].concat(list) : list;
+  }
   saveAdvisors() { /* Sin persistencia: los asesores viven en config.js. */ }
 
   // Paleta por producto (verde / dorado / azul) para la propuesta y PDF.
@@ -162,7 +169,7 @@ class Component extends DCLogic {
       proposalDate: U.toISO(today),
       proposalValidUntil: U.toISO(validUntil),
       folio: this.makeFolio(today),
-      advisorId: this.getAdvisors()[0] ? this.getAdvisors()[0].id : "",
+      advisorId: this.getAdvisorsWithContactCenter()[0] ? this.getAdvisorsWithContactCenter()[0].id : "",
       products: [this.makeProduct()]
     });
     this.loadPriceCatalog();
@@ -208,7 +215,8 @@ class Component extends DCLogic {
       // Promo manual por producto (bonificación / cortesía)
       promoOn: false,
       promoQty: 1,
-      promoProduct: "destacados"
+      promoProduct: "destacados",
+      promoPeriod: "mensual"
     };
   }
 
@@ -274,7 +282,7 @@ class Component extends DCLogic {
   clearAll() {
     const U = window.PC.utils, C = window.PC.config;
     const today = U.todayLocal();
-    const advs = this.getAdvisors();
+    const advs = this.getAdvisorsWithContactCenter();
     this.setState({
       advisorId: advs[0] ? advs[0].id : "",
       clientName: "", clientInventory: "", clientStatus: "Prospecto",
@@ -290,7 +298,7 @@ class Component extends DCLogic {
   }
   copySummary(data) {
     const U = window.PC.utils, C = window.PC.config, s = this.state;
-    const adv = this.getAdvisors().find(a => a.id === s.advisorId);
+    const adv = this.getAdvisorsWithContactCenter().find(a => a.id === s.advisorId);
     const modeTitle = { individual: "Propuesta comercial", paquete: "Propuesta de paquete", vs: "Comparativo de productos" }[s.mode] || "Propuesta";
     const L = [];
     L.push(C.company.name + " — " + modeTitle);
@@ -390,7 +398,7 @@ class Component extends DCLogic {
         period: p.period, eliteOption: p.eliteOption, oppOption: p.oppOption,
         inventory: s.clientInventory, quantity: p.quantity, primeCalcMode: p.primeCalcMode,
         manualDiscountPct: p.manualDiscountPct,
-        promoOn: p.promoOn, promoQty: p.promoQty, promoProduct: p.promoProduct,
+        promoOn: p.promoOn, promoQty: p.promoQty, promoProduct: p.promoProduct, promoPeriod: p.promoPeriod,
         basePriceOverride: baseOverride, maxDiscount: pc.maxDiscount
       };
       const promoCtx = {
@@ -532,7 +540,7 @@ class Component extends DCLogic {
 
   whatsappLink() {
     const C = window.PC.config;
-    const adv = this.getAdvisors().find(a => a.id === this.state.advisorId);
+    const adv = this.getAdvisorsWithContactCenter().find(a => a.id === this.state.advisorId);
     let phone = (adv && adv.phone) ? adv.phone : C.contactCenter.phone;
     phone = String(phone).replace(/\D/g, ""); if (phone.length === 10) phone = "52" + phone;
     const msg = "Hola, me interesa esta propuesta comercial de " + C.company.name + ".";
@@ -579,7 +587,7 @@ class Component extends DCLogic {
   // ===================== PANEL DE CONFIGURACIÓN =====================
   renderPanel(data) {
     const h = React.createElement, C = window.PC.config, s = this.state;
-    const advisorOpts = this.getAdvisors().map(a => ({ value: a.id, label: a.name + (a.phone ? "" : " (sin tel.)") }));
+    const advisorOpts = this.getAdvisorsWithContactCenter().map(a => ({ value: a.id, label: a.name + (a.phone ? "" : " (sin tel.)") }));
     const advQ = (s.advisorSearch || "").trim().toLowerCase();
     let advShown = advQ ? advisorOpts.filter(o => o.label.toLowerCase().indexOf(advQ) >= 0) : advisorOpts;
     if (s.advisorId && !advShown.some(o => o.value === s.advisorId)) { const sel = advisorOpts.find(o => o.value === s.advisorId); if (sel) advShown = [sel].concat(advShown); }
@@ -743,9 +751,10 @@ class Component extends DCLogic {
           style: { display: "inline-flex", alignItems: "center", gap: "7px", padding: "8px 14px", borderRadius: "8px", border: "1px solid " + (p.promoOn ? "#1b8f51" : "#D0D0D8"), background: p.promoOn ? "#1b8f51" : "#fff", color: p.promoOn ? "#fff" : "#2A2A2E", font: "700 12.5px Nunito" }
         },
           h("span", { style: { width: "8px", height: "8px", borderRadius: "999px", background: p.promoOn ? "#8FE3B4" : "#C9C9D2" } }), "Promo"),
-        p.promoOn ? h("div", { style: { display: "flex", gap: "10px", marginTop: "10px" } },
+        p.promoOn ? h("div", { style: { display: "flex", gap: "10px", marginTop: "10px", flexWrap: "wrap" } },
           h("div", { style: { width: "92px" } }, this.field("Cantidad", h("input", { type: "number", min: "1", style: this.st.input, value: p.promoQty, onChange: e => this.updateProduct(idx, { promoQty: e.target.value }) }))),
-          h("div", { style: { flex: 1 } }, this.field("Producto", this.select(p.promoProduct, v => this.updateProduct(idx, { promoProduct: v }), productOpts)))) : null),
+          h("div", { style: { flex: 1, minWidth: "140px" } }, this.field("Producto", this.select(p.promoProduct, v => this.updateProduct(idx, { promoProduct: v }), productOpts))),
+          h("div", { style: { flex: 1, minWidth: "120px" } }, this.field("Vigencia", this.select(p.promoPeriod, v => this.updateProduct(idx, { promoPeriod: v }), periodOpts)))) : null),
 
       // Mini resumen de precio en vivo
       this.miniPriceSummary(r),
@@ -785,7 +794,7 @@ class Component extends DCLogic {
   // ===================== PROPUESTA / PDF =====================
   renderProposal(data) {
     const h = React.createElement, C = window.PC.config, U = window.PC.utils, s = this.state;
-    const adv = this.getAdvisors().find(a => a.id === s.advisorId);
+    const adv = this.getAdvisorsWithContactCenter().find(a => a.id === s.advisorId);
     const zoneLabel = (C.zones.find(z => z.id === s.zone) || {}).label || "—";
 
     const modeTitle = { individual: "Propuesta comercial", paquete: "Propuesta de paquete", vs: "Comparativo de productos" }[s.mode];
@@ -863,7 +872,7 @@ class Component extends DCLogic {
           h("div", null,
             h("div", { style: this.st.eyebrow }, "Ejecutivo comercial"),
             h("div", { style: { font: "700 14px Nunito", marginTop: "5px" } }, adv ? adv.name : "—"),
-            adv ? h("div", { style: { font: "500 12px Nunito", color: "#6B6B73" } }, adv.email) : null,
+            adv && adv.email ? h("div", { style: { font: "500 12px Nunito", color: "#6B6B73" } }, adv.email) : null,
             h("div", { style: { font: "800 12px Nunito", color: "#1b8f51", marginTop: "8px" } }, "Vigencia de la propuesta: " + U.formatLong(U.fromISO(s.proposalValidUntil)))),
           h("a", { href: this.whatsappLink(), target: "_blank", rel: "noopener", style: { display: "inline-flex", alignItems: "center", gap: "8px", padding: "12px 18px", borderRadius: "10px", background: "#1E9D5B", color: "#fff", fontWeight: 800, fontSize: "13px", textDecoration: "none" } },
             h("span", { style: { fontSize: "16px" } }, "✆"), "Contactar por WhatsApp"))),
@@ -1353,17 +1362,18 @@ class Component extends DCLogic {
   }
 
   manualPromoStrip(item, t) {
-    const h = React.createElement, C = window.PC.config;
+    const h = React.createElement, C = window.PC.config, D = window.PC.pricingData;
     const c = item.cfg;
     if (!c.promoOn) return null;
     const qty = Number(c.promoQty) || 0;
     if (qty <= 0) return null;
     const name = (C.productMeta[c.promoProduct] || {}).name || c.promoProduct;
+    const periodLabel = (D.PERIODS[c.promoPeriod] || {}).label || "";
     return h("div", { style: { margin: "0 18px 14px", padding: "9px 12px", borderRadius: "9px", background: t.soft, border: "1px dashed " + t.chip, display: "flex", gap: "8px", alignItems: "flex-start" } },
       h("span", { style: { color: t.chip, fontWeight: 800, fontSize: "13px" } }, "★"),
       h("div", null,
         h("div", { style: { font: "800 11px Nunito", color: t.main } }, "Promo"),
-        h("div", { style: { font: "500 11px/1.35 Nunito", color: "#2A2A2E", marginTop: "2px" } }, qty + " × " + name + " de cortesía")));
+        h("div", { style: { font: "500 11px/1.35 Nunito", color: "#2A2A2E", marginTop: "2px" } }, qty + " × " + name + " de cortesía" + (periodLabel ? " · " + periodLabel : ""))));
   }
 
   renderProductCard(item, idx, count) {
