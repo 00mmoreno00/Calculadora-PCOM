@@ -47,7 +47,8 @@ window.PC.config = (function () {
       { id: "a4", name: "Hanad Martinez",  email: "hanad.martinez@propiedades.com",  phone: "5563177104" },
        { id: "a5", name: "Tanya Sanchez",    email: "tanya.sanchez@propiedades.com",    phone: "5597710411" },
        { id: "a6", name: "Lizzette Benitez",    email: "lizzette.benitez@propiedades.com",    phone: "5594483642" },
-      { id: "a7", name: "Claudia Mariscal", email: "claudia.mariscal@propiedades.com", phone: "5576947101" }
+       { id: "a7", name: "Marlen Salinas",    email: "marlen.salinas@propiedades.com",    phone: "5658646765" },
+      { id: "a8", name: "Claudia Mariscal", email: "claudia.mariscal@propiedades.com", phone: "5576947101" }
     ],
     contactCenter: {
       id: "contactcenter",
