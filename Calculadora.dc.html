@@ -797,10 +797,14 @@ class Component extends DCLogic {
 
     const total = PE.customPackageMonthly(productId, rows);
 
-    return h("div", { key: "custompkg" + idx, style: { marginBottom: "13px", padding: "12px", borderRadius: "8px", border: "1px solid #E6E6EB", background: "#FAFAFB" } },
-      h("div", { style: { font: "700 12px Nunito", color: "#2A2A2E", marginBottom: "9px" } }, "Combinación personalizada de paquetes"),
+    const subtitle = (text, color) => h("div", { style: { font: "700 10.5px Nunito", letterSpacing: ".05em", textTransform: "uppercase", color: color, marginBottom: "8px" } }, text);
 
-      rows.length ? h("div", { style: { marginBottom: "10px" } },
+    return h("div", { key: "custompkg" + idx, style: { marginBottom: "13px", padding: "12px", borderRadius: "8px", border: "1px solid #E6E6EB", background: "#FAFAFB" } },
+      h("div", { style: { font: "700 12px Nunito", color: "#2A2A2E", marginBottom: "12px" } }, "Combinación personalizada de paquetes"),
+
+      // ---- 1) Paquetes agregados ----
+      subtitle("Paquetes agregados", "#146b3d"),
+      rows.length ? h("div", { style: { marginBottom: "2px" } },
         rows.map((r, i) => {
           const info = PE.packageListInfo(productId, r.value);
           const qty = Number(r.qty) || 0;
@@ -812,14 +816,19 @@ class Component extends DCLogic {
             h("div", { style: { flex: "1 1 90px", font: "700 12px Nunito", color: "#146b3d", textAlign: "right" } }, U.money(subtotal)),
             h("button", { onClick: () => removePackage(r.value), style: { border: "none", background: "none", color: "#D7373F", fontWeight: 700, fontSize: "12px" } }, "Quitar"));
         })
-      ) : h("div", { style: { font: "500 12px Nunito", color: "#A5A5AD", marginBottom: "10px" } }, "Aún no agregas paquetes a la combinación."),
+      ) : h("div", { style: { font: "500 12px Nunito", color: "#A5A5AD" } }, "Aún no has agregado paquetes"),
 
-      h("div", { style: { display: "flex", gap: "8px", alignItems: "flex-end", flexWrap: "wrap" } },
-        h("div", { style: { flex: "1 1 160px" } }, this.field("Paquete", this.select(pick, v => this.updateProduct(idx, { customPickValue: v }), packages.map(o => ({ value: o.value, label: o.label }))))),
-        h("div", { style: { width: "80px" } }, this.field("Cantidad", h("input", { type: "number", min: "1", style: this.st.input, value: pickQty, onChange: e => this.updateProduct(idx, { customPickQty: e.target.value }) }))),
-        h("button", { onClick: addPackage, style: { padding: "9px 14px", borderRadius: "8px", border: "1px dashed #9ED3B4", background: "#EAF7F0", color: "#146b3d", fontWeight: 700, fontSize: "12px", height: "38px" } }, "+ Agregar paquete")),
+      h("div", { style: { height: "1px", background: "#E0E0E6", margin: "13px 0" } }),
 
-      rows.length ? h("div", { style: { marginTop: "10px", paddingTop: "8px", borderTop: "1px solid #E6E6EB", display: "flex", justifyContent: "space-between", font: "700 12px Nunito", color: "#2A2A2E" } },
+      // ---- 2) Agregar paquete (solo formulario de selección) ----
+      h("div", { style: { padding: "10px 10px 2px", borderRadius: "8px", background: "#F0F0F3" } },
+        subtitle("Agregar paquete", "#6B6B73"),
+        h("div", { style: { display: "flex", gap: "8px", alignItems: "flex-end", flexWrap: "wrap" } },
+          h("div", { style: { flex: "1 1 160px" } }, this.field("Paquete", this.select(pick, v => this.updateProduct(idx, { customPickValue: v }), packages.map(o => ({ value: o.value, label: o.label }))))),
+          h("div", { style: { width: "80px" } }, this.field("Cantidad", h("input", { type: "number", min: "1", style: this.st.input, value: pickQty, onChange: e => this.updateProduct(idx, { customPickQty: e.target.value }) }))),
+          h("button", { onClick: addPackage, style: { padding: "9px 14px", borderRadius: "8px", border: "1px dashed #9ED3B4", background: "#EAF7F0", color: "#146b3d", fontWeight: 700, fontSize: "12px", height: "38px", marginBottom: "13px" } }, "+ Agregar paquete"))),
+
+      rows.length ? h("div", { style: { marginTop: "12px", paddingTop: "8px", borderTop: "1px solid #E6E6EB", display: "flex", justifyContent: "space-between", font: "700 12px Nunito", color: "#2A2A2E" } },
         h("span", null, "Cobertura total"),
         h("span", null, total.coverage.toLocaleString("es-MX") + " " + unitLabel)) : null,
 
