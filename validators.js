@@ -21,13 +21,13 @@ window.PC.Validators = (function () {
 
     if (cfg.productId === "elite") {
       if (!cfg.eliteOption) missing.push("Opción de inventario Elite");
-      if (cfg.eliteOption === "inventario" && (!cfg.inventory || cfg.inventory <= 0))
-        missing.push("Inventario Elite (> 0)");
+      if (cfg.eliteOption === "personalizado" && (!cfg.customPackages || !cfg.customPackages.length))
+        missing.push("Agrega al menos un paquete a la combinación personalizada (Elite)");
     }
     if (cfg.productId === "oportunidades") {
       if (!cfg.oppOption) missing.push("Paquete de oportunidades");
-      if (cfg.oppOption === "inventario" && (!cfg.inventory || cfg.inventory <= 0))
-        missing.push("Inventario Oportunidades (> 0)");
+      if (cfg.oppOption === "personalizado" && (!cfg.customPackages || !cfg.customPackages.length))
+        missing.push("Agrega al menos un paquete a la combinación personalizada (Oportunidades)");
     }
     if (cfg.productId === "destacados") {
       const q = Number(cfg.quantity) || 0;

@@ -251,6 +251,10 @@ class Component extends DCLogic {
       inventory: "",
       quantity: 1,
       primeCalcMode: "tabla",
+      // Combinación personalizada de paquetes (Cobertura = "Personalizado")
+      customPackages: [],
+      customPickValue: "",
+      customPickQty: 1,
       manualDiscountPct: 0,
       // Promo manual por producto (bonificación / cortesía)
       promoOn: false,
@@ -414,6 +418,10 @@ class Component extends DCLogic {
 
     const items = s.products.map(p => {
       const pc = this.pcfg(p.productId);
+      // Personalizado: combinación manual de paquetes. Siempre usa el precio
+      // de lista nacional (ver pricing-engine.js), nunca el CSV por zona.
+      const isPersonalizado = (p.productId === "elite" && p.eliteOption === "personalizado")
+        || (p.productId === "oportunidades" && p.oppOption === "personalizado");
       // Etiqueta de "Oferta" para buscar en el CSV (según selección del producto).
       let offerLabel = "";
       if (p.productId === "elite") { const o = pc.coverage.find(c => c.value === p.eliteOption); offerLabel = o ? o.label : ""; }
@@ -421,14 +429,14 @@ class Component extends DCLogic {
       else { offerLabel = String(p.quantity || "").trim(); }
 
       // Fuente principal: precio del CSV (total del periodo). Si no hay, fallback a la lógica actual.
-      const csvInfo = this.csvPeriodInfo(p.productId, offerLabel, p.period, s.zone, s.stateName);
+      const csvInfo = isPersonalizado ? null : this.csvPeriodInfo(p.productId, offerLabel, p.period, s.zone, s.stateName);
       const csvTotal = csvInfo ? csvInfo.final : null;
       let baseOverride = pc.basePrice;
       if (csvTotal != null && csvTotal > 0) {
         const mm = window.PC.PricingEngine.months(p.period) || 1;
         if (p.productId === "elite" || p.productId === "oportunidades") baseOverride = csvTotal / mm;
         else { const qq = Math.max(1, Number(p.quantity) || 1); baseOverride = csvTotal / (qq * mm); }
-      } else if (p.productId === "elite" || p.productId === "oportunidades") {
+      } else if (!isPersonalizado && (p.productId === "elite" || p.productId === "oportunidades")) {
         const sel = p.productId === "elite" ? p.eliteOption : p.oppOption;
         const o = pc.coverage.find(c => c.value === sel);
         if (o && o.price != null && o.price !== "") baseOverride = Number(o.price);
@@ -437,6 +445,7 @@ class Component extends DCLogic {
         productId: p.productId, mode: s.mode, zone: s.zone || "CDMX_EDOMEX",
         period: p.period, eliteOption: p.eliteOption, oppOption: p.oppOption,
         inventory: s.clientInventory, quantity: p.quantity, primeCalcMode: p.primeCalcMode,
+        customPackages: p.customPackages || [],
         manualDiscountPct: p.manualDiscountPct,
         promoOn: p.promoOn, promoQty: p.promoQty, promoProduct: p.promoProduct, promoPeriod: p.promoPeriod,
         basePriceOverride: baseOverride, maxDiscount: pc.maxDiscount
@@ -606,9 +615,9 @@ class Component extends DCLogic {
     if (id === "elite") return [
       { label: "Hasta 300 propiedades", value: "hasta300" },
       { label: "301 a 500 propiedades", value: "301a500" },
-      { label: "Usar inventario capturado", value: "inventario" }
+      { label: "Personalizado", value: "personalizado" }
     ];
-    if (id === "oportunidades") return D.oportunidades.packages.map(n => ({ label: "Paquete " + n, value: String(n) })).concat([{ label: "Usar inventario capturado", value: "inventario" }]);
+    if (id === "oportunidades") return D.oportunidades.packages.map(n => ({ label: "Paquete " + n, value: String(n) })).concat([{ label: "Personalizado", value: "personalizado" }]);
     return [];
   }
   // Catálogo completo (base + personalizados) y catálogo activo (sin ocultos).
@@ -757,12 +766,64 @@ class Component extends DCLogic {
         isPkg && s.products.length < 2 ? h("div", { style: { marginTop: "8px", font: "600 12px Nunito", color: "#C58A1A" } }, "El paquete requiere mínimo 2 productos.") : null));
   }
 
-  inventoryHint(idx) {
-    const h = React.createElement, inv = this.state.clientInventory;
-    const ok = inv && Number(inv) > 0;
-    return h("div", { key: "invhint" + idx, style: { marginBottom: "13px", padding: "9px 11px", borderRadius: "8px", background: ok ? "#EAF7F0" : "#FDF3E1", border: "1px solid " + (ok ? "#C3E7D2" : "#EBCB8B"), font: "500 11.5px/1.4 Nunito", color: ok ? "#146b3d" : "#8A5A0F" } },
-      ok ? ("Usando el inventario del cliente: " + Number(inv).toLocaleString("es-MX") + " propiedades.")
-         : "Captura el Inventario del cliente (Sección 02) para usar esta opción.");
+  // Combinación personalizada de paquetes ("Cobertura: Personalizado").
+  // Reutiliza PE.packageListInfo / PE.customPackageMonthly (pricing-engine.js)
+  // para que el precio de lista, la cobertura y el subtotal salgan de la
+  // MISMA fuente que usa el cálculo real — nunca se reimplementan aquí.
+  customPackageBuilder(idx, p) {
+    const h = React.createElement, U = window.PC.utils, PE = window.PC.PricingEngine;
+    const productId = p.productId;
+    const packages = this.pcfg(productId).coverage.filter(o => o.value !== "personalizado");
+    const rows = p.customPackages || [];
+    const pick = p.customPickValue || (packages[0] ? packages[0].value : "");
+    const pickQty = p.customPickQty || 1;
+    const unitLabel = productId === "elite" ? "propiedades" : "oportunidades";
+    const packageLabel = (val) => { const o = packages.find(o => o.value === val); return o ? o.label : val; };
+
+    const addPackage = () => {
+      if (!pick) return;
+      const qty = Math.max(1, Math.round(Number(pickQty) || 1));
+      const exists = rows.some(r => r.value === pick);
+      const next = exists
+        ? rows.map(r => r.value === pick ? Object.assign({}, r, { qty: (Number(r.qty) || 0) + qty }) : r)
+        : rows.concat([{ value: pick, qty: qty }]);
+      this.updateProduct(idx, { customPackages: next, customPickQty: 1 });
+    };
+    const updateQty = (val, qty) => {
+      const q = Math.max(1, Math.round(Number(qty) || 1));
+      this.updateProduct(idx, { customPackages: rows.map(r => r.value === val ? Object.assign({}, r, { qty: q }) : r) });
+    };
+    const removePackage = (val) => this.updateProduct(idx, { customPackages: rows.filter(r => r.value !== val) });
+
+    const total = PE.customPackageMonthly(productId, rows);
+
+    return h("div", { key: "custompkg" + idx, style: { marginBottom: "13px", padding: "12px", borderRadius: "8px", border: "1px solid #E6E6EB", background: "#FAFAFB" } },
+      h("div", { style: { font: "700 12px Nunito", color: "#2A2A2E", marginBottom: "9px" } }, "Combinación personalizada de paquetes"),
+
+      rows.length ? h("div", { style: { marginBottom: "10px" } },
+        rows.map((r, i) => {
+          const info = PE.packageListInfo(productId, r.value);
+          const qty = Number(r.qty) || 0;
+          const subtotal = (info.price || 0) * qty;
+          return h("div", { key: r.value, style: { display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", padding: "7px 0", borderBottom: i < rows.length - 1 ? "1px solid #ECECEF" : "none" } },
+            h("div", { style: { flex: "1 1 130px", font: "700 12px Nunito", color: "#2A2A2E" } }, packageLabel(r.value)),
+            h("input", { type: "number", min: "1", value: r.qty, style: Object.assign({}, this.st.input, { width: "60px", padding: "6px 8px" }), onChange: e => updateQty(r.value, e.target.value) }),
+            h("div", { style: { flex: "1 1 110px", font: "500 11.5px Nunito", color: "#6B6B73" } }, "Cobertura: " + (info.units * qty).toLocaleString("es-MX")),
+            h("div", { style: { flex: "1 1 90px", font: "700 12px Nunito", color: "#146b3d", textAlign: "right" } }, U.money(subtotal)),
+            h("button", { onClick: () => removePackage(r.value), style: { border: "none", background: "none", color: "#D7373F", fontWeight: 700, fontSize: "12px" } }, "Quitar"));
+        })
+      ) : h("div", { style: { font: "500 12px Nunito", color: "#A5A5AD", marginBottom: "10px" } }, "Aún no agregas paquetes a la combinación."),
+
+      h("div", { style: { display: "flex", gap: "8px", alignItems: "flex-end", flexWrap: "wrap" } },
+        h("div", { style: { flex: "1 1 160px" } }, this.field("Paquete", this.select(pick, v => this.updateProduct(idx, { customPickValue: v }), packages.map(o => ({ value: o.value, label: o.label }))))),
+        h("div", { style: { width: "80px" } }, this.field("Cantidad", h("input", { type: "number", min: "1", style: this.st.input, value: pickQty, onChange: e => this.updateProduct(idx, { customPickQty: e.target.value }) }))),
+        h("button", { onClick: addPackage, style: { padding: "9px 14px", borderRadius: "8px", border: "1px dashed #9ED3B4", background: "#EAF7F0", color: "#146b3d", fontWeight: 700, fontSize: "12px", height: "38px" } }, "+ Agregar paquete")),
+
+      rows.length ? h("div", { style: { marginTop: "10px", paddingTop: "8px", borderTop: "1px solid #E6E6EB", display: "flex", justifyContent: "space-between", font: "700 12px Nunito", color: "#2A2A2E" } },
+        h("span", null, "Cobertura total"),
+        h("span", null, total.coverage.toLocaleString("es-MX") + " " + unitLabel)) : null,
+
+      total.warnings.length ? h("div", { style: { marginTop: "8px", font: "600 11.5px Nunito", color: "#8A5A0F" } }, total.warnings.join(" ")) : null);
   }
 
   miniPriceSummary(r) {
@@ -773,9 +834,10 @@ class Component extends DCLogic {
     const listPrice = (r.zoneListPrice && r.zoneListPrice > r.finalPrice) ? r.zoneListPrice : r.originalPrice;
     const discPct = listPrice > 0 ? Math.round((listPrice - r.finalPrice) / listPrice * 100) : 0;
     const hasDisc = discPct > 0;
+    const hasZoneDisc = !!(r.zoneListPrice && r.zoneDiscountPct > 0);
     return h("div", { style: { marginTop: "4px", padding: "11px 13px", borderRadius: "8px", background: "#F4F4F6" } },
       row("Precio total sin IVA", U.money(listPrice), { strike: hasDisc, valueColor: hasDisc ? "#A5A5AD" : "#111" }),
-      hasDisc ? row("Descuento", "−" + discPct + "%", { labelColor: "#1b8f51", valueColor: "#1b8f51" }) : null,
+      hasZoneDisc ? row("Descuento por zona", "−" + Math.round(r.zoneDiscountPct) + "%", { labelColor: "#1b8f51", valueColor: "#1b8f51" }) : null,
       hasDisc ? row("Precio final sin IVA", U.money(r.finalPrice)) : null,
       h("div", { style: { height: "1px", background: "#E0E0E6", margin: "6px 0" } }),
       row("Precio final con IVA", U.money(r.finalPriceIVA), { strong: true, big: true, labelColor: "#146b3d", valueColor: "#1b8f51" }));
@@ -792,13 +854,13 @@ class Component extends DCLogic {
     if (p.productId === "elite") {
       const covOpts = this.pcfg("elite").coverage.map(o => ({ value: o.value, label: o.label }));
       conditional.push(this.field("Cobertura de inventario", this.select(p.eliteOption, v => this.updateProduct(idx, { eliteOption: v }), covOpts)));
-      if (p.eliteOption === "inventario")
-        conditional.push(this.inventoryHint(idx));
+      if (p.eliteOption === "personalizado")
+        conditional.push(this.customPackageBuilder(idx, p));
     } else if (p.productId === "oportunidades") {
       const opts = this.pcfg("oportunidades").coverage.map(o => ({ value: o.value, label: o.label }));
       conditional.push(this.field("Paquete de oportunidades", this.select(p.oppOption, v => this.updateProduct(idx, { oppOption: v }), opts)));
-      if (p.oppOption === "inventario")
-        conditional.push(this.inventoryHint(idx));
+      if (p.oppOption === "personalizado")
+        conditional.push(this.customPackageBuilder(idx, p));
     } else if (p.productId === "destacados" || p.productId === "prime") {
       const conf = p.productId === "destacados" ? D.destacados : D.prime;
       conditional.push(this.field("Cantidad de avisos (" + conf.minQty + "–" + conf.maxQty + ")",
@@ -1436,13 +1498,15 @@ class Component extends DCLogic {
   }
   cardDisplayValue(item) {
     const p = item.cfg;
+    const PE = window.PC.PricingEngine;
     if (p.productId === "elite") {
       if (p.eliteOption === "hasta300") return { bigText: "Hasta 300", unit: "propiedades" };
       if (p.eliteOption === "301a500") return { bigText: "301 a 500", unit: "propiedades" };
+      if (p.eliteOption === "personalizado") return { bigNum: PE.customPackageMonthly("elite", p.customPackages).coverage.toLocaleString("es-MX"), unit: "propiedades" };
       return { bigNum: (Number(p.inventory) || 0).toLocaleString("es-MX"), unit: "propiedades" };
     }
     if (p.productId === "oportunidades") {
-      const n = p.oppOption === "inventario" ? (Number(p.inventory) || 0) : Number(p.oppOption);
+      const n = p.oppOption === "personalizado" ? PE.customPackageMonthly("oportunidades", p.customPackages).coverage : Number(p.oppOption);
       return { bigNum: n.toLocaleString("es-MX"), unit: "" };
     }
     const q = Number(p.quantity) || 0;

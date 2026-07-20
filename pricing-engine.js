@@ -30,43 +30,73 @@ window.PC.PricingEngine = (function () {
     return D.getUnitFormulaMonthlyPrice(cfg.productId, meta.name, cfg.zone, zoneObj.label);
   }
 
+  // ---- PERSONALIZADO: precio de lista + cobertura de UN paquete -----
+  // Siempre usa el precio de LISTA NACIONAL (FullPrice), sin descuento de
+  // zona. Se comparte entre el total de la combinación (customPackageMonthly)
+  // y la UI (detalle de cada fila ya agregada).
+  function packageListInfo(productId, value) {
+    if (productId === "oportunidades") {
+      const list = D.oportunidades.zones.FULLPRICE;
+      const price = list ? list[value] : null;
+      return { price: price != null ? price : null, units: Number(value) || 0 };
+    }
+    if (productId === "elite") {
+      const list = D.elite.zones.FULLPRICE;
+      const units = value === "hasta300" ? 300 : (value === "301a500" ? 500 : 0);
+      if (!list || list._todo) return { price: null, units: units };
+      if (value === "hasta300") return { price: list.p300, units: units };
+      if (value === "301a500") return { price: list.p500, units: units };
+      return { price: null, units: units };
+    }
+    return { price: null, units: 0 };
+  }
+
+  // ---- PERSONALIZADO: total mensual + cobertura de una combinación --
+  function customPackageMonthly(productId, rows) {
+    const warnings = [];
+    let monthly = 0, coverage = 0;
+    (rows || []).forEach(row => {
+      const qty = Math.max(1, Math.round(Number(row.qty) || 0));
+      const info = packageListInfo(productId, row.value);
+      if (info.price == null) {
+        warnings.push("Sin precio de lista nacional para \"" + row.value + "\": no se incluyó en el total.");
+        return;
+      }
+      monthly += info.price * qty;
+      coverage += info.units * qty;
+    });
+    return { monthly, coverage, warnings };
+  }
+
   // ---- ELITE: precio mensual + cobertura de inventario -------------
   function eliteMonthly(cfg) {
     const warnings = [];
+    const opt = cfg.eliteOption || "hasta300";
+
+    if (opt === "personalizado") {
+      const r = customPackageMonthly("elite", cfg.customPackages);
+      warnings.push.apply(warnings, r.warnings);
+      const coveredLabel = (cfg.customPackages || []).length
+        ? "Personalizado: " + r.coverage.toLocaleString("es-MX") + " propiedades (" + cfg.customPackages.length + " paquete(s))"
+        : "Personalizado (sin paquetes agregados)";
+      return { monthly: r.monthly, listMonthly: r.monthly, coveredLabel: coveredLabel, coveredInv: r.coverage, warnings: warnings };
+    }
+
     const z = D.elite.zones[cfg.zone] || {};
     const list = D.elite.zones.FULLPRICE;
 
     let monthly = null, coveredLabel = "", coveredInv = null;
-    const opt = cfg.eliteOption || "hasta300";
 
     if (opt === "hasta300") {
       monthly = z.p300; coveredLabel = "Hasta 300 propiedades"; coveredInv = 300;
-    } else if (opt === "301a500") {
+    } else { // 301a500
       monthly = z.p500; coveredLabel = "301 a 500 propiedades"; coveredInv = 500;
-    } else { // inventario capturado
-      const inv = Number(cfg.inventory) || 0;
-      coveredInv = inv;
-      if (inv <= 300) { monthly = z.p300; }
-      else if (inv <= 500) { monthly = z.p500; }
-      else {
-        const blocks = Math.ceil((inv - 500) / 500);
-        monthly = (z.p500 || 0) + blocks * (z.extra || 0);
-        coveredLabel = inv + " propiedades (" + blocks + " bloque(s) de 500 extra)";
-      }
-      if (!coveredLabel) coveredLabel = inv + " propiedades";
     }
 
     // Lista nacional (FullPrice) para el precio original comparativo.
     let listMonthly = null;
     if (!list._todo && list.p300 != null) {
-      if (opt === "hasta300") listMonthly = list.p300;
-      else if (opt === "301a500") listMonthly = list.p500;
-      else {
-        const inv = coveredInv;
-        if (inv <= 300) listMonthly = list.p300;
-        else if (inv <= 500) listMonthly = list.p500;
-        else listMonthly = list.p500 + Math.ceil((inv - 500) / 500) * list.extra;
-      }
+      listMonthly = opt === "hasta300" ? list.p300 : list.p500;
     }
     if (listMonthly == null) listMonthly = monthly;
 
@@ -77,39 +107,31 @@ window.PC.PricingEngine = (function () {
     return { monthly, listMonthly, coveredLabel, coveredInv, warnings };
   }
 
-  // ---- OPORTUNIDADES: precio mensual por paquete / inventario ------
+  // ---- OPORTUNIDADES: precio mensual por paquete / personalizado ---
   function oppMonthly(cfg) {
     const warnings = [];
+    const opt = cfg.oppOption || "10";
+
+    if (opt === "personalizado") {
+      const r = customPackageMonthly("oportunidades", cfg.customPackages);
+      warnings.push.apply(warnings, r.warnings);
+      const coveredLabel = (cfg.customPackages || []).length
+        ? "Personalizado: " + r.coverage.toLocaleString("es-MX") + " oportunidades (" + cfg.customPackages.length + " paquete(s))"
+        : "Personalizado (sin paquetes agregados)";
+      return { monthly: r.monthly, listMonthly: r.monthly, coveredLabel: coveredLabel, warnings: warnings };
+    }
+
     const z = D.oportunidades.zones[cfg.zone] || {};
     const list = D.oportunidades.zones.FULLPRICE;
-    let monthly = null, listMonthly = null, coveredLabel = "";
+    const monthly = z[opt];
+    const listMonthly = list[opt];
+    const coveredLabel = "Paquete " + opt + " oportunidades";
 
-    const opt = cfg.oppOption || "10";
-    if (opt !== "inventario") {
-      monthly = z[opt];
-      listMonthly = list[opt];
-      coveredLabel = "Paquete " + opt + " oportunidades";
-    } else {
-      const inv = Number(cfg.inventory) || 0;
-      if (inv <= 500) {
-        // Elige el paquete más pequeño que cubre el inventario.
-        const pkg = D.oportunidades.packages.find(p => p >= inv) || 500;
-        monthly = z[String(pkg)];
-        listMonthly = list[String(pkg)];
-        coveredLabel = inv + " (inventario capturado · paquete " + pkg + ")";
-      } else {
-        const blocks = Math.ceil((inv - 500) / 500);
-        monthly = (z["500"] || 0) + blocks * (z.extra || 0);
-        listMonthly = (list["500"] || 0) + blocks * (list.extra || 0);
-        coveredLabel = inv + " oportunidades (paquete 500 + " + blocks + " bloque(s) de 500)";
-      }
-    }
     if (monthly == null) {
       warnings.push("No hay precio Oportunidades para la zona/paquete seleccionado.");
-      monthly = 0; listMonthly = 0;
+      return { monthly: 0, listMonthly: 0, coveredLabel: coveredLabel, warnings: warnings };
     }
-    if (listMonthly == null) listMonthly = monthly;
-    return { monthly, listMonthly, coveredLabel, warnings };
+    return { monthly: monthly, listMonthly: (listMonthly == null ? monthly : listMonthly), coveredLabel: coveredLabel, warnings: warnings };
   }
 
   // ---- DESTACADOS: total por cantidad y periodo (tabla) ------------
@@ -362,5 +384,5 @@ window.PC.PricingEngine = (function () {
     };
   }
 
-  return { computePrice, computePackage, months };
+  return { computePrice, computePackage, months, customPackageMonthly, packageListInfo };
 })();
