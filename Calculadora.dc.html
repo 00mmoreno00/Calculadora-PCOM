@@ -674,7 +674,7 @@ class Component extends DCLogic {
     let advShown = advQ ? advisorOpts.filter(o => o.label.toLowerCase().indexOf(advQ) >= 0) : advisorOpts;
     if (s.advisorId && !advShown.some(o => o.value === s.advisorId)) { const sel = advisorOpts.find(o => o.value === s.advisorId); if (sel) advShown = [sel].concat(advShown); }
     const stateOpts = [{ value: "", label: "Selecciona estado…" }].concat(C.states.map(x => ({ value: x, label: x })));
-    const zoneOpts = C.zones.map(z => ({ value: z.id, label: z.label }));
+    const zoneOpts = [{ value: "", label: "Selecciona zona…" }].concat(C.zones.map(z => ({ value: z.id, label: z.label })));
     const zw = window.PC.Validators.zoneWarning(s.stateName, s.zone);
 
     // Modo (segmented)
@@ -824,19 +824,21 @@ class Component extends DCLogic {
         h("div", { style: { flex: 1 } }, this.field("Periodo", this.select(p.period, v => this.updateProduct(idx, { period: v }), periodOpts))),
         h("div", { style: { flex: 1 } }, this.field("Fecha de inicio", h("input", { type: "date", style: this.st.input, value: p.startDate, onChange: e => this.updateProduct(idx, { startDate: e.target.value }) })))),
       conditional,
-      this.field("Descuento adicional (%) · tope " + this.pcfg(p.productId).maxDiscount + "%", h("input", { type: "number", min: "0", max: String(this.pcfg(p.productId).maxDiscount), style: this.st.input, value: p.manualDiscountPct, onChange: e => this.updateProduct(idx, { manualDiscountPct: e.target.value }) })),
 
-      // Botón Promo (bonificación manual) + cajitas cantidad/producto
+      // Botón Promo: activa/desactiva el descuento adicional (%) y la
+      // cortesía manual (cantidad + producto) de este producto.
       h("div", { style: { marginBottom: "13px" } },
         h("button", {
-          onClick: () => this.updateProduct(idx, { promoOn: !p.promoOn }),
+          onClick: () => this.updateProduct(idx, p.promoOn ? { promoOn: false, manualDiscountPct: 0 } : { promoOn: true }),
           style: { display: "inline-flex", alignItems: "center", gap: "7px", padding: "8px 14px", borderRadius: "8px", border: "1px solid " + (p.promoOn ? "#1b8f51" : "#D0D0D8"), background: p.promoOn ? "#1b8f51" : "#fff", color: p.promoOn ? "#fff" : "#2A2A2E", font: "700 12.5px Nunito" }
         },
           h("span", { style: { width: "8px", height: "8px", borderRadius: "999px", background: p.promoOn ? "#8FE3B4" : "#C9C9D2" } }), "Promo"),
-        p.promoOn ? h("div", { style: { display: "flex", gap: "10px", marginTop: "10px", flexWrap: "wrap" } },
-          h("div", { style: { width: "92px" } }, this.field("Cantidad", h("input", { type: "number", min: "1", style: this.st.input, value: p.promoQty, onChange: e => this.updateProduct(idx, { promoQty: e.target.value }) }))),
-          h("div", { style: { flex: 1, minWidth: "140px" } }, this.field("Producto", this.select(p.promoProduct, v => this.updateProduct(idx, { promoProduct: v }), productOpts))),
-          h("div", { style: { flex: 1, minWidth: "120px" } }, this.field("Vigencia", this.select(p.promoPeriod, v => this.updateProduct(idx, { promoPeriod: v }), periodOpts)))) : null),
+        p.promoOn ? h("div", { style: { marginTop: "10px" } },
+          this.field("Descuento adicional (%) · tope " + this.pcfg(p.productId).maxDiscount + "%", h("input", { type: "number", min: "0", max: String(this.pcfg(p.productId).maxDiscount), style: this.st.input, value: p.manualDiscountPct, onChange: e => this.updateProduct(idx, { manualDiscountPct: e.target.value }) })),
+          h("div", { style: { display: "flex", gap: "10px", marginTop: "10px", flexWrap: "wrap" } },
+            h("div", { style: { width: "92px" } }, this.field("Cantidad", h("input", { type: "number", min: "1", style: this.st.input, value: p.promoQty, onChange: e => this.updateProduct(idx, { promoQty: e.target.value }) }))),
+            h("div", { style: { flex: 1, minWidth: "140px" } }, this.field("Producto", this.select(p.promoProduct, v => this.updateProduct(idx, { promoProduct: v }), productOpts))),
+            h("div", { style: { flex: 1, minWidth: "120px" } }, this.field("Vigencia", this.select(p.promoPeriod, v => this.updateProduct(idx, { promoPeriod: v }), periodOpts))))) : null),
 
       // Mini resumen de precio en vivo
       this.miniPriceSummary(r),
