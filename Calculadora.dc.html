@@ -835,7 +835,7 @@ class Component extends DCLogic {
       total.warnings.length ? h("div", { style: { marginTop: "8px", font: "600 11.5px Nunito", color: "#8A5A0F" } }, total.warnings.join(" ")) : null);
   }
 
-  miniPriceSummary(r) {
+  miniPriceSummary(r, promoOn) {
     const h = React.createElement, U = window.PC.utils;
     const row = (label, value, o) => { o = o || {}; return h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "12px", marginBottom: o.mb || "3px" } },
       h("span", { style: { font: (o.strong ? "800 " : "500 ") + (o.big ? "12px" : "11px") + " Nunito", color: o.labelColor || "#6B6B73" } }, label),
@@ -844,9 +844,11 @@ class Component extends DCLogic {
     const discPct = listPrice > 0 ? Math.round((listPrice - r.finalPrice) / listPrice * 100) : 0;
     const hasDisc = discPct > 0;
     const hasZoneDisc = !!(r.zoneListPrice && r.zoneDiscountPct > 0);
+    const hasPromoDisc = !!(promoOn && Number(r.manualDiscountPct) > 0);
     return h("div", { style: { marginTop: "4px", padding: "11px 13px", borderRadius: "8px", background: "#F4F4F6" } },
       row("Precio total sin IVA", U.money(listPrice), { strike: hasDisc, valueColor: hasDisc ? "#A5A5AD" : "#111" }),
       hasZoneDisc ? row("Descuento por zona", "−" + Math.round(r.zoneDiscountPct) + "%", { labelColor: "#1b8f51", valueColor: "#1b8f51" }) : null,
+      hasPromoDisc ? row("Descuento Promo", "−" + Math.round(r.manualDiscountPct) + "%", { labelColor: "#1b8f51", valueColor: "#1b8f51" }) : null,
       hasDisc ? row("Precio final sin IVA", U.money(r.finalPrice)) : null,
       h("div", { style: { height: "1px", background: "#E0E0E6", margin: "6px 0" } }),
       row("Precio final con IVA", U.money(r.finalPriceIVA), { strong: true, big: true, labelColor: "#146b3d", valueColor: "#1b8f51" }));
@@ -912,7 +914,7 @@ class Component extends DCLogic {
             h("div", { style: { flex: 1, minWidth: "120px" } }, this.field("Vigencia", this.select(p.promoPeriod, v => this.updateProduct(idx, { promoPeriod: v }), periodOpts))))) : null),
 
       // Mini resumen de precio en vivo
-      this.miniPriceSummary(r),
+      this.miniPriceSummary(r, p.promoOn),
       (r.warnings && r.warnings.length) ? h("div", { style: { marginTop: "8px", padding: "9px 11px", borderRadius: "8px", background: "#FDF3E1", border: "1px solid #EBCB8B" } }, r.warnings.map((w, i) => h("div", { key: i, style: { display: "flex", gap: "7px", alignItems: "flex-start", font: "600 11.5px/1.45 Nunito", color: "#8A5A0F", marginBottom: i < r.warnings.length - 1 ? "4px" : 0 } }, h("span", { style: { flex: "none" } }, "⚠"), h("span", null, w)))) : null
     );
   }
