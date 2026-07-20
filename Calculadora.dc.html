@@ -1621,11 +1621,18 @@ class Component extends DCLogic {
     if (qty <= 0) return null;
     const name = (C.productMeta[c.promoProduct] || {}).name || c.promoProduct;
     const periodLabel = (D.PERIODS[c.promoPeriod] || {}).label || "";
+    // Características ya registradas para el producto otorgado como promo
+    // (mismo catálogo/config que usa cardBenefits) — nunca se redactan aquí.
+    const benefits = (this.pcfg(c.promoProduct).benefits || []).filter(b => b != null && String(b).trim() !== "");
     return h("div", { style: { margin: "0 18px 14px", padding: "9px 12px", borderRadius: "9px", background: t.soft, border: "1px dashed " + t.chip, display: "flex", gap: "8px", alignItems: "flex-start" } },
       h("span", { style: { color: t.chip, fontWeight: 800, fontSize: "13px" } }, "★"),
-      h("div", null,
+      h("div", { style: { flex: 1 } },
         h("div", { style: { font: "800 11px Nunito", color: t.main } }, "Promo"),
-        h("div", { style: { font: "500 11px/1.35 Nunito", color: "#2A2A2E", marginTop: "2px" } }, qty + " × " + name + " de cortesía" + (periodLabel ? " · " + periodLabel : ""))));
+        h("div", { style: { font: "500 11px/1.35 Nunito", color: "#2A2A2E", marginTop: "2px" } }, qty + " × " + name + " de cortesía" + (periodLabel ? " · " + periodLabel : "")),
+        benefits.length ? h("div", { style: { marginTop: "8px" } },
+          benefits.map((b, i) => h("div", { key: i, style: { display: "flex", gap: "6px", alignItems: "flex-start", marginBottom: i < benefits.length - 1 ? "5px" : 0 } },
+            this.checkIcon(t.accent),
+            h("div", { style: { font: "500 11px/1.35 Nunito", color: "#2A2A2E" } }, this.parseBold(b))))) : null));
   }
 
   renderProductCard(item, idx, count) {
