@@ -16,7 +16,6 @@ window.PC.config = (function () {
     },
     iva: 0.16,
     zones: [
-      { id: "FULLPRICE",   label: "FullPrice (lista nacional)" },
       { id: "CDMX_EDOMEX", label: "CDMX / Estado de México" },
       { id: "JALISCO_NL",  label: "Jalisco / Nuevo León" },
       { id: "QUERETARO",   label: "Querétaro" },

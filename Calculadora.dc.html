@@ -80,7 +80,6 @@ class Component extends DCLogic {
     clientStatus: "Prospecto",
     stateName: "",
     zone: "",
-    zoneManual: false,
 
     // Propuesta
     mode: "individual",
@@ -118,8 +117,8 @@ class Component extends DCLogic {
   };
 
   PWD = "12345";
-  PRODUCT_IDS = ["elite", "oportunidades", "destacados", "prime"];
-  DRAFT_FIELDS = ["advisorId", "clientName", "clientPhone", "clientInventory", "clientStatus", "stateName", "zone", "zoneManual", "mode", "proposalDate", "proposalValidUntil", "folio", "proposalNotes", "products"];
+  PRODUCT_IDS = ["oportunidades", "destacados", "prime", "elite"];
+  DRAFT_FIELDS = ["advisorId", "clientName", "clientPhone", "clientInventory", "clientStatus", "stateName", "zone", "mode", "proposalDate", "proposalValidUntil", "folio", "proposalNotes", "products"];
 
   // Catálogo de asesores: viven en config.js (window.PC.config.advisors).
   getAdvisors() {
@@ -243,7 +242,7 @@ class Component extends DCLogic {
     const U = window.PC.utils;
     return {
       uid: "p" + Math.random().toString(36).slice(2, 8),
-      productId: productId || "elite",
+      productId: productId || "oportunidades",
       period: "anual",
       startDate: this.state.proposalDate || U.toISO(U.todayLocal()),
       eliteOption: "hasta300",
@@ -330,7 +329,7 @@ class Component extends DCLogic {
     this.setState({
       advisorId: advs[0] ? advs[0].id : "",
       clientName: "", clientPhone: "", clientInventory: "", clientStatus: "Prospecto",
-      stateName: "", zone: "", zoneManual: false,
+      stateName: "", zone: "",
       mode: "individual", advisorSearch: "", proposalNotes: "",
       proposalDate: U.toISO(today),
       proposalValidUntil: U.toISO(U.addBusinessDays(today, C.proposalValidityBusinessDays)),
@@ -370,14 +369,7 @@ class Component extends DCLogic {
 
   onStateName(v) {
     const C = window.PC.config;
-    const patch = { stateName: v, exportError: "" };
-    if (!this.state.zoneManual) patch.zone = C.suggestZone(v); // auto-sugerir zona
-    this.setState(patch);
-  }
-  onZone(v) { this.setState({ zone: v, zoneManual: true, exportError: "" }); }
-  resyncZone() {
-    const C = window.PC.config;
-    this.setState({ zone: C.suggestZone(this.state.stateName), zoneManual: false, exportError: "" });
+    this.setState({ stateName: v, zone: C.suggestZone(v), exportError: "" });
   }
 
   onMode(mode) {
@@ -651,9 +643,11 @@ class Component extends DCLogic {
   }
 
   field(label, control) { return React.createElement("div", { style: this.st.field }, React.createElement("label", { style: this.st.label }, label), control); }
-  select(value, onChange, options) {
-    return React.createElement("select", { value: value, onChange: e => onChange(e.target.value), style: this.st.input },
-      options.map(o => React.createElement("option", { key: o.value, value: o.value }, o.label)));
+  select(value, onChange, options, disabled) {
+    return React.createElement("select", {
+      value: value, onChange: e => onChange(e.target.value), disabled: !!disabled,
+      style: disabled ? Object.assign({}, this.st.input, { background: "#EDEDF1", color: "#6B6B73", cursor: "not-allowed" }) : this.st.input
+    }, options.map(o => React.createElement("option", { key: o.value, value: o.value }, o.label)));
   }
   section(numLabel, title, children) {
     const h = React.createElement;
@@ -684,7 +678,6 @@ class Component extends DCLogic {
     if (s.advisorId && !advShown.some(o => o.value === s.advisorId)) { const sel = advisorOpts.find(o => o.value === s.advisorId); if (sel) advShown = [sel].concat(advShown); }
     const stateOpts = [{ value: "", label: "Selecciona estado…" }].concat(C.states.map(x => ({ value: x, label: x })));
     const zoneOpts = [{ value: "", label: "Selecciona zona…" }].concat(C.zones.map(z => ({ value: z.id, label: z.label })));
-    const zw = window.PC.Validators.zoneWarning(s.stateName, s.zone);
 
     // Modo (segmented)
     const modeBtn = (id, label) => h("button", {
@@ -728,11 +721,7 @@ class Component extends DCLogic {
       this.section("Sección 03", "Estado y zona de pricing",
         h("div", null,
           this.field("Estado (entidad federativa)", this.select(s.stateName, v => this.onStateName(v), stateOpts)),
-          this.field("Zona de pricing", this.select(s.zone, v => this.onZone(v), zoneOpts)),
-          zw ? h("div", { style: { padding: "9px 11px", borderRadius: "8px", fontSize: "12px", lineHeight: 1.4, marginTop: "-4px", background: zw.level === "warning" ? "#FDF3E1" : "#EEF4FF", border: "1px solid " + (zw.level === "warning" ? "#EBCB8B" : "#C4D6F6"), color: zw.level === "warning" ? "#8A5A0F" : "#1B4F9E", display: "flex", gap: "8px", alignItems: "flex-start" } },
-            h("span", null, zw.level === "warning" ? "⚠" : "ℹ"),
-            h("div", null, zw.text,
-              (zw.level === "warning") ? h("button", { onClick: () => this.resyncZone(), style: { display: "block", marginTop: "6px", padding: "4px 8px", borderRadius: "6px", border: "1px solid #EBCB8B", background: "#fff", color: "#8A5A0F", fontWeight: 700, fontSize: "11px" } }, "Usar zona sugerida") : null)) : null)),
+          this.field("Zona de pricing", this.select(s.zone, () => {}, zoneOpts, true)))),
 
       // 4. Tipo de propuesta
       this.section("Sección 04", "Tipo de propuesta",
@@ -893,9 +882,7 @@ class Component extends DCLogic {
         (s.mode === "paquete" && s.products.length > 1) ? h("button", { onClick: () => this.removeProduct(idx), style: { border: "none", background: "none", color: "#D7373F", fontWeight: 700, fontSize: "12px" } }, "Quitar") : null),
 
       this.field("Producto", this.select(p.productId, v => this.updateProduct(idx, { productId: v }), productOpts)),
-      h("div", { style: { display: "flex", gap: "10px" } },
-        h("div", { style: { flex: 1 } }, this.field("Periodo", this.select(p.period, v => this.updateProduct(idx, { period: v }), periodOpts))),
-        h("div", { style: { flex: 1 } }, this.field("Fecha de inicio", h("input", { type: "date", style: this.st.input, value: p.startDate, onChange: e => this.updateProduct(idx, { startDate: e.target.value }) })))),
+      this.field("Periodo", this.select(p.period, v => this.updateProduct(idx, { period: v }), periodOpts)),
       conditional,
 
       // Botón Promo: activa/desactiva el descuento adicional (%) y la
@@ -1571,12 +1558,15 @@ class Component extends DCLogic {
           d.unit ? h("div", { style: { font: "600 " + px(12.5) + " Nunito", color: "#6B6B73", marginTop: px(3) } }, d.unit) : null)
         : h("div", { style: { font: "800 " + px(27) + "/1.12 Nunito", color: t.main, letterSpacing: "-.01em" } }, d.bigText + (d.unit ? " " + d.unit : "")));
   }
-  cardBenefits(benefits, t, scale) {
+  cardBenefits(benefits, t, scale, extraBullet) {
     const h = React.createElement, s = scale || 1, px = (n) => this.px(n, s);
     return h("div", { style: { padding: px(6) + " " + px(18) + " " + px(14) } },
       benefits.map((b, i) => h("div", { key: i, style: { display: "flex", gap: px(9), alignItems: "flex-start", marginBottom: px(9) } },
         this.checkIcon(t.accent),
-        h("div", { style: { font: "500 " + px(12.5) + "/1.4 Nunito", color: "#2A2A2E" } }, this.parseBold(b)))));
+        h("div", { style: { font: "500 " + px(12.5) + "/1.4 Nunito", color: "#2A2A2E" } }, this.parseBold(b)))),
+      extraBullet ? h("div", { style: { display: "flex", gap: px(9), alignItems: "flex-start" } },
+        this.checkIcon("#C58A1A"),
+        h("div", { style: { font: "800 " + px(12.5) + "/1.4 Nunito", color: "#C58A1A", textDecoration: "underline", textDecorationStyle: "dashed", textDecorationColor: "#E0B23C" } }, extraBullet)) : null);
   }
   cardPriceFooter(item, r, t, scale) {
     const h = React.createElement, U = window.PC.utils, s = scale || 1, px = (n) => this.px(n, s);
@@ -1645,10 +1635,11 @@ class Component extends DCLogic {
     const sizeStyle = count === 1
       ? { width: "100%", maxWidth: "380px", minWidth: "320px", margin: "0 auto" }
       : {};
+    const extraBullet = (r.productId === "oportunidades" && item.cfg.period === "anual") ? "Recibe un mes adicional completamente gratis" : null;
     return h("div", { className: className, style: Object.assign({ display: "flex", flexDirection: "column", border: "1px solid " + t.border, borderRadius: "14px", overflow: "hidden", background: "#fff", boxShadow: "0 18px 30px -14px rgba(17,17,17,.4), 0 4px 12px -8px rgba(17,17,17,.2)" }, sizeStyle) },
       this.cardHeader(r, t, meta, scale),
       this.cardValueBlock(item, r, t, meta, scale),
-      this.cardBenefits(benefits, t, scale),
+      this.cardBenefits(benefits, t, scale, extraBullet),
       this.manualPromoStrip(item, t),
       this.cardPriceFooter(item, r, t, scale));
   }
@@ -1659,11 +1650,12 @@ class Component extends DCLogic {
     const col = (item, tag) => {
       const r = item.result, t = this.themes[r.theme] || this.themes.green;
       const meta = this.pcfg(r.productId), benefits = meta.benefits;
+      const extraBullet = (r.productId === "oportunidades" && item.cfg.period === "anual") ? "Recibe un mes adicional completamente gratis" : null;
       return h("div", { style: { flex: 1, display: "flex", flexDirection: "column", border: "1px solid " + t.border, borderRadius: "14px", overflow: "hidden", background: "#fff", boxShadow: "0 4px 16px -10px rgba(17,17,17,.22)" } },
         h("div", { style: { padding: "7px", background: "#111", color: "#fff", textAlign: "center", font: "800 11px Nunito", letterSpacing: ".14em" } }, "OPCIÓN " + tag),
         this.cardHeader(r, t, meta, scale),
         this.cardValueBlock(item, r, t, meta, scale),
-        this.cardBenefits(benefits, t, scale),
+        this.cardBenefits(benefits, t, scale, extraBullet),
         this.manualPromoStrip(item, t),
         this.vsPriceFooter(item, r, t, scale));
     };

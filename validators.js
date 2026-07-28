@@ -56,23 +56,6 @@ window.PC.Validators = (function () {
     };
   }
 
-  // Advertencia de coherencia Estado <-> Zona.
-  function zoneWarning(state, zone) {
-    if (!state || !zone) return null;
-    const suggested = CFG.suggestZone(state);
-    if (zone === "FULLPRICE") {
-      return { level: "info", text: "Zona FullPrice seleccionada manualmente (lista nacional, sin descuento regional)." };
-    }
-    if (zone !== suggested) {
-      const zLabel = (CFG.zones.find(z => z.id === zone) || {}).label || zone;
-      const sLabel = (CFG.zones.find(z => z.id === suggested) || {}).label || suggested;
-      return {
-        level: "warning",
-        text: "El estado \"" + state + "\" sugiere zona " + sLabel + ", pero está seleccionada " + zLabel + ". Verifica que sea intencional."
-      };
-    }
-    return null;
-  }
 
   /* Valida la propuesta completa según el modo. Controla el botón PDF.
      productValidations: array de {complete, missing, errors} por producto. */
@@ -85,9 +68,6 @@ window.PC.Validators = (function () {
     if (!state.stateName) missing.push("Estado del cliente");
     if (!state.zone) missing.push("Zona de pricing");
     if (!state.proposalValidUntil) missing.push("Vigencia de la propuesta");
-
-    const zw = zoneWarning(state.stateName, state.zone);
-    if (zw && zw.level === "warning") warnings.push(zw.text);
 
     const completeCount = productValidations.filter(v => v.complete).length;
 
@@ -113,5 +93,5 @@ window.PC.Validators = (function () {
     };
   }
 
-  return { validateProduct, validateProposal, zoneWarning };
+  return { validateProduct, validateProposal };
 })();
