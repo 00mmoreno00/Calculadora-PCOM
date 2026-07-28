@@ -853,12 +853,14 @@ class Component extends DCLogic {
 
   discountCalcPanelBody(idx, p, r, isPersonalizado) {
     if (!isPersonalizado || !p.discCalcOpen) return null;
-    const h = React.createElement, U = window.PC.utils;
+    const h = React.createElement, U = window.PC.utils, CFG = window.PC.config;
     const base = r.originalPrice || 0;
     const maxD = this.pcfg(p.productId).maxDiscount;
     const pct1 = Number(p.discCalcPct) || 0;
     const final1 = Math.round(base * (1 - pct1 / 100));
+    const final1IVA = Math.round(final1 * (1 + CFG.iva));
     const final2 = Number(p.discCalcFinal) || 0;
+    const final2IVA = Math.round(final2 * (1 + CFG.iva));
     const pct2 = base > 0 ? Math.round((1 - final2 / base) * 10000) / 100 : 0;
     const overCap1 = pct1 > maxD;
     const overCap2 = pct2 > maxD;
@@ -872,7 +874,8 @@ class Component extends DCLogic {
       h("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap" } },
         h("div", { style: { flex: "1 1 100px" } }, this.field("Precio base sin IVA", lockedInput(U.money(base)))),
         h("div", { style: { flex: "1 1 100px" } }, this.field("Descuento %", h("input", { type: "number", min: "0", max: "100", style: this.st.input, value: p.discCalcPct, onChange: e => this.updateProduct(idx, { discCalcPct: e.target.value }) }))),
-        h("div", { style: { flex: "1 1 100px" } }, this.field("Precio final sin IVA", lockedInput(U.money(final1))))),
+        h("div", { style: { flex: "1 1 100px" } }, this.field("Precio final sin IVA", lockedInput(U.money(final1)))),
+        h("div", { style: { flex: "1 1 100px" } }, this.field("Precio final con IVA", lockedInput(U.money(final1IVA))))),
       overCap1 ? warnBox("Este descuento (" + pct1 + "%) supera el tope configurado para este producto (" + maxD + "%). Se puede aplicar, pero el motor de precios lo limitará al tope.") : null,
       applyBtn(() => this.updateProduct(idx, { manualDiscountPct: U.clamp(pct1, 0, 100) })),
 
@@ -882,7 +885,8 @@ class Component extends DCLogic {
       h("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap" } },
         h("div", { style: { flex: "1 1 100px" } }, this.field("Precio base sin IVA", lockedInput(U.money(base)))),
         h("div", { style: { flex: "1 1 100px" } }, this.field("Descuento equiv. %", lockedInput(pct2 + "%"))),
-        h("div", { style: { flex: "1 1 100px" } }, this.field("Precio final sin IVA", h("input", { type: "number", min: "0", style: this.st.input, value: p.discCalcFinal, onChange: e => this.updateProduct(idx, { discCalcFinal: e.target.value }) })))),
+        h("div", { style: { flex: "1 1 100px" } }, this.field("Precio final sin IVA", h("input", { type: "number", min: "0", style: this.st.input, value: p.discCalcFinal, onChange: e => this.updateProduct(idx, { discCalcFinal: e.target.value }) }))),
+        h("div", { style: { flex: "1 1 100px" } }, this.field("Precio final con IVA", lockedInput(U.money(final2IVA))))),
       overCap2 ? warnBox("Este descuento equivalente (" + pct2 + "%) supera el tope configurado para este producto (" + maxD + "%). Se puede aplicar, pero el motor de precios lo limitará al tope.") : null,
       applyBtn(() => this.updateProduct(idx, { manualDiscountPct: U.clamp(pct2, 0, 100) })));
   }
