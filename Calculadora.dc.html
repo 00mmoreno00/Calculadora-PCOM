@@ -1566,7 +1566,7 @@ class Component extends DCLogic {
         h("div", { style: { font: "500 " + px(12.5) + "/1.4 Nunito", color: "#2A2A2E" } }, this.parseBold(b)))),
       extraBullet ? h("div", { style: { display: "flex", gap: px(9), alignItems: "flex-start" } },
         this.checkIcon("#C58A1A"),
-        h("div", { style: { font: "800 " + px(12.5) + "/1.4 Nunito", color: "#C58A1A", textDecoration: "underline", textDecorationStyle: "dashed", textDecorationColor: "#E0B23C" } }, extraBullet)) : null);
+        h("div", { style: { font: "800 " + px(12.5) + "/1.4 Nunito", color: "#C58A1A" } }, extraBullet)) : null);
   }
   cardPriceFooter(item, r, t, scale) {
     const h = React.createElement, U = window.PC.utils, s = scale || 1, px = (n) => this.px(n, s);
