@@ -393,6 +393,21 @@ class Component extends DCLogic {
     const products = this.state.products.map((p, i) => i === idx ? Object.assign({}, p, patch) : p);
     this.setState({ products, exportError: "" });
   }
+
+  // Cambia la Cobertura (eliteOption/oppOption). Si se sale de "Personalizado",
+  // borra la configuración de "Calc. descuento" (solo tiene sentido ahí): el
+  // panel se cierra, sus campos vuelven a 0 y el % aplicado se limpia siempre
+  // que no lo esté controlando "Promo" (que sigue siendo independiente).
+  setCoverageOption(idx, p, field, v) {
+    const patch = { [field]: v };
+    if (p[field] === "personalizado" && v !== "personalizado") {
+      patch.discCalcOpen = false;
+      patch.discCalcPct = 0;
+      patch.discCalcFinal = 0;
+      if (!p.promoOn) patch.manualDiscountPct = 0;
+    }
+    this.updateProduct(idx, patch);
+  }
   addProduct() {
     if (this.state.products.length >= 4) return;
     const used = this.state.products.map(p => p.productId);
@@ -918,12 +933,12 @@ class Component extends DCLogic {
     const conditional = [];
     if (p.productId === "elite") {
       const covOpts = this.pcfg("elite").coverage.map(o => ({ value: o.value, label: o.label }));
-      conditional.push(this.field("Cobertura de inventario", this.select(p.eliteOption, v => this.updateProduct(idx, { eliteOption: v }), covOpts)));
+      conditional.push(this.field("Cobertura de inventario", this.select(p.eliteOption, v => this.setCoverageOption(idx, p, "eliteOption", v), covOpts)));
       if (p.eliteOption === "personalizado")
         conditional.push(this.customPackageBuilder(idx, p));
     } else if (p.productId === "oportunidades") {
       const opts = this.pcfg("oportunidades").coverage.map(o => ({ value: o.value, label: o.label }));
-      conditional.push(this.field("Paquete de oportunidades", this.select(p.oppOption, v => this.updateProduct(idx, { oppOption: v }), opts)));
+      conditional.push(this.field("Paquete de oportunidades", this.select(p.oppOption, v => this.setCoverageOption(idx, p, "oppOption", v), opts)));
       if (p.oppOption === "personalizado")
         conditional.push(this.customPackageBuilder(idx, p));
     } else if (p.productId === "destacados" || p.productId === "prime") {
@@ -1029,7 +1044,7 @@ class Component extends DCLogic {
       const c = data.pkg.calc;
       const totalSinIVA = data.items.reduce((sum, i) => sum + i.result.originalPrice, 0);
       const descPct = totalSinIVA > 0 ? Math.round(((totalSinIVA - c.total) / totalSinIVA) * 100) : 0;
-      totalBlock = this.renderTotal({ totalSinIVA: totalSinIVA, finalSinIVA: c.total, finalConIVA: c.totalIVA, descPct: descPct, preferential: c.subtotal !== c.total }, data.pkg.eval.applied);
+      totalBlock = this.renderTotal({ totalSinIVA: totalSinIVA, finalSinIVA: c.total, finalConIVA: c.totalIVA, descPct: descPct, preferential: c.subtotal !== c.total, hideDiscountLabel: true }, data.pkg.eval.applied);
     }
 
     return h("div", { className: "pc-proposal-pane", ref: (el) => { this.proposalPaneRef = el; }, style: { flex: 1, height: "100vh", overflowY: "auto", background: "#EDEDF1", padding: "28px 32px" } },
@@ -1638,11 +1653,19 @@ class Component extends DCLogic {
         this.checkIcon("#C58A1A"),
         h("div", { style: { font: "800 " + px(12.5) + "/1.4 Nunito", color: "#C58A1A" } }, extraBullet)) : null);
   }
-  cardPriceFooter(item, r, t, scale) {
+  cardPriceFooter(item, r, t, scale, showDiscount) {
     const h = React.createElement, U = window.PC.utils, s = scale || 1, px = (n) => this.px(n, s);
-    return h("div", { style: { marginTop: "auto", padding: px(14) + " " + px(18), background: "#fff", borderTop: "1px solid " + t.border, display: "flex", justifyContent: "space-between", alignItems: "center", gap: px(10) } },
-      h("span", { style: { font: "500 " + px(13) + " Nunito", color: "#6B6B73" } }, "Periodo"),
-      h("span", { style: { font: "800 " + px(14) + " Nunito", color: "#111" } }, r.periodLabel + (item.extraMonths ? " (+" + item.extraMonths + " mes cortesía)" : "")));
+    const discRow = (label, pct) => h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: px(10), marginBottom: px(4) } },
+      h("span", { style: { font: "500 " + px(11) + " Nunito", color: "#6B6B73" } }, label),
+      h("span", { style: { font: "700 " + px(12) + " Nunito", color: "#1b8f51" } }, "−" + Math.round(pct) + "%"));
+    const discRows = [];
+    if (showDiscount && r.zoneDiscountPct > 0) discRows.push(discRow("Descuento por zona", r.zoneDiscountPct));
+    if (showDiscount && r.visibleDiscountPct > 0) discRows.push(discRow("Descuento adicional", r.visibleDiscountPct));
+    return h("div", { style: { marginTop: "auto", padding: px(14) + " " + px(18), background: "#fff", borderTop: "1px solid " + t.border } },
+      discRows.length ? h("div", { style: { marginBottom: px(6) } }, discRows) : null,
+      h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: px(10) } },
+        h("span", { style: { font: "500 " + px(13) + " Nunito", color: "#6B6B73" } }, "Periodo"),
+        h("span", { style: { font: "800 " + px(14) + " Nunito", color: "#111" } }, r.periodLabel + (item.extraMonths ? " (+" + item.extraMonths + " mes cortesía)" : ""))));
   }
   // Footer del modo VS: resumen comercial completo por tarjeta (mismos valores
   // que miniPriceSummary del panel izquierdo). Solo se usa en Comparativo de productos.
@@ -1706,12 +1729,15 @@ class Component extends DCLogic {
       ? { width: "100%", maxWidth: "380px", minWidth: "320px", margin: "0 auto" }
       : {};
     const extraBullet = (r.productId === "oportunidades" && item.cfg.period === "anual") ? "Recibe un mes adicional completamente gratis" : null;
+    // En modo Paquete, el % de descuento (zona y/o adicional) se muestra por
+    // tarjeta en vez de como una sola cifra agregada en el total (ver renderBody).
+    const showDiscount = this.state.mode === "paquete";
     return h("div", { className: className, style: Object.assign({ display: "flex", flexDirection: "column", border: "1px solid " + t.border, borderRadius: "14px", overflow: "hidden", background: "#fff", boxShadow: "0 18px 30px -14px rgba(17,17,17,.4), 0 4px 12px -8px rgba(17,17,17,.2)" }, sizeStyle) },
       this.cardHeader(r, t, meta, scale),
       this.cardValueBlock(item, r, t, meta, scale),
       this.cardBenefits(benefits, t, scale, extraBullet),
       this.manualPromoStrip(item, t),
-      this.cardPriceFooter(item, r, t, scale));
+      this.cardPriceFooter(item, r, t, scale, showDiscount));
   }
 
   renderVsBody(data) {
@@ -1746,7 +1772,7 @@ class Component extends DCLogic {
         pkgPromo ? h("div", { style: { font: "600 12px Nunito", color: "#16763F", marginTop: "6px" } }, "Incluye: " + ((pkgPromo.display || {}).label || pkgPromo.name)) : null),
       h("div", { style: { minWidth: "260px" } },
         row("Precio total sin IVA", U.money(info.totalSinIVA), { strike: info.descPct > 0, valueColor: info.descPct > 0 ? "#A5A5AD" : "#111" }),
-        (info.descPct > 0) ? row("Descuento", "−" + info.descPct + "%", { labelColor: "#1b8f51", valueColor: "#1b8f51" }) : null,
+        (info.descPct > 0 && !info.hideDiscountLabel) ? row("Descuento", "−" + info.descPct + "%", { labelColor: "#1b8f51", valueColor: "#1b8f51" }) : null,
         (info.descPct > 0) ? row("Precio final sin IVA", U.money(info.finalSinIVA)) : null,
         h("div", { style: { height: "1px", background: "rgba(17,17,17,.12)", margin: "8px 0" } }),
         h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "18px" } },
