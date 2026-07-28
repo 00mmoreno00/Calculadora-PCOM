@@ -463,7 +463,9 @@ class Component extends DCLogic {
       result.productName = pc.name; // nombre configurable (admin)
       result.theme = pc.theme;      // tema configurable (admin)
       // Descuento de ZONA proveniente del CSV (precio de lista vs precio final).
-      if (csvInfo && csvInfo.base != null && csvInfo.discountPct > 0 && csvInfo.base > result.finalPrice) {
+      // Para Elite se oculta este % en la interfaz (a pedido del negocio):
+      // el precio final no cambia, solo no se expone el comparativo de zona.
+      if (p.productId !== "elite" && csvInfo && csvInfo.base != null && csvInfo.discountPct > 0 && csvInfo.base > result.finalPrice) {
         result.zoneListPrice = Math.round(csvInfo.base);
         result.zoneDiscountPct = csvInfo.discountPct;
       }
@@ -828,25 +830,21 @@ class Component extends DCLogic {
       total.warnings.length ? h("div", { style: { marginTop: "8px", font: "600 11.5px Nunito", color: "#8A5A0F" } }, total.warnings.join(" ")) : null);
   }
 
-  // Calculadora rápida de descuento ("Calc. descuento"). Solo disponible
-  // cuando la Cobertura del producto es "Personalizado". Alimenta el MISMO
-  // campo manualDiscountPct que usa "Promo", así que el resultado se refleja
-  // de inmediato en el motor de precios, el resumen, el total y el PDF.
-  discountCalcButton(idx, p, r, isPersonalizado) {
+  // Calculadora rápida de descuento ("Calc. descuento"). Solo se muestra
+  // cuando la Cobertura del producto es "Personalizado" (ver call site en
+  // renderProductConfig). Alimenta el MISMO campo manualDiscountPct que usa
+  // "Promo", así que el resultado se refleja de inmediato en el motor de
+  // precios, el resumen, el total y el PDF.
+  discountCalcButton(idx, p, r) {
     const h = React.createElement;
     return h("button", {
-      disabled: !isPersonalizado,
-      title: isPersonalizado ? "" : "Disponible solo cuando la Cobertura es \"Personalizado\"",
-      onClick: () => {
-        if (!isPersonalizado) return;
-        this.updateProduct(idx, p.discCalcOpen ? { discCalcOpen: false } : { discCalcOpen: true, discCalcPct: r.manualDiscountPct || 0, discCalcFinal: r.finalPrice || 0 });
-      },
+      onClick: () => this.updateProduct(idx, p.discCalcOpen ? { discCalcOpen: false } : { discCalcOpen: true, discCalcPct: r.manualDiscountPct || 0, discCalcFinal: r.finalPrice || 0 }),
       style: {
         display: "inline-flex", alignItems: "center", gap: "7px", padding: "8px 14px", borderRadius: "8px",
         border: "1px solid " + (p.discCalcOpen ? "#1b8f51" : "#D0D0D8"),
         background: p.discCalcOpen ? "#1b8f51" : "#fff",
-        color: !isPersonalizado ? "#A5A5AD" : (p.discCalcOpen ? "#fff" : "#2A2A2E"),
-        font: "700 12.5px Nunito", opacity: isPersonalizado ? 1 : .6, cursor: isPersonalizado ? "pointer" : "not-allowed"
+        color: p.discCalcOpen ? "#fff" : "#2A2A2E",
+        font: "700 12.5px Nunito"
       }
     }, h("span", { style: { width: "8px", height: "8px", borderRadius: "999px", background: p.discCalcOpen ? "#8FE3B4" : "#C9C9D2" } }), "Calc. descuento");
   }
@@ -963,7 +961,7 @@ class Component extends DCLogic {
             style: { display: "inline-flex", alignItems: "center", gap: "7px", padding: "8px 14px", borderRadius: "8px", border: "1px solid " + (p.promoOn ? "#1b8f51" : "#D0D0D8"), background: p.promoOn ? "#1b8f51" : "#fff", color: p.promoOn ? "#fff" : "#2A2A2E", font: "700 12.5px Nunito" }
           },
             h("span", { style: { width: "8px", height: "8px", borderRadius: "999px", background: p.promoOn ? "#8FE3B4" : "#C9C9D2" } }), "Promo"),
-          this.discountCalcButton(idx, p, r, isPersonalizado)),
+          isPersonalizado ? this.discountCalcButton(idx, p, r) : null),
         p.promoOn ? h("div", { style: { marginTop: "10px" } },
           this.field("Descuento adicional (%) · tope " + this.pcfg(p.productId).maxDiscount + "%", h("input", { type: "number", min: "0", max: String(this.pcfg(p.productId).maxDiscount), style: this.st.input, value: p.manualDiscountPct, onChange: e => this.updateProduct(idx, { manualDiscountPct: e.target.value }) })),
           h("div", { style: { display: "flex", gap: "10px", marginTop: "10px", flexWrap: "wrap" } },
