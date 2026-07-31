@@ -1728,7 +1728,7 @@ class Component extends DCLogic {
     const sizeStyle = count === 1
       ? { width: "100%", maxWidth: "380px", minWidth: "320px", margin: "0 auto" }
       : {};
-    const extraBullet = (r.productId === "oportunidades" && item.cfg.period === "anual") ? "Recibe un mes adicional completamente gratis" : null;
+    const extraBullet = (r.productId === "oportunidades" && item.cfg.period === "anual") ? "¡Paga 12 y llévate 14 meses de servicio!!!" : null;
     // En modo Paquete, el % de descuento (zona y/o adicional) se muestra por
     // tarjeta en vez de como una sola cifra agregada en el total (ver renderBody).
     const showDiscount = this.state.mode === "paquete";
@@ -1746,7 +1746,7 @@ class Component extends DCLogic {
     const col = (item, tag) => {
       const r = item.result, t = this.themes[r.theme] || this.themes.green;
       const meta = this.pcfg(r.productId), benefits = meta.benefits;
-      const extraBullet = (r.productId === "oportunidades" && item.cfg.period === "anual") ? "Recibe un mes adicional completamente gratis" : null;
+      const extraBullet = (r.productId === "oportunidades" && item.cfg.period === "anual") ? "¡Paga 12 y llévate 14 meses de servicio!!!" : null;
       return h("div", { style: { flex: 1, display: "flex", flexDirection: "column", border: "1px solid " + t.border, borderRadius: "14px", overflow: "hidden", background: "#fff", boxShadow: "0 4px 16px -10px rgba(17,17,17,.22)" } },
         h("div", { style: { padding: "7px", background: "#111", color: "#fff", textAlign: "center", font: "800 11px Nunito", letterSpacing: ".14em" } }, "OPCIÓN " + tag),
         this.cardHeader(r, t, meta, scale),
