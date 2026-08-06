@@ -259,11 +259,7 @@ class Component extends DCLogic {
       promoOn: false,
       promoQty: 1,
       promoProduct: "destacados",
-      promoPeriod: "mensual",
-      // Calculadora rápida de descuento (solo Cobertura = "Personalizado")
-      discCalcOpen: false,
-      discCalcPct: 0,
-      discCalcFinal: 0
+      promoPeriod: "mensual"
     };
   }
 
@@ -393,21 +389,6 @@ class Component extends DCLogic {
     const products = this.state.products.map((p, i) => i === idx ? Object.assign({}, p, patch) : p);
     this.setState({ products, exportError: "" });
   }
-
-  // Cambia la Cobertura (eliteOption/oppOption). Si se sale de "Personalizado",
-  // borra la configuración de "Calc. descuento" (solo tiene sentido ahí): el
-  // panel se cierra, sus campos vuelven a 0 y el % aplicado se limpia siempre
-  // que no lo esté controlando "Promo" (que sigue siendo independiente).
-  setCoverageOption(idx, p, field, v) {
-    const patch = { [field]: v };
-    if (p[field] === "personalizado" && v !== "personalizado") {
-      patch.discCalcOpen = false;
-      patch.discCalcPct = 0;
-      patch.discCalcFinal = 0;
-      if (!p.promoOn) patch.manualDiscountPct = 0;
-    }
-    this.updateProduct(idx, patch);
-  }
   addProduct() {
     if (this.state.products.length >= 4) return;
     const used = this.state.products.map(p => p.productId);
@@ -478,9 +459,7 @@ class Component extends DCLogic {
       result.productName = pc.name; // nombre configurable (admin)
       result.theme = pc.theme;      // tema configurable (admin)
       // Descuento de ZONA proveniente del CSV (precio de lista vs precio final).
-      // Para Elite se oculta este % en la interfaz (a pedido del negocio):
-      // el precio final no cambia, solo no se expone el comparativo de zona.
-      if (p.productId !== "elite" && csvInfo && csvInfo.base != null && csvInfo.discountPct > 0 && csvInfo.base > result.finalPrice) {
+      if (csvInfo && csvInfo.base != null && csvInfo.discountPct > 0 && csvInfo.base > result.finalPrice) {
         result.zoneListPrice = Math.round(csvInfo.base);
         result.zoneDiscountPct = csvInfo.discountPct;
       }
@@ -805,7 +784,7 @@ class Component extends DCLogic {
     };
     const removePackage = (val) => this.updateProduct(idx, { customPackages: rows.filter(r => r.value !== val) });
 
-    const total = PE.customPackageMonthly(productId, rows);
+    const total = PE.customPackageMonthly(productId, rows, this.state.zone);
 
     const subtitle = (text, color) => h("div", { style: { font: "700 10.5px Nunito", letterSpacing: ".05em", textTransform: "uppercase", color: color, marginBottom: "8px" } }, text);
 
@@ -816,9 +795,11 @@ class Component extends DCLogic {
       subtitle("Paquetes agregados", "#146b3d"),
       rows.length ? h("div", { style: { marginBottom: "2px" } },
         rows.map((r, i) => {
-          const info = PE.packageListInfo(productId, r.value);
+          const info = PE.packageListInfo(productId, r.value, this.state.zone);
           const qty = Number(r.qty) || 0;
-          const subtotal = (info.price || 0) * qty;
+          const currentTotal = PE.customPackageMonthly(productId, rows.slice(0, i + 1), this.state.zone).monthly;
+          const previousTotal = i ? PE.customPackageMonthly(productId, rows.slice(0, i), this.state.zone).monthly : 0;
+          const subtotal = currentTotal - previousTotal;
           return h("div", { key: r.value, style: { display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", padding: "7px 0", borderBottom: i < rows.length - 1 ? "1px solid #ECECEF" : "none" } },
             h("div", { style: { flex: "1 1 130px", font: "700 12px Nunito", color: "#2A2A2E" } }, packageLabel(r.value)),
             h("input", { type: "number", min: "1", value: r.qty, style: Object.assign({}, this.st.input, { width: "60px", padding: "6px 8px" }), onChange: e => updateQty(r.value, e.target.value) }),
@@ -845,66 +826,7 @@ class Component extends DCLogic {
       total.warnings.length ? h("div", { style: { marginTop: "8px", font: "600 11.5px Nunito", color: "#8A5A0F" } }, total.warnings.join(" ")) : null);
   }
 
-  // Calculadora rápida de descuento ("Calc. descuento"). Solo se muestra
-  // cuando la Cobertura del producto es "Personalizado" (ver call site en
-  // renderProductConfig). Alimenta el MISMO campo manualDiscountPct que usa
-  // "Promo", así que el resultado se refleja de inmediato en el motor de
-  // precios, el resumen, el total y el PDF.
-  discountCalcButton(idx, p, r) {
-    const h = React.createElement;
-    return h("button", {
-      onClick: () => this.updateProduct(idx, p.discCalcOpen ? { discCalcOpen: false } : { discCalcOpen: true, discCalcPct: r.manualDiscountPct || 0, discCalcFinal: r.finalPrice || 0 }),
-      style: {
-        display: "inline-flex", alignItems: "center", gap: "7px", padding: "8px 14px", borderRadius: "8px",
-        border: "1px solid " + (p.discCalcOpen ? "#1b8f51" : "#D0D0D8"),
-        background: p.discCalcOpen ? "#1b8f51" : "#fff",
-        color: p.discCalcOpen ? "#fff" : "#2A2A2E",
-        font: "700 12.5px Nunito"
-      }
-    }, h("span", { style: { width: "8px", height: "8px", borderRadius: "999px", background: p.discCalcOpen ? "#8FE3B4" : "#C9C9D2" } }), "Calc. descuento");
-  }
-
-  discountCalcPanelBody(idx, p, r, isPersonalizado) {
-    if (!isPersonalizado || !p.discCalcOpen) return null;
-    const h = React.createElement, U = window.PC.utils, CFG = window.PC.config;
-    const base = r.originalPrice || 0;
-    const maxD = this.pcfg(p.productId).maxDiscount;
-    const pct1 = Number(p.discCalcPct) || 0;
-    const final1 = Math.round(base * (1 - pct1 / 100));
-    const final1IVA = Math.round(final1 * (1 + CFG.iva));
-    const final2 = Number(p.discCalcFinal) || 0;
-    const final2IVA = Math.round(final2 * (1 + CFG.iva));
-    const pct2 = base > 0 ? Math.round((1 - final2 / base) * 10000) / 100 : 0;
-    const overCap1 = pct1 > maxD;
-    const overCap2 = pct2 > maxD;
-    const lockedInput = (val) => h("input", { type: "text", disabled: true, value: val, style: Object.assign({}, this.st.input, { background: "#EDEDF1", color: "#6B6B73" }) });
-    const warnBox = (text) => h("div", { style: { marginTop: "8px", padding: "8px 10px", borderRadius: "7px", background: "#FDF3E1", border: "1px solid #EBCB8B", font: "600 11.5px/1.4 Nunito", color: "#8A5A0F" } }, "⚠ " + text);
-    const applyBtn = (onClick) => h("button", { onClick: onClick, style: { marginTop: "9px", padding: "8px 14px", borderRadius: "8px", border: "none", background: "#1b8f51", color: "#fff", font: "700 12px Nunito" } }, "Aplicar");
-
-    return h("div", { style: { marginTop: "10px", padding: "12px", borderRadius: "8px", border: "1px solid #E6E6EB", background: "#FAFAFB" } },
-
-      h("div", { style: { font: "700 10.5px Nunito", letterSpacing: ".05em", textTransform: "uppercase", color: "#146b3d", marginBottom: "8px" } }, "Calcular por descuento"),
-      h("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap" } },
-        h("div", { style: { flex: "1 1 100px" } }, this.field("Precio base sin IVA", lockedInput(U.money(base)))),
-        h("div", { style: { flex: "1 1 100px" } }, this.field("Descuento %", h("input", { type: "number", min: "0", max: "100", style: this.st.input, value: p.discCalcPct, onChange: e => this.updateProduct(idx, { discCalcPct: e.target.value }) }))),
-        h("div", { style: { flex: "1 1 100px" } }, this.field("Precio final sin IVA", lockedInput(U.money(final1)))),
-        h("div", { style: { flex: "1 1 100px" } }, this.field("Precio final con IVA", lockedInput(U.money(final1IVA))))),
-      overCap1 ? warnBox("Este descuento (" + pct1 + "%) supera el tope configurado para este producto (" + maxD + "%). Se puede aplicar, pero el motor de precios lo limitará al tope.") : null,
-      applyBtn(() => this.updateProduct(idx, { manualDiscountPct: U.clamp(pct1, 0, 100) })),
-
-      h("div", { style: { height: "1px", background: "#E0E0E6", margin: "14px 0" } }),
-
-      h("div", { style: { font: "700 10.5px Nunito", letterSpacing: ".05em", textTransform: "uppercase", color: "#146b3d", marginBottom: "8px" } }, "Calcular por precio final"),
-      h("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap" } },
-        h("div", { style: { flex: "1 1 100px" } }, this.field("Precio base sin IVA", lockedInput(U.money(base)))),
-        h("div", { style: { flex: "1 1 100px" } }, this.field("Descuento equiv. %", lockedInput(pct2 + "%"))),
-        h("div", { style: { flex: "1 1 100px" } }, this.field("Precio final sin IVA", h("input", { type: "number", min: "0", style: this.st.input, value: p.discCalcFinal, onChange: e => this.updateProduct(idx, { discCalcFinal: e.target.value }) }))),
-        h("div", { style: { flex: "1 1 100px" } }, this.field("Precio final con IVA", lockedInput(U.money(final2IVA))))),
-      overCap2 ? warnBox("Este descuento equivalente (" + pct2 + "%) supera el tope configurado para este producto (" + maxD + "%). Se puede aplicar, pero el motor de precios lo limitará al tope.") : null,
-      applyBtn(() => this.updateProduct(idx, { manualDiscountPct: U.clamp(pct2, 0, 100) })));
-  }
-
-  miniPriceSummary(r) {
+  miniPriceSummary(r, promoOn) {
     const h = React.createElement, U = window.PC.utils;
     const row = (label, value, o) => { o = o || {}; return h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "12px", marginBottom: o.mb || "3px" } },
       h("span", { style: { font: (o.strong ? "800 " : "500 ") + (o.big ? "12px" : "11px") + " Nunito", color: o.labelColor || "#6B6B73" } }, label),
@@ -913,11 +835,11 @@ class Component extends DCLogic {
     const discPct = listPrice > 0 ? Math.round((listPrice - r.finalPrice) / listPrice * 100) : 0;
     const hasDisc = discPct > 0;
     const hasZoneDisc = !!(r.zoneListPrice && r.zoneDiscountPct > 0);
-    const hasManualDisc = Number(r.manualDiscountPct) > 0;
+    const hasPromoDisc = !!(promoOn && Number(r.manualDiscountPct) > 0);
     return h("div", { style: { marginTop: "4px", padding: "11px 13px", borderRadius: "8px", background: "#F4F4F6" } },
       row("Precio total sin IVA", U.money(listPrice), { strike: hasDisc, valueColor: hasDisc ? "#A5A5AD" : "#111" }),
       hasZoneDisc ? row("Descuento por zona", "−" + Math.round(r.zoneDiscountPct) + "%", { labelColor: "#1b8f51", valueColor: "#1b8f51" }) : null,
-      hasManualDisc ? row("Descuento adicional", "−" + Math.round(r.manualDiscountPct) + "%", { labelColor: "#1b8f51", valueColor: "#1b8f51" }) : null,
+      hasPromoDisc ? row("Descuento Promo", "−" + Math.round(r.manualDiscountPct) + "%", { labelColor: "#1b8f51", valueColor: "#1b8f51" }) : null,
       hasDisc ? row("Precio final sin IVA", U.money(r.finalPrice)) : null,
       h("div", { style: { height: "1px", background: "#E0E0E6", margin: "6px 0" } }),
       row("Precio final con IVA", U.money(r.finalPriceIVA), { strong: true, big: true, labelColor: "#146b3d", valueColor: "#1b8f51" }));
@@ -933,12 +855,12 @@ class Component extends DCLogic {
     const conditional = [];
     if (p.productId === "elite") {
       const covOpts = this.pcfg("elite").coverage.map(o => ({ value: o.value, label: o.label }));
-      conditional.push(this.field("Cobertura de inventario", this.select(p.eliteOption, v => this.setCoverageOption(idx, p, "eliteOption", v), covOpts)));
+      conditional.push(this.field("Cobertura de inventario", this.select(p.eliteOption, v => this.updateProduct(idx, { eliteOption: v }), covOpts)));
       if (p.eliteOption === "personalizado")
         conditional.push(this.customPackageBuilder(idx, p));
     } else if (p.productId === "oportunidades") {
       const opts = this.pcfg("oportunidades").coverage.map(o => ({ value: o.value, label: o.label }));
-      conditional.push(this.field("Paquete de oportunidades", this.select(p.oppOption, v => this.setCoverageOption(idx, p, "oppOption", v), opts)));
+      conditional.push(this.field("Paquete de oportunidades", this.select(p.oppOption, v => this.updateProduct(idx, { oppOption: v }), opts)));
       if (p.oppOption === "personalizado")
         conditional.push(this.customPackageBuilder(idx, p));
     } else if (p.productId === "destacados" || p.productId === "prime") {
@@ -954,8 +876,6 @@ class Component extends DCLogic {
 
     const r = item.result;
     const complete = item.validation.complete;
-    const isPersonalizado = (p.productId === "elite" && p.eliteOption === "personalizado")
-      || (p.productId === "oportunidades" && p.oppOption === "personalizado");
     return h("div", { key: p.uid, style: { border: "1px solid " + (complete ? "#C3E7D2" : "#E6E6EB"), borderRadius: "10px", padding: "14px", marginBottom: "12px", background: "#FCFCFD" } },
       h("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" } },
         h("div", { style: { display: "flex", alignItems: "center", gap: "8px" } },
@@ -967,26 +887,23 @@ class Component extends DCLogic {
       this.field("Periodo", this.select(p.period, v => this.updateProduct(idx, { period: v }), periodOpts)),
       conditional,
 
-      // Botones Promo / Calc. descuento: cada uno controla su propio panel,
-      // de forma independiente (comparten solo el campo manualDiscountPct).
+      // Botón Promo: activa/desactiva el descuento adicional (%) y la
+      // cortesía manual (cantidad + producto) de este producto.
       h("div", { style: { marginBottom: "13px" } },
-        h("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap" } },
-          h("button", {
-            onClick: () => this.updateProduct(idx, p.promoOn ? { promoOn: false, manualDiscountPct: 0 } : { promoOn: true }),
-            style: { display: "inline-flex", alignItems: "center", gap: "7px", padding: "8px 14px", borderRadius: "8px", border: "1px solid " + (p.promoOn ? "#1b8f51" : "#D0D0D8"), background: p.promoOn ? "#1b8f51" : "#fff", color: p.promoOn ? "#fff" : "#2A2A2E", font: "700 12.5px Nunito" }
-          },
-            h("span", { style: { width: "8px", height: "8px", borderRadius: "999px", background: p.promoOn ? "#8FE3B4" : "#C9C9D2" } }), "Promo"),
-          isPersonalizado ? this.discountCalcButton(idx, p, r) : null),
+        h("button", {
+          onClick: () => this.updateProduct(idx, p.promoOn ? { promoOn: false, manualDiscountPct: 0 } : { promoOn: true }),
+          style: { display: "inline-flex", alignItems: "center", gap: "7px", padding: "8px 14px", borderRadius: "8px", border: "1px solid " + (p.promoOn ? "#1b8f51" : "#D0D0D8"), background: p.promoOn ? "#1b8f51" : "#fff", color: p.promoOn ? "#fff" : "#2A2A2E", font: "700 12.5px Nunito" }
+        },
+          h("span", { style: { width: "8px", height: "8px", borderRadius: "999px", background: p.promoOn ? "#8FE3B4" : "#C9C9D2" } }), "Promo"),
         p.promoOn ? h("div", { style: { marginTop: "10px" } },
           this.field("Descuento adicional (%) · tope " + this.pcfg(p.productId).maxDiscount + "%", h("input", { type: "number", min: "0", max: String(this.pcfg(p.productId).maxDiscount), style: this.st.input, value: p.manualDiscountPct, onChange: e => this.updateProduct(idx, { manualDiscountPct: e.target.value }) })),
           h("div", { style: { display: "flex", gap: "10px", marginTop: "10px", flexWrap: "wrap" } },
             h("div", { style: { width: "92px" } }, this.field("Cantidad", h("input", { type: "number", min: "1", style: this.st.input, value: p.promoQty, onChange: e => this.updateProduct(idx, { promoQty: e.target.value }) }))),
             h("div", { style: { flex: 1, minWidth: "140px" } }, this.field("Producto", this.select(p.promoProduct, v => this.updateProduct(idx, { promoProduct: v }), productOpts))),
-            h("div", { style: { flex: 1, minWidth: "120px" } }, this.field("Vigencia", this.select(p.promoPeriod, v => this.updateProduct(idx, { promoPeriod: v }), periodOpts))))) : null,
-        this.discountCalcPanelBody(idx, p, r, isPersonalizado)),
+            h("div", { style: { flex: 1, minWidth: "120px" } }, this.field("Vigencia", this.select(p.promoPeriod, v => this.updateProduct(idx, { promoPeriod: v }), periodOpts))))) : null),
 
       // Mini resumen de precio en vivo
-      this.miniPriceSummary(r),
+      this.miniPriceSummary(r, p.promoOn),
       (r.warnings && r.warnings.length) ? h("div", { style: { marginTop: "8px", padding: "9px 11px", borderRadius: "8px", background: "#FDF3E1", border: "1px solid #EBCB8B" } }, r.warnings.map((w, i) => h("div", { key: i, style: { display: "flex", gap: "7px", alignItems: "flex-start", font: "600 11.5px/1.45 Nunito", color: "#8A5A0F", marginBottom: i < r.warnings.length - 1 ? "4px" : 0 } }, h("span", { style: { flex: "none" } }, "⚠"), h("span", null, w)))) : null
     );
   }
@@ -1044,7 +961,7 @@ class Component extends DCLogic {
       const c = data.pkg.calc;
       const totalSinIVA = data.items.reduce((sum, i) => sum + i.result.originalPrice, 0);
       const descPct = totalSinIVA > 0 ? Math.round(((totalSinIVA - c.total) / totalSinIVA) * 100) : 0;
-      totalBlock = this.renderTotal({ totalSinIVA: totalSinIVA, finalSinIVA: c.total, finalConIVA: c.totalIVA, descPct: descPct, preferential: c.subtotal !== c.total, hideDiscountLabel: true }, data.pkg.eval.applied);
+      totalBlock = this.renderTotal({ totalSinIVA: totalSinIVA, finalSinIVA: c.total, finalConIVA: c.totalIVA, descPct: descPct, preferential: c.subtotal !== c.total }, data.pkg.eval.applied);
     }
 
     return h("div", { className: "pc-proposal-pane", ref: (el) => { this.proposalPaneRef = el; }, style: { flex: 1, height: "100vh", overflowY: "auto", background: "#EDEDF1", padding: "28px 32px" } },
@@ -1585,11 +1502,11 @@ class Component extends DCLogic {
     if (p.productId === "elite") {
       if (p.eliteOption === "hasta300") return { bigText: "Hasta 300", unit: "propiedades" };
       if (p.eliteOption === "301a500") return { bigText: "301 a 500", unit: "propiedades" };
-      if (p.eliteOption === "personalizado") return { bigNum: PE.customPackageMonthly("elite", p.customPackages).coverage.toLocaleString("es-MX"), unit: "propiedades" };
+      if (p.eliteOption === "personalizado") return { bigNum: PE.customPackageMonthly("elite", p.customPackages, p.zone).coverage.toLocaleString("es-MX"), unit: "propiedades" };
       return { bigNum: (Number(p.inventory) || 0).toLocaleString("es-MX"), unit: "propiedades" };
     }
     if (p.productId === "oportunidades") {
-      const n = p.oppOption === "personalizado" ? PE.customPackageMonthly("oportunidades", p.customPackages).coverage : Number(p.oppOption);
+      const n = p.oppOption === "personalizado" ? PE.customPackageMonthly("oportunidades", p.customPackages, p.zone).coverage : Number(p.oppOption);
       return { bigNum: n.toLocaleString("es-MX"), unit: "" };
     }
     const q = Number(p.quantity) || 0;
@@ -1649,46 +1566,15 @@ class Component extends DCLogic {
       benefits.map((b, i) => h("div", { key: i, style: { display: "flex", gap: px(9), alignItems: "flex-start", marginBottom: px(9) } },
         this.checkIcon(t.accent),
         h("div", { style: { font: "500 " + px(12.5) + "/1.4 Nunito", color: "#2A2A2E" } }, this.parseBold(b)))),
-      extraBullet ? h("div", { style: { marginTop: px(2) }, dangerouslySetInnerHTML: { __html: this.anniversaryGiftBoxHtml() } }) : null);
+      extraBullet ? h("div", { style: { display: "flex", gap: px(9), alignItems: "flex-start" } },
+        this.checkIcon("#C58A1A"),
+        h("div", { style: { font: "800 " + px(12.5) + "/1.4 Nunito", color: "#C58A1A" } }, extraBullet)) : null);
   }
-  // Caja promocional "Regalo de aniversario" para Oportunidades Ilimitadas
-  // anual (12x16 meses). HTML fijo (con animación de la flama vía @keyframes),
-  // inyectado tal cual vía dangerouslySetInnerHTML — no se escala con cardScale.
-  anniversaryGiftBoxHtml() {
-    return `<style>
-@keyframes flame{0%,100%{transform:scale(1) rotate(-2deg)}50%{transform:scale(1.15) rotate(3deg)}}
-</style>
-<div style="display:flex;gap:12px;align-items:center;background:#FCF5E3;border:1.5px solid #E9C988;border-radius:12px;padding:12px 14px;font-family:'Nunito',sans-serif;">
-  <svg width="40" height="46" viewBox="0 0 32 38" fill="none" style="flex:none">
-    <g style="transform-origin:16px 4px;animation:flame 0.9s ease-in-out infinite"><path d="M16 1.2c1.6 1.9 1.6 3.5 0 4.8-1.6-1.3-1.6-2.9 0-4.8z" fill="#E39B36"/></g>
-    <rect x="15.1" y="6.4" width="1.8" height="5.4" rx=".9" fill="#D23429"/>
-    <rect x="15.1" y="8" width="1.8" height="1.4" fill="#fff" opacity=".85"/>
-    <path d="M6.8 22.6c-2-.4-2.6-3.1-.8-4.2-.3-1.9 1.4-3.3 3.1-2.8.6-2.5 3-4 6.9-4s6.3 1.5 6.9 4c1.7-.5 3.4.9 3.1 2.8 1.8 1.1 1.2 3.8-.8 4.2H6.8z" fill="#fff" stroke="#CE8B30" stroke-width="1.4" stroke-linejoin="round"/>
-    <rect x="10.6" y="15.2" width="2.4" height="1" rx=".5" fill="#57BF9E" transform="rotate(24 11.8 15.7)"/>
-    <rect x="15.4" y="14" width="2.4" height="1" rx=".5" fill="#D23429" transform="rotate(-14 16.6 14.5)"/>
-    <rect x="19.6" y="16.4" width="2.4" height="1" rx=".5" fill="#0ABF76" transform="rotate(30 20.8 16.9)"/>
-    <path d="M7.6 22.6h16.8l-1.9 10.6c-.2 1.2-1.2 2-2.4 2h-8.2c-1.2 0-2.2-.8-2.4-2L7.6 22.6z" fill="#357A53"/>
-    <path d="M11 22.6l1.5 12.6M16 22.6v12.6M21 22.6l-1.5 12.6" stroke="#fff" stroke-width="1.2" opacity=".55"/>
-  </svg>
-  <div>
-    <div style="font:800 11px 'Montserrat',sans-serif;letter-spacing:1px;color:#CE8B30">REGALO DE ANIVERSARIO</div>
-    <div style="font:800 14.5px 'Nunito',sans-serif;color:#252B37;margin-top:2px">¡Paga 12 y llévate <span style="color:#CE8B30">16 meses</span> de servicio!</div>
-  </div>
-</div>`;
-  }
-  cardPriceFooter(item, r, t, scale, showDiscount) {
+  cardPriceFooter(item, r, t, scale) {
     const h = React.createElement, U = window.PC.utils, s = scale || 1, px = (n) => this.px(n, s);
-    const discRow = (label, pct) => h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: px(10), marginBottom: px(4) } },
-      h("span", { style: { font: "500 " + px(11) + " Nunito", color: "#6B6B73" } }, label),
-      h("span", { style: { font: "700 " + px(12) + " Nunito", color: "#1b8f51" } }, "−" + Math.round(pct) + "%"));
-    const discRows = [];
-    if (showDiscount && r.zoneDiscountPct > 0) discRows.push(discRow("Descuento por zona", r.zoneDiscountPct));
-    if (showDiscount && r.visibleDiscountPct > 0) discRows.push(discRow("Descuento adicional", r.visibleDiscountPct));
-    return h("div", { style: { marginTop: "auto", padding: px(14) + " " + px(18), background: "#fff", borderTop: "1px solid " + t.border } },
-      discRows.length ? h("div", { style: { marginBottom: px(6) } }, discRows) : null,
-      h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: px(10) } },
-        h("span", { style: { font: "500 " + px(13) + " Nunito", color: "#6B6B73" } }, "Periodo"),
-        h("span", { style: { font: "800 " + px(14) + " Nunito", color: "#111" } }, r.periodLabel + (item.extraMonths ? " (+" + item.extraMonths + " mes cortesía)" : ""))));
+    return h("div", { style: { marginTop: "auto", padding: px(14) + " " + px(18), background: "#fff", borderTop: "1px solid " + t.border, display: "flex", justifyContent: "space-between", alignItems: "center", gap: px(10) } },
+      h("span", { style: { font: "500 " + px(13) + " Nunito", color: "#6B6B73" } }, "Periodo"),
+      h("span", { style: { font: "800 " + px(14) + " Nunito", color: "#111" } }, r.periodLabel + (item.extraMonths ? " (+" + item.extraMonths + " mes cortesía)" : "")));
   }
   // Footer del modo VS: resumen comercial completo por tarjeta (mismos valores
   // que miniPriceSummary del panel izquierdo). Solo se usa en Comparativo de productos.
@@ -1751,16 +1637,13 @@ class Component extends DCLogic {
     const sizeStyle = count === 1
       ? { width: "100%", maxWidth: "380px", minWidth: "320px", margin: "0 auto" }
       : {};
-    const extraBullet = r.productId === "oportunidades" && item.cfg.period === "anual";
-    // En modo Paquete, el % de descuento (zona y/o adicional) se muestra por
-    // tarjeta en vez de como una sola cifra agregada en el total (ver renderBody).
-    const showDiscount = this.state.mode === "paquete";
+    const extraBullet = (r.productId === "oportunidades" && item.cfg.period === "anual") ? "Recibe un mes adicional completamente gratis" : null;
     return h("div", { className: className, style: Object.assign({ display: "flex", flexDirection: "column", border: "1px solid " + t.border, borderRadius: "14px", overflow: "hidden", background: "#fff", boxShadow: "0 18px 30px -14px rgba(17,17,17,.4), 0 4px 12px -8px rgba(17,17,17,.2)" }, sizeStyle) },
       this.cardHeader(r, t, meta, scale),
       this.cardValueBlock(item, r, t, meta, scale),
       this.cardBenefits(benefits, t, scale, extraBullet),
       this.manualPromoStrip(item, t),
-      this.cardPriceFooter(item, r, t, scale, showDiscount));
+      this.cardPriceFooter(item, r, t, scale));
   }
 
   renderVsBody(data) {
@@ -1769,7 +1652,7 @@ class Component extends DCLogic {
     const col = (item, tag) => {
       const r = item.result, t = this.themes[r.theme] || this.themes.green;
       const meta = this.pcfg(r.productId), benefits = meta.benefits;
-      const extraBullet = r.productId === "oportunidades" && item.cfg.period === "anual";
+      const extraBullet = (r.productId === "oportunidades" && item.cfg.period === "anual") ? "Recibe un mes adicional completamente gratis" : null;
       return h("div", { style: { flex: 1, display: "flex", flexDirection: "column", border: "1px solid " + t.border, borderRadius: "14px", overflow: "hidden", background: "#fff", boxShadow: "0 4px 16px -10px rgba(17,17,17,.22)" } },
         h("div", { style: { padding: "7px", background: "#111", color: "#fff", textAlign: "center", font: "800 11px Nunito", letterSpacing: ".14em" } }, "OPCIÓN " + tag),
         this.cardHeader(r, t, meta, scale),
@@ -1795,7 +1678,7 @@ class Component extends DCLogic {
         pkgPromo ? h("div", { style: { font: "600 12px Nunito", color: "#16763F", marginTop: "6px" } }, "Incluye: " + ((pkgPromo.display || {}).label || pkgPromo.name)) : null),
       h("div", { style: { minWidth: "260px" } },
         row("Precio total sin IVA", U.money(info.totalSinIVA), { strike: info.descPct > 0, valueColor: info.descPct > 0 ? "#A5A5AD" : "#111" }),
-        (info.descPct > 0 && !info.hideDiscountLabel) ? row("Descuento", "−" + info.descPct + "%", { labelColor: "#1b8f51", valueColor: "#1b8f51" }) : null,
+        (info.descPct > 0) ? row("Descuento", "−" + info.descPct + "%", { labelColor: "#1b8f51", valueColor: "#1b8f51" }) : null,
         (info.descPct > 0) ? row("Precio final sin IVA", U.money(info.finalSinIVA)) : null,
         h("div", { style: { height: "1px", background: "rgba(17,17,17,.12)", margin: "8px 0" } }),
         h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "18px" } },
