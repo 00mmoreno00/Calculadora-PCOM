@@ -423,7 +423,7 @@ class Component extends DCLogic {
       // Fuente principal: precio del CSV (total del periodo). Si no hay, fallback a la lógica actual.
       const csvInfo = isPersonalizado ? null : this.csvPeriodInfo(p.productId, offerLabel, p.period, s.zone, s.stateName);
       const csvTotal = csvInfo ? csvInfo.final : null;
-      let baseOverride = pc.basePrice;
+      let baseOverride = isPersonalizado ? null : pc.basePrice;
       if (csvTotal != null && csvTotal > 0) {
         const mm = window.PC.PricingEngine.months(p.period) || 1;
         if (p.productId === "elite" || p.productId === "oportunidades") baseOverride = csvTotal / mm;
@@ -797,9 +797,7 @@ class Component extends DCLogic {
         rows.map((r, i) => {
           const info = PE.packageListInfo(productId, r.value, this.state.zone);
           const qty = Number(r.qty) || 0;
-          const currentTotal = PE.customPackageMonthly(productId, rows.slice(0, i + 1), this.state.zone).monthly;
-          const previousTotal = i ? PE.customPackageMonthly(productId, rows.slice(0, i), this.state.zone).monthly : 0;
-          const subtotal = currentTotal - previousTotal;
+          const subtotal = PE.customPackageMonthly(productId, rows, this.state.zone).monthly;
           return h("div", { key: r.value, style: { display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", padding: "7px 0", borderBottom: i < rows.length - 1 ? "1px solid #ECECEF" : "none" } },
             h("div", { style: { flex: "1 1 130px", font: "700 12px Nunito", color: "#2A2A2E" } }, packageLabel(r.value)),
             h("input", { type: "number", min: "1", value: r.qty, style: Object.assign({}, this.st.input, { width: "60px", padding: "6px 8px" }), onChange: e => updateQty(r.value, e.target.value) }),
