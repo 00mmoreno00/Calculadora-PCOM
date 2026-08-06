@@ -36,7 +36,9 @@ window.PC.PricingEngine = (function () {
   // (customPackageMonthly) y la UI (detalle de cada fila ya agregada).
   function packageListInfo(productId, value, zone) {
     if (productId === "oportunidades") {
-      const list = D.oportunidades.zones[zone];
+      // Personalizado siempre usa el precio de lista nacional (FULLPRICE),
+      // nunca el precio de zona (ver customPackageMonthly).
+      const list = D.oportunidades.zones.FULLPRICE;
       const price = list ? list[value] : null;
       return { price: price != null ? price : null, units: Number(value) || 0 };
     }
@@ -92,9 +94,12 @@ window.PC.PricingEngine = (function () {
     }
 
     if (productId === "oportunidades" && coverage > 0) {
-      const prices = D.oportunidades.zones[zone];
+      // Personalizado siempre usa el precio de lista nacional (FULLPRICE),
+      // nunca el precio de zona: la combinación manual de paquetes se
+      // cotiza a precio de lista, sin el descuento contratado por zona.
+      const prices = D.oportunidades.zones.FULLPRICE;
       if (!prices) {
-        warnings.push("Sin precios de Oportunidades para la zona seleccionada: no se incluyó en el total.");
+        warnings.push("Sin precios FULLPRICE de Oportunidades: no se incluyó en el total.");
         return { monthly: 0, coverage, warnings, extraBlocks: 0 };
       }
 

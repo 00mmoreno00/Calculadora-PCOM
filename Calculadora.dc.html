@@ -797,12 +797,10 @@ class Component extends DCLogic {
         rows.map((r, i) => {
           const info = PE.packageListInfo(productId, r.value, this.state.zone);
           const qty = Number(r.qty) || 0;
-          const subtotal = PE.customPackageMonthly(productId, rows, this.state.zone).monthly;
           return h("div", { key: r.value, style: { display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", padding: "7px 0", borderBottom: i < rows.length - 1 ? "1px solid #ECECEF" : "none" } },
             h("div", { style: { flex: "1 1 130px", font: "700 12px Nunito", color: "#2A2A2E" } }, packageLabel(r.value)),
             h("input", { type: "number", min: "1", value: r.qty, style: Object.assign({}, this.st.input, { width: "60px", padding: "6px 8px" }), onChange: e => updateQty(r.value, e.target.value) }),
             h("div", { style: { flex: "1 1 110px", font: "500 11.5px Nunito", color: "#6B6B73" } }, "Cobertura: " + (info.units * qty).toLocaleString("es-MX")),
-            h("div", { style: { flex: "1 1 90px", font: "700 12px Nunito", color: "#146b3d", textAlign: "right" } }, U.money(subtotal)),
             h("button", { onClick: () => removePackage(r.value), style: { border: "none", background: "none", color: "#D7373F", fontWeight: 700, fontSize: "12px" } }, "Quitar"));
         })
       ) : h("div", { style: { font: "500 12px Nunito", color: "#A5A5AD" } }, "Aún no has agregado paquetes"),
@@ -817,9 +815,21 @@ class Component extends DCLogic {
           h("div", { style: { width: "80px" } }, this.field("Cantidad", h("input", { type: "number", min: "1", style: this.st.input, value: pickQty, onChange: e => this.updateProduct(idx, { customPickQty: e.target.value }) }))),
           h("button", { onClick: addPackage, style: { padding: "9px 14px", borderRadius: "8px", border: "1px dashed #9ED3B4", background: "#EAF7F0", color: "#146b3d", fontWeight: 700, fontSize: "12px", height: "38px", marginBottom: "13px" } }, "+ Agregar paquete"))),
 
-      rows.length ? h("div", { style: { marginTop: "12px", paddingTop: "8px", borderTop: "1px solid #E6E6EB", display: "flex", justifyContent: "space-between", font: "700 12px Nunito", color: "#2A2A2E" } },
-        h("span", null, "Cobertura total"),
-        h("span", null, total.coverage.toLocaleString("es-MX") + " " + unitLabel)) : null,
+      rows.length ? h("div", { style: { marginTop: "12px", paddingTop: "8px", borderTop: "1px solid #E6E6EB" } },
+        h("div", { style: { display: "flex", justifyContent: "space-between", font: "700 12px Nunito", color: "#2A2A2E", marginBottom: "8px" } },
+          h("span", null, "Cobertura total"),
+          h("span", null, total.coverage.toLocaleString("es-MX") + " " + unitLabel)),
+        // Desglose: producto base (hasta 500) + bloques adicionales de 500,
+        // igual que el motor los calcula por separado (customPackageMonthly).
+        h("div", { style: { display: "flex", justifyContent: "space-between", font: "500 11.5px Nunito", color: "#6B6B73", marginBottom: "3px" } },
+          h("span", null, "Producto base"),
+          h("span", null, U.money(total.baseMonthly))),
+        total.extraBlocks > 0 ? h("div", { style: { display: "flex", justifyContent: "space-between", font: "500 11.5px Nunito", color: "#6B6B73", marginBottom: "3px" } },
+          h("span", null, total.extraBlocks + " bloque(s) adicional(es) de 500"),
+          h("span", null, U.money(total.extrasMonthly))) : null,
+        h("div", { style: { display: "flex", justifyContent: "space-between", font: "700 12px Nunito", color: "#146b3d", marginTop: "5px" } },
+          h("span", null, "Total mensual"),
+          h("span", null, U.money(total.monthly)))) : null,
 
       total.warnings.length ? h("div", { style: { marginTop: "8px", font: "600 11.5px Nunito", color: "#8A5A0F" } }, total.warnings.join(" ")) : null);
   }
