@@ -891,7 +891,7 @@ class Component extends DCLogic {
           h("span", { style: { font: "700 13px Nunito", color: complete ? "#16763F" : "#6B6B73" } }, complete ? "Completo" : "Incompleto")),
         (s.mode === "paquete" && s.products.length > 1) ? h("button", { onClick: () => this.removeProduct(idx), style: { border: "none", background: "none", color: "#D7373F", fontWeight: 700, fontSize: "12px" } }, "Quitar") : null),
 
-      this.field("Producto", this.select(p.productId, v => this.updateProduct(idx, { productId: v }), productOpts)),
+      this.field("Producto", this.select(p.productId, v => this.updateProduct(idx, { productId: v, customPackages: [], customPickValue: "", customPickQty: 1 }), productOpts)),
       this.field("Periodo", this.select(p.period, v => this.updateProduct(idx, { period: v }), periodOpts)),
       conditional,
 
