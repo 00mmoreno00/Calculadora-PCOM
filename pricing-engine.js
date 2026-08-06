@@ -58,12 +58,12 @@ window.PC.PricingEngine = (function () {
     (rows || []).forEach(row => {
       const qty = Math.max(1, Math.round(Number(row.qty) || 0));
       const info = packageListInfo(productId, row.value);
+      coverage += info.units * qty;
       if (info.price == null) {
         warnings.push("Sin precio de lista nacional para \"" + row.value + "\": no se incluyó en el total.");
         return;
       }
       monthly += info.price * qty;
-      coverage += info.units * qty;
     });
     return { monthly, coverage, warnings };
   }
