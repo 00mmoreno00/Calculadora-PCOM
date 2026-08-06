@@ -74,19 +74,21 @@ window.PC.PricingEngine = (function () {
         return { monthly: 0, coverage, warnings, extraBlocks: 0 };
       }
 
-      let extraBlocks = 0;
-      if (coverage <= 300) monthly = prices.p300;
-      else if (coverage <= 500) monthly = prices.p500;
+      let extraBlocks = 0, baseMonthly = 0, extrasMonthly = 0;
+      if (coverage <= 300) baseMonthly = Number(prices.p300);
+      else if (coverage <= 500) baseMonthly = Number(prices.p500);
       else {
         extraBlocks = Math.ceil((coverage - 500) / 500);
-        monthly = prices.p500 + (prices.extra * extraBlocks);
+        baseMonthly = Number(prices.p500);
+        extrasMonthly = Number(prices.extra) * extraBlocks;
       }
+      monthly = baseMonthly + extrasMonthly;
 
-      if (monthly == null || !isFinite(monthly)) {
+      if (!(baseMonthly > 0) || !isFinite(monthly)) {
         warnings.push("Falta el precio de Elite para la cobertura y zona seleccionadas: no se incluyó en el total.");
         monthly = 0;
       }
-      return { monthly, coverage, warnings, extraBlocks };
+      return { monthly, coverage, warnings, extraBlocks, baseMonthly, extrasMonthly };
     }
 
     if (productId === "oportunidades" && coverage > 0) {
@@ -96,20 +98,22 @@ window.PC.PricingEngine = (function () {
         return { monthly: 0, coverage, warnings, extraBlocks: 0 };
       }
 
-      let extraBlocks = 0;
+      let extraBlocks = 0, baseMonthly = 0, extrasMonthly = 0;
       if (coverage <= 500) {
         const packageSize = D.oportunidades.packages.find(size => coverage <= size);
-        monthly = packageSize != null ? prices[String(packageSize)] : null;
+        baseMonthly = packageSize != null ? Number(prices[String(packageSize)]) : 0;
       } else {
         extraBlocks = Math.ceil((coverage - 500) / 500);
-        monthly = prices["500"] + (prices.extra * extraBlocks);
+        baseMonthly = Number(prices["500"]);
+        extrasMonthly = Number(prices.extra) * extraBlocks;
       }
+      monthly = baseMonthly + extrasMonthly;
 
-      if (monthly == null || !isFinite(monthly)) {
+      if (!(baseMonthly > 0) || !isFinite(monthly)) {
         warnings.push("Falta el precio de Oportunidades para la cobertura y zona seleccionadas: no se incluyó en el total.");
         monthly = 0;
       }
-      return { monthly, coverage, warnings, extraBlocks };
+      return { monthly, coverage, warnings, extraBlocks, baseMonthly, extrasMonthly };
     }
 
     return { monthly, coverage, warnings, extraBlocks: 0 };
