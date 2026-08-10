@@ -257,9 +257,9 @@ class Component extends DCLogic {
       manualDiscountPct: 0,
       // Promo manual por producto (bonificación / cortesía)
       promoOn: false,
-      promoQty: 1,
-      promoProduct: "destacados",
-      promoPeriod: "mensual"
+      promoQty: "",
+      promoProduct: "",
+      promoPeriod: ""
     };
   }
 
@@ -317,11 +317,7 @@ class Component extends DCLogic {
     return null;
   }
 
-  // ===================== BORRADOR / COPIAR / LIMPIAR =====================
-  // Borradores desactivados: la app no guarda datos en el navegador.
-  saveDraft() { }
-  hasDraft() { return false; }
-  loadDraft() { }
+  // ===================== COPIAR / LIMPIAR =====================
   clearAll() {
     const U = window.PC.utils, C = window.PC.config;
     const today = U.todayLocal();
@@ -907,8 +903,8 @@ class Component extends DCLogic {
           this.field("Descuento adicional (%) · tope " + this.pcfg(p.productId).maxDiscount + "%", h("input", { type: "number", min: "0", max: String(this.pcfg(p.productId).maxDiscount), style: this.st.input, value: p.manualDiscountPct, onChange: e => this.updateProduct(idx, { manualDiscountPct: e.target.value }) })),
           h("div", { style: { display: "flex", gap: "10px", marginTop: "10px", flexWrap: "wrap" } },
             h("div", { style: { width: "92px" } }, this.field("Cantidad", h("input", { type: "number", min: "1", style: this.st.input, value: p.promoQty, onChange: e => this.updateProduct(idx, { promoQty: e.target.value }) }))),
-            h("div", { style: { flex: 1, minWidth: "140px" } }, this.field("Producto", this.select(p.promoProduct, v => this.updateProduct(idx, { promoProduct: v }), productOpts))),
-            h("div", { style: { flex: 1, minWidth: "120px" } }, this.field("Vigencia", this.select(p.promoPeriod, v => this.updateProduct(idx, { promoPeriod: v }), periodOpts))))) : null),
+            h("div", { style: { flex: 1, minWidth: "140px" } }, this.field("Producto", this.select(p.promoProduct, v => this.updateProduct(idx, { promoProduct: v }), [{ value: "", label: "" }].concat(productOpts)))),
+            h("div", { style: { flex: 1, minWidth: "120px" } }, this.field("Vigencia", this.select(p.promoPeriod, v => this.updateProduct(idx, { promoPeriod: v }), [{ value: "", label: "" }].concat(periodOpts)))))) : null),
 
       // Mini resumen de precio en vivo
       this.miniPriceSummary(r, p.promoOn),
@@ -1131,11 +1127,6 @@ class Component extends DCLogic {
     if (r.precioFinal !== "" && r.precioFinal != null) return Number(r.precioFinal);
     const b = Number(r.precioBase) || 0, d = Number(String(r.descuento).replace("%", "").trim()) || 0;
     return Math.round(b * (1 - d / 100));
-  }
-  // Precio total del periodo desde el CSV, o null si no aplica (=> fallback a la lógica actual).
-  csvPeriodPrice(productId, offerLabel, period, zoneId, stateName) {
-    const info = this.csvPeriodInfo(productId, offerLabel, period, zoneId, stateName);
-    return info ? info.final : null;
   }
   // Devuelve { final, base, discountPct } del renglón del CSV (o null). base/discountPct
   // reflejan el descuento de ZONA capturado en el CSV (PrecioBase + Descuento).
@@ -1626,16 +1617,6 @@ class Component extends DCLogic {
       h("div", { style: { height: "1px", background: "#E0E0E6", margin: px(7) + " 0" } }),
       row("Precio final con IVA", U.money(r.finalPriceIVA), { strong: true, big: true, labelColor: "#146b3d", valueColor: "#1b8f51", mb: "0" }));
   }
-  cardPromoStrip(r, t) {
-    const h = React.createElement;
-    if (!r.appliedPromotion) return null;
-    return h("div", { style: { margin: "0 18px 14px", padding: "9px 12px", borderRadius: "9px", background: t.soft, border: "1px dashed " + t.chip, display: "flex", gap: "8px", alignItems: "flex-start" } },
-      h("span", { style: { color: t.chip, fontWeight: 800, fontSize: "13px" } }, "★"),
-      h("div", null,
-        h("div", { style: { font: "800 11px Nunito", color: t.main } }, r.appliedPromotion.label || "Promoción"),
-        r.appliedPromotion.description ? h("div", { style: { font: "500 11px/1.35 Nunito", color: "#2A2A2E", marginTop: "2px" } }, r.appliedPromotion.description) : null));
-  }
-
   manualPromoStrip(item, t) {
     const h = React.createElement, C = window.PC.config, D = window.PC.pricingData;
     const c = item.cfg;
