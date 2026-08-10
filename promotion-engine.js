@@ -13,7 +13,6 @@ window.PC.PromotionEngine = (function () {
   "use strict";
 
   const U = window.PC.utils;
-  const LS_KEY = "pc_promotions_v1";
 
   const PRODUCT_EFFECTS = ["discount_pct", "discount_fixed", "fixed_price", "replace_price", "extra_months", "bonus_months"];
   const PACKAGE_EFFECTS = ["bundle_discount_pct", "bundle_discount_fixed", "preferential_price", "free_product"];
@@ -144,7 +143,6 @@ window.PC.PromotionEngine = (function () {
   }
 
   return {
-    LS_KEY,
     getPromotions, savePromotions, resetPromotions,
     evaluateForProduct, evaluateForPackage, matches,
     PRODUCT_EFFECTS, PACKAGE_EFFECTS

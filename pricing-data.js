@@ -77,7 +77,6 @@ window.PC.pricingData = (function () {
     destacados: {
       minQty: 1,
       maxQty: 10,
-      unitMonthlyRef: 599,
       table: {
         mensual:    [599, 1198, 1797, 2396, 2995, 3594, 4193, 4792, 5391, 5990],
         trimestral: [999, 1998, 2898, 3696, 4500, 5094, 5859, 6648, 7398, 8160],
@@ -206,6 +205,11 @@ window.PC.pricingData = (function () {
   // Descarga index.json + todos los CSV oficiales UNA sola vez (la promesa se
   // cachea y se comparte con quien más la necesite, ej. Calculadora.dc.html,
   // para no duplicar la misma descarga de red).
+  // IMPORTANTE (operación): estas descargas SOLO funcionan cuando la
+  // calculadora se abre servida por http/https (ej. Vercel). Abriéndola como
+  // archivo local (file://) el navegador bloquea el fetch y falla en silencio;
+  // en ese caso la app usa los precios internos de este archivo (fallback),
+  // no el catálogo CSV. Para que el CSV mande, hay que servir el sitio.
   let catalogFilesPromise = null;
   function fetchCatalogFiles() {
     if (catalogFilesPromise) return catalogFilesPromise;

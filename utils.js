@@ -86,8 +86,19 @@ window.PC.utils = (function () {
     return Math.min(max, Math.max(min, n));
   }
 
+  /* Normaliza texto para comparar/buscar: minúsculas, sin acentos,
+     espacios colapsados. Fuente única reutilizada por búsquedas y etiquetas. */
+  function normalizeText(s) {
+    return String(s || "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
   return {
     pad, todayLocal, toISO, fromISO, addMonths, addDays, addBusinessDays,
-    formatLong, formatShort, money, pct, clamp, MESES
+    formatLong, formatShort, money, pct, clamp, MESES, normalizeText
   };
 })();

@@ -105,37 +105,3 @@ window.PC.config = (function () {
     productOverrides: {}
   };
 })();
-
-(function () {
-  if (window.PC.__advisorSearchEnhancer) return;
-  window.PC.__advisorSearchEnhancer = true;
-  function norm(s) { return String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim(); }
-  function isAdvisorSearchInput(el) { return el && el.tagName === "INPUT" && String(el.getAttribute("placeholder") || "").toLowerCase().indexOf("buscar asesor") >= 0; }
-  function applyAdvisorSearchSelection(input) {
-    const q = norm(input.value); if (!q) return;
-    const select = input.parentElement ? input.parentElement.querySelector("select") : null; if (!select) return;
-    const match = Array.from(select.options || []).find(opt => norm(opt.textContent).indexOf(q) >= 0);
-    if (!match || select.value === match.value) return;
-    select.value = match.value;
-    select.dispatchEvent(new Event("change", { bubbles: true }));
-  }
-  document.addEventListener("input", function (event) { if (isAdvisorSearchInput(event.target)) window.setTimeout(function () { applyAdvisorSearchSelection(event.target); }, 80); }, true);
-})();
-
-(function () {
-  if (window.PC.__labelTextEnhancer) return;
-  window.PC.__labelTextEnhancer = true;
-  function n(s) { return String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim(); }
-  function relabel() {
-    Array.from(document.getElementsByTagName("label")).forEach(function (el) {
-      const t = n(el.textContent);
-      if (t.indexOf("descuento adicional") === 0) el.textContent = "Descuento adicional %";
-      else if (t === "cobertura de inventario" || t === "paquete de oportunidades" || t.indexOf("cantidad de avisos") === 0) el.textContent = "Cobertura";
-    });
-  }
-  document.addEventListener("input", function () { setTimeout(relabel, 0); }, true);
-  document.addEventListener("change", function () { setTimeout(relabel, 0); }, true);
-  document.addEventListener("click", function () { setTimeout(relabel, 0); }, true);
-  setInterval(relabel, 500);
-  setTimeout(relabel, 0);
-})();

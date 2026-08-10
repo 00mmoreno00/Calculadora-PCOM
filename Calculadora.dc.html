@@ -137,10 +137,32 @@ class Component extends DCLogic {
     window.PC.config.advisors = list || [];
     this.forceUpdate();
   }
+  // Búsqueda de asesor: filtra la lista y auto-selecciona el primer asesor
+  // cuyo nombre coincide (sin acentos). Reemplaza al viejo enhancer del DOM.
+  onAdvisorSearch(v) {
+    const U = window.PC.utils;
+    const q = U.normalizeText(v);
+    const patch = { advisorSearch: v, exportError: "" };
+    if (q) {
+      const match = this.getAdvisorsWithContactCenter().find(a => U.normalizeText(a.name).indexOf(q) >= 0);
+      if (match) patch.advisorId = match.id;
+    }
+    this.setState(patch);
+  }
 
   // Refs de encabezados de tarjeta de producto recolectados en cada render
   // (ver registerCardHeaderEl / syncCardHeaderHeights).
   _cardHeaderEls = [];
+
+  // Tokens de estilo: fuente ÚNICA de colores/fuente de la interfaz. Los
+  // estilos base (get st) los consumen. Otros estilos inline del archivo usan
+  // estos mismos valores y pueden migrarse a TOKENS de forma gradual.
+  TOKENS = {
+    green: "#1b8f51", greenDk: "#146b3d",
+    ink: "#111", ink2: "#2A2A2E", gray: "#6B6B73",
+    line: "#D0D0D8", line2: "#E6E6EB",
+    panelBg: "#F4F4F6", font: "Nunito"
+  };
 
   // Paleta por producto (verde / dorado / azul) para la propuesta y PDF.
   themes = {
@@ -628,13 +650,14 @@ class Component extends DCLogic {
 
   // ===================== ESTILOS COMPARTIDOS =====================
   get st() {
+    const T = this.TOKENS;
     return {
-      label: { display: "block", font: "600 10.5px/1.4 Nunito", textTransform: "uppercase", letterSpacing: ".07em", color: "#6B6B73", marginBottom: "6px" },
-      input: { width: "100%", padding: "9px 11px", border: "1px solid #D0D0D8", borderRadius: "8px", fontSize: "14px", background: "#fff", color: "#111", fontWeight: 500 },
+      label: { display: "block", font: "600 10.5px/1.4 " + T.font, textTransform: "uppercase", letterSpacing: ".07em", color: T.gray, marginBottom: "6px" },
+      input: { width: "100%", padding: "9px 11px", border: "1px solid " + T.line, borderRadius: "8px", fontSize: "14px", background: "#fff", color: T.ink, fontWeight: 500 },
       field: { marginBottom: "13px" },
-      card: { background: "#fff", border: "1px solid #E6E6EB", borderRadius: "12px", padding: "18px", marginBottom: "14px" },
-      eyebrow: { font: "600 10.5px/1 Nunito", letterSpacing: ".12em", textTransform: "uppercase", color: "#1b8f51" },
-      sectionTitle: { font: "800 15px/1.2 Nunito", color: "#111", margin: "3px 0 14px", letterSpacing: "-.01em" }
+      card: { background: "#fff", border: "1px solid " + T.line2, borderRadius: "12px", padding: "18px", marginBottom: "14px" },
+      eyebrow: { font: "600 10.5px/1 " + T.font, letterSpacing: ".12em", textTransform: "uppercase", color: T.green },
+      sectionTitle: { font: "800 15px/1.2 " + T.font, color: T.ink, margin: "3px 0 14px", letterSpacing: "-.01em" }
     };
   }
 
@@ -669,8 +692,8 @@ class Component extends DCLogic {
   renderPanel(data) {
     const h = React.createElement, C = window.PC.config, s = this.state;
     const advisorOpts = this.getAdvisorsWithContactCenter().map(a => ({ value: a.id, label: a.name + (a.phone ? "" : " (sin tel.)") }));
-    const advQ = (s.advisorSearch || "").trim().toLowerCase();
-    let advShown = advQ ? advisorOpts.filter(o => o.label.toLowerCase().indexOf(advQ) >= 0) : advisorOpts;
+    const advQ = window.PC.utils.normalizeText(s.advisorSearch || "");
+    let advShown = advQ ? advisorOpts.filter(o => window.PC.utils.normalizeText(o.label).indexOf(advQ) >= 0) : advisorOpts;
     if (s.advisorId && !advShown.some(o => o.value === s.advisorId)) { const sel = advisorOpts.find(o => o.value === s.advisorId); if (sel) advShown = [sel].concat(advShown); }
     const stateOpts = [{ value: "", label: "Selecciona estado…" }].concat(C.states.map(x => ({ value: x, label: x })));
     const zoneOpts = [{ value: "", label: "Selecciona zona…" }].concat(C.zones.map(z => ({ value: z.id, label: z.label })));
@@ -702,7 +725,7 @@ class Component extends DCLogic {
       // 1. Asesor
       this.section("Sección 01", "Asesor asignado",
         h("div", null,
-          h("input", { style: Object.assign({}, this.st.input, { marginBottom: "8px" }), value: s.advisorSearch, placeholder: "Buscar asesor por nombre…", onChange: e => this.set("advisorSearch", e.target.value) }),
+          h("input", { style: Object.assign({}, this.st.input, { marginBottom: "8px" }), value: s.advisorSearch, placeholder: "Buscar asesor por nombre…", onChange: e => this.onAdvisorSearch(e.target.value) }),
           this.select(s.advisorId, v => this.set("advisorId", v), advShown),
           advQ ? h("div", { style: { marginTop: "6px", font: "500 11px Nunito", color: "#6B6B73" } }, advShown.length + " asesor(es) coincide(n)") : null)),
 
@@ -859,17 +882,17 @@ class Component extends DCLogic {
     const conditional = [];
     if (p.productId === "elite") {
       const covOpts = this.pcfg("elite").coverage.map(o => ({ value: o.value, label: o.label }));
-      conditional.push(this.field("Cobertura de inventario", this.select(p.eliteOption, v => this.updateProduct(idx, { eliteOption: v }), covOpts)));
+      conditional.push(this.field("Cobertura", this.select(p.eliteOption, v => this.updateProduct(idx, { eliteOption: v }), covOpts)));
       if (p.eliteOption === "personalizado")
         conditional.push(this.customPackageBuilder(idx, p));
     } else if (p.productId === "oportunidades") {
       const opts = this.pcfg("oportunidades").coverage.map(o => ({ value: o.value, label: o.label }));
-      conditional.push(this.field("Paquete de oportunidades", this.select(p.oppOption, v => this.updateProduct(idx, { oppOption: v }), opts)));
+      conditional.push(this.field("Cobertura", this.select(p.oppOption, v => this.updateProduct(idx, { oppOption: v }), opts)));
       if (p.oppOption === "personalizado")
         conditional.push(this.customPackageBuilder(idx, p));
     } else if (p.productId === "destacados" || p.productId === "prime") {
       const conf = p.productId === "destacados" ? D.destacados : D.prime;
-      conditional.push(this.field("Cantidad de avisos (" + conf.minQty + "–" + conf.maxQty + ")",
+      conditional.push(this.field("Cobertura",
         h("input", { type: "number", min: String(conf.minQty), max: String(conf.maxQty), style: this.st.input, value: p.quantity, onChange: e => this.updateProduct(idx, { quantity: e.target.value }) })));
       if (p.productId === "prime")
         conditional.push(this.field("Método de cálculo", this.select(p.primeCalcMode, v => this.updateProduct(idx, { primeCalcMode: v }), [{ value: "tabla", label: "Tabla (default)" }, { value: "formula", label: "Fórmula ($699 × avisos × meses)" }])));
@@ -900,7 +923,7 @@ class Component extends DCLogic {
         },
           h("span", { style: { width: "8px", height: "8px", borderRadius: "999px", background: p.promoOn ? "#8FE3B4" : "#C9C9D2" } }), "Promo"),
         p.promoOn ? h("div", { style: { marginTop: "10px" } },
-          this.field("Descuento adicional (%) · tope " + this.pcfg(p.productId).maxDiscount + "%", h("input", { type: "number", min: "0", max: String(this.pcfg(p.productId).maxDiscount), style: this.st.input, value: p.manualDiscountPct, onChange: e => this.updateProduct(idx, { manualDiscountPct: e.target.value }) })),
+          this.field("Descuento adicional %", h("input", { type: "number", min: "0", max: String(this.pcfg(p.productId).maxDiscount), style: this.st.input, value: p.manualDiscountPct, onChange: e => this.updateProduct(idx, { manualDiscountPct: e.target.value }) })),
           h("div", { style: { display: "flex", gap: "10px", marginTop: "10px", flexWrap: "wrap" } },
             h("div", { style: { width: "92px" } }, this.field("Cantidad", h("input", { type: "number", min: "1", style: this.st.input, value: p.promoQty, onChange: e => this.updateProduct(idx, { promoQty: e.target.value }) }))),
             h("div", { style: { flex: 1, minWidth: "140px" } }, this.field("Producto", this.select(p.promoProduct, v => this.updateProduct(idx, { promoProduct: v }), [{ value: "", label: "" }].concat(productOpts)))),
@@ -1142,7 +1165,7 @@ class Component extends DCLogic {
     const zoneObj = zones.find(z => z.id === zoneId) || {};
     const zlabel = (zoneObj.label || "").toLowerCase();
     // Normaliza nombres de zona: sin acentos, & / , y -> espacio, colapsa espacios.
-    const nz = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[&/,]|(^|\s)y(\s|$)/g, " ").replace(/[^a-z0-9]+/g, " ").trim().replace(/\s+/g, " ");
+    const nz = window.PC.pricingData.normalizeZone;
     const zoneTargets = [nz(zoneId), nz(zlabel)].filter(Boolean);
     const baseMatch = (r) => {
       const rp = (r.producto || "").toLowerCase().trim();
@@ -1175,7 +1198,7 @@ class Component extends DCLogic {
     const exact = cands.filter(x => (x.r.vigencia || "").toLowerCase() === per);
     if (exact.length) { const r = pick(exact).r, d = rowDisc(r); return { final: this.csvRowFinal(r), base: d.base, discountPct: d.pct }; }
     const monthly = cands.filter(x => (x.r.vigencia || "").toLowerCase() === "mensual");
-    if (monthly.length) { const mult = { mensual: 1, trimestral: 3, semestral: 6, anual: 12 }[per] || 1; const r = pick(monthly).r, d = rowDisc(r); return { final: this.csvRowFinal(r) * mult, base: d.base != null ? d.base * mult : null, discountPct: d.pct }; }
+    if (monthly.length) { const mult = (window.PC.pricingData.PERIODS[per] || {}).months || 1; const r = pick(monthly).r, d = rowDisc(r); return { final: this.csvRowFinal(r) * mult, base: d.base != null ? d.base * mult : null, discountPct: d.pct }; }
     return null;
   }
   // Acciones del editor CSV
