@@ -61,7 +61,7 @@ window.PC.PricingEngine = (function () {
       const qty = Math.max(1, Math.round(Number(row.qty) || 0));
       const info = packageListInfo(productId, row.value, zone);
       coverage += info.units * qty;
-      if (productId === "elite" || productId === "oportunidades") return;
+      if (productId === "elite") return;
       if (info.price == null) {
         warnings.push("Sin precio para \"" + row.value + "\" en la zona seleccionada: no se incluyó en el total.");
         return;
@@ -93,35 +93,10 @@ window.PC.PricingEngine = (function () {
       return { monthly, coverage, warnings, extraBlocks, baseMonthly, extrasMonthly };
     }
 
-    if (productId === "oportunidades" && coverage > 0) {
-      // Personalizado siempre usa el precio de lista nacional (FULLPRICE),
-      // nunca el precio de zona: la combinación manual de paquetes se
-      // cotiza a precio de lista, sin el descuento contratado por zona.
-      const prices = D.oportunidades.zones.FULLPRICE;
-      if (!prices) {
-        warnings.push("Sin precios FULLPRICE de Oportunidades: no se incluyó en el total.");
-        return { monthly: 0, coverage, warnings, extraBlocks: 0 };
-      }
-
-      let extraBlocks = 0, baseMonthly = 0, extrasMonthly = 0;
-      if (coverage <= 500) {
-        const packageSize = D.oportunidades.packages.find(size => coverage <= size);
-        baseMonthly = packageSize != null ? Number(prices[String(packageSize)]) : 0;
-      } else {
-        extraBlocks = Math.ceil((coverage - 500) / 500);
-        baseMonthly = Number(prices["500"]);
-        extrasMonthly = Number(prices.extra) * extraBlocks;
-      }
-      monthly = baseMonthly + extrasMonthly;
-
-      if (!(baseMonthly > 0) || !isFinite(monthly)) {
-        warnings.push("Falta el precio de Oportunidades para la cobertura y zona seleccionadas: no se incluyó en el total.");
-        monthly = 0;
-      }
-      return { monthly, coverage, warnings, extraBlocks, baseMonthly, extrasMonthly };
-    }
-
-    return { monthly, coverage, warnings, extraBlocks: 0 };
+    // Oportunidades (y cualquier producto no-Elite): personalizado toma el
+    // precio base de cada paquete (FULLPRICE) × cantidad, sumado fila por fila,
+    // sin redondear la cobertura total al siguiente tier de paquete.
+    return { monthly, coverage, warnings, extraBlocks: 0, baseMonthly: monthly, extrasMonthly: 0 };
   }
 
   // ---- ELITE: precio mensual + cobertura de inventario -------------
