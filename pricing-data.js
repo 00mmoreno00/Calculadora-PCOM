@@ -19,10 +19,11 @@ window.PC.pricingData = (function () {
 
   // Meses por periodo (base del multiplicador de Elite/Oportunidades).
   const PERIODS = {
-    mensual:    { label: "Mensual",    months: 1 },
-    trimestral: { label: "Trimestral", months: 3 },
-    semestral:  { label: "Semestral",  months: 6 },
-    anual:      { label: "Anual",      months: 12 }
+    mensual:    { label: "Mensual",       months: 1 },
+    trimestral: { label: "Trimestral",    months: 3 },
+    semestral:  { label: "Semestral",     months: 6 },
+    promo8:     { label: "Promo 8 meses", months: 8 },
+    anual:      { label: "Anual",         months: 12 }
   };
 
   const data = {

@@ -885,7 +885,10 @@ class Component extends DCLogic {
     const item = data.items[idx];
     const vsTag = s.mode === "vs" ? (idx === 0 ? "A" : "B") : null;
     const productOpts = this.productOpts();
-    const periodOpts = Object.keys(D.PERIODS).map(k => ({ value: k, label: D.PERIODS[k].label }));
+    // "Promo 8 meses" (periodo especial) solo aplica a Oportunidades ilimitadas.
+    const periodOpts = Object.keys(D.PERIODS)
+      .filter(k => k !== "promo8" || p.productId === "oportunidades")
+      .map(k => ({ value: k, label: D.PERIODS[k].label }));
 
     const conditional = [];
     if (p.productId === "elite") {
@@ -918,7 +921,7 @@ class Component extends DCLogic {
           h("span", { style: { font: "700 13px Nunito", color: complete ? "#16763F" : "#6B6B73" } }, complete ? "Completo" : "Incompleto")),
         (s.mode === "paquete" && s.products.length > 1) ? h("button", { onClick: () => this.removeProduct(idx), style: { border: "none", background: "none", color: "#D7373F", fontWeight: 700, fontSize: "12px" } }, "Quitar") : null),
 
-      this.field("Producto", this.select(p.productId, v => this.updateProduct(idx, { productId: v, customPackages: [], customPickValue: "", customPickQty: 1 }), productOpts)),
+      this.field("Producto", this.select(p.productId, v => { const patch = { productId: v, customPackages: [], customPickValue: "", customPickQty: 1 }; if (v !== "oportunidades" && p.period === "promo8") patch.period = "anual"; this.updateProduct(idx, patch); }, productOpts)),
       this.field("Periodo", this.select(p.period, v => this.updateProduct(idx, { period: v }), periodOpts)),
       conditional,
 
@@ -1596,12 +1599,22 @@ class Component extends DCLogic {
       benefits.map((b, i) => h("div", { key: i, style: { display: "flex", gap: px(9), alignItems: "flex-start", marginBottom: px(9) } },
         this.checkIcon(t.accent),
         h("div", { style: { font: "500 " + px(12.5) + "/1.4 Nunito", color: "#2A2A2E" } }, this.parseBold(b)))),
-      extraBullet ? h("div", { style: { marginTop: px(2) }, dangerouslySetInnerHTML: { __html: this.anniversaryGiftBoxHtml() } }) : null);
+      (extraBullet === "anual" || extraBullet === "promo8") ? h("div", { style: { marginTop: px(2) }, dangerouslySetInnerHTML: { __html: this.giftBoxHtml(extraBullet) } }) : null);
   }
-  // Caja promocional "Regalo de aniversario" para Oportunidades Ilimitadas
-  // anual (12x16 meses). HTML fijo (con animación de la flama vía @keyframes),
-  // inyectado tal cual vía dangerouslySetInnerHTML — no se escala con cardScale.
-  anniversaryGiftBoxHtml() {
+  // Caja promocional para Oportunidades Ilimitadas. Mismo diseño (con animación
+  // de la flama vía @keyframes) para dos periodos especiales, según `period`:
+  //   anual  -> "Regalo de aniversario" (12x16 meses + 10% destacados 3 meses)
+  //   promo8 -> "Promo 8 meses" (8x12 meses + 10% destacados 1 mes)
+  // HTML fijo inyectado vía dangerouslySetInnerHTML — no se escala con cardScale.
+  giftBoxHtml(period) {
+    const isPromo8 = period === "promo8";
+    const kicker = isPromo8 ? "PROMO 8 MESES" : "REGALO DE ANIVERSARIO";
+    const line1 = isPromo8
+      ? `Paga 8 meses y llévate <span style="color:#CE8B30">12 meses</span> de servicio`
+      : `Paga 12 meses y llévate <span style="color:#CE8B30">16 meses</span> de servicio total`;
+    const line2 = isPromo8
+      ? `+ el <span style="color:#CE8B30;font-weight:800">10%</span> de tu inventario se vuelve destacado por <span style="color:#CE8B30;font-weight:800">1 mes</span>`
+      : `+ el <span style="color:#CE8B30;font-weight:800">10%</span> de tu inventario se vuelve destacado por <span style="color:#CE8B30;font-weight:800">3 meses</span>`;
     return `<style>
 @keyframes flame{0%,100%{transform:scale(1) rotate(-2deg)}50%{transform:scale(1.15) rotate(3deg)}}
 </style>
@@ -1618,9 +1631,9 @@ class Component extends DCLogic {
     <path d="M11 22.6l1.5 12.6M16 22.6v12.6M21 22.6l-1.5 12.6" stroke="#fff" stroke-width="1.2" opacity=".55"/>
   </svg>
   <div>
-    <div style="font:800 11px 'Montserrat',sans-serif;letter-spacing:1px;color:#CE8B30">REGALO DE ANIVERSARIO</div>
-    <div style="font:800 14.5px 'Nunito',sans-serif;color:#252B37;margin-top:2px">Paga 12 meses y llévate <span style="color:#CE8B30">16 meses</span> de servicio total</div>
-    <div style="font:700 12px 'Nunito',sans-serif;color:#5A6472;margin-top:3px">+ el <span style="color:#CE8B30;font-weight:800">10%</span> de tu inventario se vuelve destacado por <span style="color:#CE8B30;font-weight:800">3 meses</span></div>
+    <div style="font:800 11px 'Montserrat',sans-serif;letter-spacing:1px;color:#CE8B30">${kicker}</div>
+    <div style="font:800 14.5px 'Nunito',sans-serif;color:#252B37;margin-top:2px">${line1}</div>
+    <div style="font:700 12px 'Nunito',sans-serif;color:#5A6472;margin-top:3px">${line2}</div>
   </div>
 </div>`;
   }
@@ -1681,7 +1694,7 @@ class Component extends DCLogic {
     const sizeStyle = count === 1
       ? { width: "100%", maxWidth: "380px", minWidth: "320px", margin: "0 auto" }
       : {};
-    const extraBullet = r.productId === "oportunidades" && item.cfg.period === "anual";
+    const extraBullet = r.productId === "oportunidades" ? item.cfg.period : null;
     return h("div", { className: className, style: Object.assign({ display: "flex", flexDirection: "column", border: "1px solid " + t.border, borderRadius: "14px", overflow: "hidden", background: "#fff", boxShadow: "0 18px 30px -14px rgba(17,17,17,.4), 0 4px 12px -8px rgba(17,17,17,.2)" }, sizeStyle) },
       this.cardHeader(r, t, meta, scale),
       this.cardValueBlock(item, r, t, meta, scale),
@@ -1696,7 +1709,7 @@ class Component extends DCLogic {
     const col = (item, tag) => {
       const r = item.result, t = this.themes[r.theme] || this.themes.green;
       const meta = this.pcfg(r.productId), benefits = meta.benefits;
-      const extraBullet = r.productId === "oportunidades" && item.cfg.period === "anual";
+      const extraBullet = r.productId === "oportunidades" ? item.cfg.period : null;
       return h("div", { style: { flex: 1, display: "flex", flexDirection: "column", border: "1px solid " + t.border, borderRadius: "14px", overflow: "hidden", background: "#fff", boxShadow: "0 4px 16px -10px rgba(17,17,17,.22)" } },
         h("div", { style: { padding: "7px", background: "#111", color: "#fff", textAlign: "center", font: "800 11px Nunito", letterSpacing: ".14em" } }, "OPCIÓN " + tag),
         this.cardHeader(r, t, meta, scale),
