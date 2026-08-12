@@ -444,8 +444,16 @@ class Component extends DCLogic {
       let baseOverride = isPersonalizado ? null : pc.basePrice;
       if (csvTotal != null && csvTotal > 0) {
         const mm = window.PC.PricingEngine.months(p.period) || 1;
-        if (p.productId === "elite" || p.productId === "oportunidades") baseOverride = csvTotal / mm;
-        else { const qq = Math.max(1, Number(p.quantity) || 1); baseOverride = csvTotal / (qq * mm); }
+        // Precio del periodo con descuento de zona: aplica el % del catálogo sobre
+        // el precio de lista y deja que se redondee UNA sola vez (al total del
+        // periodo, en computePrice). Evita el desfase de redondear el mensual antes
+        // de multiplicarlo por los meses (ej. Anual: 7999×12×30% = 28,796, no 28,800).
+        // El Mensual no cambia: 7999×30% = 2399.7 → 2400 al redondear.
+        let periodFinal = csvTotal;
+        if (csvInfo.base != null && csvInfo.discountPct > 0 && csvInfo.base > csvTotal)
+          periodFinal = csvInfo.base * (1 - csvInfo.discountPct / 100);
+        if (p.productId === "elite" || p.productId === "oportunidades") baseOverride = periodFinal / mm;
+        else { const qq = Math.max(1, Number(p.quantity) || 1); baseOverride = periodFinal / (qq * mm); }
       } else if (!isPersonalizado && (p.productId === "elite" || p.productId === "oportunidades")) {
         const sel = p.productId === "elite" ? p.eliteOption : p.oppOption;
         const o = pc.coverage.find(c => c.value === sel);
@@ -926,8 +934,8 @@ class Component extends DCLogic {
           this.field("Descuento adicional %", h("input", { type: "number", min: "0", max: String(this.pcfg(p.productId).maxDiscount), style: this.st.input, value: p.manualDiscountPct, onChange: e => this.updateProduct(idx, { manualDiscountPct: e.target.value }) })),
           h("div", { style: { display: "flex", gap: "10px", marginTop: "10px", flexWrap: "wrap" } },
             h("div", { style: { width: "92px" } }, this.field("Cantidad", h("input", { type: "number", min: "1", style: this.st.input, value: p.promoQty, onChange: e => this.updateProduct(idx, { promoQty: e.target.value }) }))),
-            h("div", { style: { flex: 1, minWidth: "140px" } }, this.field("Producto", this.select(p.promoProduct, v => this.updateProduct(idx, { promoProduct: v }), [{ value: "", label: "" }].concat(productOpts)))),
-            h("div", { style: { flex: 1, minWidth: "120px" } }, this.field("Vigencia", this.select(p.promoPeriod, v => this.updateProduct(idx, { promoPeriod: v }), [{ value: "", label: "" }].concat(periodOpts)))))) : null),
+            h("div", { style: { flex: 1, minWidth: "140px" } }, this.field("Producto", this.select(p.promoProduct, v => this.updateProduct(idx, { promoProduct: v }), [{ value: "", label: "Seleccionar" }].concat(productOpts)))),
+            h("div", { style: { flex: 1, minWidth: "120px" } }, this.field("Vigencia", this.select(p.promoPeriod, v => this.updateProduct(idx, { promoPeriod: v }), [{ value: "", label: "Seleccionar" }].concat(periodOpts)))))) : null),
 
       // Mini resumen de precio en vivo
       this.miniPriceSummary(r, p.promoOn),
@@ -1611,7 +1619,8 @@ class Component extends DCLogic {
   </svg>
   <div>
     <div style="font:800 11px 'Montserrat',sans-serif;letter-spacing:1px;color:#CE8B30">REGALO DE ANIVERSARIO</div>
-    <div style="font:800 14.5px 'Nunito',sans-serif;color:#252B37;margin-top:2px">¡Paga 12 y llévate <span style="color:#CE8B30">16 meses</span> de servicio!</div>
+    <div style="font:800 14.5px 'Nunito',sans-serif;color:#252B37;margin-top:2px">Paga 12 meses y llévate <span style="color:#CE8B30">16 meses</span> de servicio total</div>
+    <div style="font:700 12px 'Nunito',sans-serif;color:#5A6472;margin-top:3px">+ el <span style="color:#CE8B30;font-weight:800">10%</span> de tu inventario se vuelve destacado por <span style="color:#CE8B30;font-weight:800">3 meses</span></div>
   </div>
 </div>`;
   }
