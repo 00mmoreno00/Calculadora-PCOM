@@ -1735,7 +1735,6 @@ class Component extends DCLogic {
         pkgPromo ? h("div", { style: { font: "600 12px Nunito", color: "#16763F", marginTop: "6px" } }, "Incluye: " + ((pkgPromo.display || {}).label || pkgPromo.name)) : null),
       h("div", { style: { minWidth: "260px" } },
         row("Precio total sin IVA", U.money(info.totalSinIVA), { strike: info.descPct > 0, valueColor: info.descPct > 0 ? "#A5A5AD" : "#111" }),
-        (info.descPct > 0) ? row("Descuento", "−" + info.descPct + "%", { labelColor: "#1b8f51", valueColor: "#1b8f51" }) : null,
         (info.descPct > 0) ? row("Precio final sin IVA", U.money(info.finalSinIVA)) : null,
         h("div", { style: { height: "1px", background: "rgba(17,17,17,.12)", margin: "8px 0" } }),
         h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "18px" } },
