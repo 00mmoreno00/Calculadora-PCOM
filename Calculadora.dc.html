@@ -1531,16 +1531,11 @@ class Component extends DCLogic {
   }
   cardDisplayValue(item) {
     const p = item.cfg;
-    const PE = window.PC.PricingEngine;
     if (p.productId === "elite") {
-      if (p.eliteOption === "hasta300") return { bigText: "Hasta 300", unit: "propiedades" };
-      if (p.eliteOption === "301a500") return { bigText: "301 a 500", unit: "propiedades" };
-      if (p.eliteOption === "personalizado") return { bigNum: PE.customPackageMonthly("elite", p.customPackages, p.zone).coverage.toLocaleString("es-MX"), unit: "propiedades" };
       return { bigNum: (Number(p.inventory) || 0).toLocaleString("es-MX"), unit: "propiedades" };
     }
     if (p.productId === "oportunidades") {
-      const n = p.oppOption === "personalizado" ? PE.customPackageMonthly("oportunidades", p.customPackages, p.zone).coverage : Number(p.oppOption);
-      return { bigNum: n.toLocaleString("es-MX"), unit: "" };
+      return { bigNum: (Number(p.inventory) || 0).toLocaleString("es-MX"), unit: "" };
     }
     const q = Number(p.quantity) || 0;
     return { bigNum: String(q), unit: "" };
