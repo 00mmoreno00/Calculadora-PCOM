@@ -885,9 +885,9 @@ class Component extends DCLogic {
     const item = data.items[idx];
     const vsTag = s.mode === "vs" ? (idx === 0 ? "A" : "B") : null;
     const productOpts = this.productOpts();
-    // "Promo 8 meses" (periodo especial) solo aplica a Oportunidades ilimitadas.
+    // "Promo 8 meses" (periodo especial) se quitó del listado de periodos.
     const periodOpts = Object.keys(D.PERIODS)
-      .filter(k => k !== "promo8" || p.productId === "oportunidades")
+      .filter(k => k !== "promo8")
       .map(k => ({ value: k, label: D.PERIODS[k].label }));
 
     const conditional = [];
@@ -1609,7 +1609,7 @@ class Component extends DCLogic {
       : `Paga 12 meses y llévate <span style="color:#CE8B30">16 meses</span> de servicio total`;
     const line2 = isPromo8
       ? `+ el <span style="color:#CE8B30;font-weight:800">10%</span> de tu inventario se vuelve destacado por <span style="color:#CE8B30;font-weight:800">1 mes</span>`
-      : `+ el <span style="color:#CE8B30;font-weight:800">10%</span> de tu inventario se vuelve destacado por <span style="color:#CE8B30;font-weight:800">3 meses</span>`;
+      : "";
     return `<style>
 @keyframes flame{0%,100%{transform:scale(1) rotate(-2deg)}50%{transform:scale(1.15) rotate(3deg)}}
 </style>
@@ -1628,7 +1628,7 @@ class Component extends DCLogic {
   <div>
     <div style="font:800 11px 'Montserrat',sans-serif;letter-spacing:1px;color:#CE8B30">${kicker}</div>
     <div style="font:800 14.5px 'Nunito',sans-serif;color:#252B37;margin-top:2px">${line1}</div>
-    <div style="font:700 12px 'Nunito',sans-serif;color:#5A6472;margin-top:3px">${line2}</div>
+    ${line2 ? `<div style="font:700 12px 'Nunito',sans-serif;color:#5A6472;margin-top:3px">${line2}</div>` : ""}
   </div>
 </div>`;
   }
