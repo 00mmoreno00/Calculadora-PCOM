@@ -990,16 +990,19 @@ class Component extends DCLogic {
 
     // Total
     let totalBlock = null;
+    const listPriceOf = (r) => (r.zoneListPrice && r.zoneListPrice > r.finalPrice) ? r.zoneListPrice : r.originalPrice;
     if (s.mode === "individual") {
       const r = data.items[0].result;
-      const listP = (r.zoneListPrice && r.zoneListPrice > r.finalPrice) ? r.zoneListPrice : r.originalPrice;
+      const listP = listPriceOf(r);
       const dPct = listP > 0 ? Math.round((listP - r.finalPrice) / listP * 100) : 0;
-      totalBlock = this.renderTotal({ totalSinIVA: listP, finalSinIVA: r.finalPrice, finalConIVA: r.finalPriceIVA, descPct: dPct }, null);
+      const originalConIVA = Math.round(listP * (1 + C.iva));
+      totalBlock = this.renderTotal({ totalSinIVA: listP, originalConIVA: originalConIVA, finalSinIVA: r.finalPrice, finalConIVA: r.finalPriceIVA, descPct: dPct }, null);
     } else if (s.mode === "paquete" && data.pkg) {
       const c = data.pkg.calc;
       const totalSinIVA = data.items.reduce((sum, i) => sum + i.result.originalPrice, 0);
+      const originalConIVA = Math.round(data.items.reduce((sum, i) => sum + listPriceOf(i.result), 0) * (1 + C.iva));
       const descPct = totalSinIVA > 0 ? Math.round(((totalSinIVA - c.total) / totalSinIVA) * 100) : 0;
-      totalBlock = this.renderTotal({ totalSinIVA: totalSinIVA, finalSinIVA: c.total, finalConIVA: c.totalIVA, descPct: descPct, preferential: c.subtotal !== c.total }, data.pkg.eval.applied);
+      totalBlock = this.renderTotal({ totalSinIVA: totalSinIVA, originalConIVA: originalConIVA, finalSinIVA: c.total, finalConIVA: c.totalIVA, descPct: descPct, preferential: c.subtotal !== c.total }, data.pkg.eval.applied);
     }
 
     return h("div", { className: "pc-proposal-pane", ref: (el) => { this.proposalPaneRef = el; }, style: { flex: 1, height: "100vh", overflowY: "auto", background: "#EDEDF1", padding: "28px 32px" } },
@@ -1729,6 +1732,7 @@ class Component extends DCLogic {
         h("div", { style: { font: "800 22px Nunito", letterSpacing: ".01em", textTransform: "uppercase", color: "#6B6B73" } }, info.preferential ? "Total de inversión (precio preferencial)" : "Total de inversión"),
         pkgPromo ? h("div", { style: { font: "600 12px Nunito", color: "#16763F", marginTop: "6px" } }, "Incluye: " + ((pkgPromo.display || {}).label || pkgPromo.name)) : null),
       h("div", { style: { minWidth: "260px" } },
+        row("Precio original (sin descuentos)", U.money(info.originalConIVA)),
         row("Precio final sin IVA", U.money(info.finalSinIVA)),
         h("div", { style: { height: "1px", background: "rgba(17,17,17,.12)", margin: "8px 0" } }),
         h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "18px" } },
