@@ -1737,7 +1737,9 @@ class Component extends DCLogic {
         h("div", { style: { height: "1px", background: "rgba(17,17,17,.12)", margin: "8px 0" } }),
         h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "18px" } },
           h("span", { style: { font: "800 12px Nunito", color: "#146b3d" } }, "Precio final con IVA"),
-          h("span", { style: { font: "800 28px Nunito", letterSpacing: "-.02em", color: "#1b8f51" } }, U.money(info.finalConIVA)))));
+          h("span", { style: { position: "relative", display: "inline-block" } },
+            h("span", { style: { position: "absolute", top: "-11px", right: "-14px", fontSize: "17px", color: "#CE8B30", transform: "rotate(15deg)" } }, "★"),
+            h("span", { style: { font: "800 28px Nunito", letterSpacing: "-.02em", color: "#1b8f51" } }, U.money(info.finalConIVA))))));
   }
 
   // ===================== ADMIN: EDITOR DE PROMOCIONES =====================
