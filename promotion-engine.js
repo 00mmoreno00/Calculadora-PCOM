@@ -163,7 +163,7 @@ window.PC.PromotionEngine = (function () {
         if (period === "anual") return { text: "Paga 12 meses y llévate 3 meses de servicio adicional + 20% de descuento adicional en Destacado o Prime." };
       } else if (inv >= 30) {
         if (period === "semestral") return { text: "Paga 6 meses y llévate 1 mes de servicio adicional + 10% de bonificación en producto." };
-        if (period === "anual") return { text: "Paga 12 meses y llévate 3 meses de servicio adicional + 20% de bonificación en producto." };
+        if (period === "anual") return { text: "Paga 12 meses y llévate 2 meses de servicio adicional + 20% de bonificación en producto." };
       }
       return null;
     }
