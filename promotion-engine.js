@@ -142,9 +142,47 @@ window.PC.PromotionEngine = (function () {
     };
   }
 
+  /* ----------------------------------------------------------------
+     evaluateAutoPromo(ctx) -> promoción comercial automática vigente,
+     según reglas fijas de negocio (inventario del cliente + producto +
+     periodo + cobertura/cantidad). Independiente del catálogo editable
+     de promotions.js y del botón manual "Promo" (courtesía/bonificación
+     manual): esta función NO se edita desde el panel de administración.
+     ctx: { productId, period, quantity, inventory }
+     Devuelve null si ninguna promo aplica, o { text } si aplica.
+     ---------------------------------------------------------------- */
+  function evaluateAutoPromo(ctx) {
+    const inv = Number(ctx.inventory) || 0;
+    const period = ctx.period;
+    const productId = ctx.productId;
+    const qty = Number(ctx.quantity) || 0;
+
+    if (productId === "oportunidades") {
+      if (inv >= 10 && inv <= 29) {
+        if (period === "semestral") return { text: "Paga 6 meses y llévate 1 mes de servicio adicional." };
+        if (period === "anual") return { text: "Paga 12 meses y llévate 3 meses de servicio adicional + 20% de descuento adicional en Destacado o Prime." };
+      } else if (inv >= 30) {
+        if (period === "semestral") return { text: "Paga 6 meses y llévate 1 mes de servicio adicional + 10% de bonificación en producto." };
+        if (period === "anual") return { text: "Paga 12 meses y llévate 3 meses de servicio adicional + 20% de bonificación en producto." };
+      }
+      return null;
+    }
+
+    if (productId === "destacados" || productId === "prime") {
+      if (inv >= 30 && (period === "semestral" || period === "anual")) {
+        if (qty >= 1 && qty <= 5) return { text: "5% de descuento ¡Para gritar Viva México!" };
+        if (qty >= 6 && qty <= 15) return { text: "10% de descuento ¡Para gritar Viva México!" };
+        if (qty >= 16) return { text: "20% de descuento ¡Para gritar Viva México!" };
+      }
+      return null;
+    }
+
+    return null;
+  }
+
   return {
     getPromotions, savePromotions, resetPromotions,
-    evaluateForProduct, evaluateForPackage, matches,
+    evaluateForProduct, evaluateForPackage, matches, evaluateAutoPromo,
     PRODUCT_EFFECTS, PACKAGE_EFFECTS
   };
 })();

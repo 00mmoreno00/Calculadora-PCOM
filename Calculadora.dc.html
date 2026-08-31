@@ -473,6 +473,11 @@ class Component extends DCLogic {
         zone: cfg.zone, period: p.period, inventory: p.inventory, quantity: p.quantity, date
       };
       const promoEval = PR.evaluateForProduct(promoCtx);
+      // Promoción automática (reglas fijas de negocio, ver promotion-engine.js).
+      // Se recalcula con cada cambio de inventario/producto/periodo/cobertura.
+      const autoPromo = PR.evaluateAutoPromo({
+        productId: p.productId, period: p.period, quantity: p.quantity, inventory: s.clientInventory
+      });
       // El botón "Promo" es SOLO para capturar una cortesía/bonificación manual
       // (cantidad + producto, ver manualPromoStrip). NUNCA debe disparar un
       // efecto de precio de promotions.js (descuento %, monto fijo o precio
@@ -499,7 +504,7 @@ class Component extends DCLogic {
       const start = window.PC.utils.fromISO(p.startDate);
       const extra = result.appliedPromotion ? (result.appliedPromotion.extraMonths || 0) : 0;
       const end = start ? window.PC.utils.addMonths(start, result.months + extra) : null;
-      return { cfg, result, promoEval, validation, start, end, extraMonths: extra };
+      return { cfg, result, promoEval, autoPromo, validation, start, end, extraMonths: extra };
     });
 
     // Promo a nivel paquete
@@ -924,6 +929,16 @@ class Component extends DCLogic {
       this.field("Producto", this.select(p.productId, v => { const patch = { productId: v, customPackages: [], customPickValue: "", customPickQty: 1 }; if (v !== "oportunidades" && p.period === "promo8") patch.period = "anual"; this.updateProduct(idx, patch); }, productOpts)),
       this.field("Periodo", this.select(p.period, v => this.updateProduct(idx, { period: v }), periodOpts)),
       conditional,
+
+      // Indicador automático de Promo: se calcula solo a partir de Inventario
+      // del cliente (Sección 02) + Producto/Periodo/Cobertura de este producto
+      // (ver PC.PromotionEngine.evaluateAutoPromo). No requiere acción del
+      // usuario; se oculta por completo si ninguna promo aplica.
+      item.autoPromo ? h("div", { style: { marginBottom: "13px", padding: "9px 12px", borderRadius: "8px", background: "#E4F5EC", border: "1px solid #1b8f51", display: "flex", alignItems: "flex-start", gap: "8px" } },
+        h("span", { style: { width: "8px", height: "8px", borderRadius: "999px", background: "#1b8f51", marginTop: "5px", flex: "none" } }),
+        h("div", null,
+          h("div", { style: { font: "800 11px Nunito", color: "#146b3d", textTransform: "uppercase", letterSpacing: ".04em" } }, "Promo aplicable"),
+          h("div", { style: { font: "500 11.5px/1.35 Nunito", color: "#2A2A2E", marginTop: "2px" } }, item.autoPromo.text))) : null,
 
       // Botón Promo: activa/desactiva el descuento adicional (%) y la
       // cortesía manual (cantidad + producto) de este producto.
@@ -1591,49 +1606,12 @@ class Component extends DCLogic {
           d.unit ? h("div", { style: { font: "600 " + px(12.5) + " Nunito", color: "#6B6B73", marginTop: px(3) } }, d.unit) : null)
         : h("div", { style: { font: "800 " + px(27) + "/1.12 Nunito", color: t.main, letterSpacing: "-.01em" } }, d.bigText + (d.unit ? " " + d.unit : "")));
   }
-  cardBenefits(benefits, t, scale, extraBullet) {
+  cardBenefits(benefits, t, scale) {
     const h = React.createElement, s = scale || 1, px = (n) => this.px(n, s);
     return h("div", { style: { padding: px(6) + " " + px(18) + " " + px(14) } },
       benefits.map((b, i) => h("div", { key: i, style: { display: "flex", gap: px(9), alignItems: "flex-start", marginBottom: px(9) } },
         this.checkIcon(t.accent),
-        h("div", { style: { font: "500 " + px(12.5) + "/1.4 Nunito", color: "#2A2A2E" } }, this.parseBold(b)))),
-      (extraBullet === "anual" || extraBullet === "promo8") ? h("div", { style: { marginTop: px(2) }, dangerouslySetInnerHTML: { __html: this.giftBoxHtml(extraBullet) } }) : null);
-  }
-  // Caja promocional para Oportunidades Ilimitadas. Mismo diseño (con animación
-  // de la flama vía @keyframes) para dos periodos especiales, según `period`:
-  //   anual  -> "Regalo de aniversario" (12x16 meses + 10% destacados 3 meses)
-  //   promo8 -> "Promo 8 meses" (8x12 meses + 10% destacados 1 mes)
-  // HTML fijo inyectado vía dangerouslySetInnerHTML — no se escala con cardScale.
-  giftBoxHtml(period) {
-    const isPromo8 = period === "promo8";
-    const kicker = isPromo8 ? "PROMO 8 MESES" : "REGALO DE ANIVERSARIO";
-    const line1 = isPromo8
-      ? `Paga 8 meses y llévate <span style="color:#CE8B30">12 meses</span> de servicio`
-      : `Paga 12 meses y llévate <span style="color:#CE8B30">16 meses</span> de servicio total`;
-    const line2 = isPromo8
-      ? `+ el <span style="color:#CE8B30;font-weight:800">10%</span> de tu inventario se vuelve destacado por <span style="color:#CE8B30;font-weight:800">1 mes</span>`
-      : "";
-    return `<style>
-@keyframes flame{0%,100%{transform:scale(1) rotate(-2deg)}50%{transform:scale(1.15) rotate(3deg)}}
-</style>
-<div style="display:flex;gap:12px;align-items:center;background:#FCF5E3;border:1.5px solid #E9C988;border-radius:12px;padding:12px 14px;font-family:'Nunito',sans-serif;">
-  <svg width="40" height="46" viewBox="0 0 32 38" fill="none" style="flex:none">
-    <g style="transform-origin:16px 4px;animation:flame 0.9s ease-in-out infinite"><path d="M16 1.2c1.6 1.9 1.6 3.5 0 4.8-1.6-1.3-1.6-2.9 0-4.8z" fill="#E39B36"/></g>
-    <rect x="15.1" y="6.4" width="1.8" height="5.4" rx=".9" fill="#D23429"/>
-    <rect x="15.1" y="8" width="1.8" height="1.4" fill="#fff" opacity=".85"/>
-    <path d="M6.8 22.6c-2-.4-2.6-3.1-.8-4.2-.3-1.9 1.4-3.3 3.1-2.8.6-2.5 3-4 6.9-4s6.3 1.5 6.9 4c1.7-.5 3.4.9 3.1 2.8 1.8 1.1 1.2 3.8-.8 4.2H6.8z" fill="#fff" stroke="#CE8B30" stroke-width="1.4" stroke-linejoin="round"/>
-    <rect x="10.6" y="15.2" width="2.4" height="1" rx=".5" fill="#57BF9E" transform="rotate(24 11.8 15.7)"/>
-    <rect x="15.4" y="14" width="2.4" height="1" rx=".5" fill="#D23429" transform="rotate(-14 16.6 14.5)"/>
-    <rect x="19.6" y="16.4" width="2.4" height="1" rx=".5" fill="#0ABF76" transform="rotate(30 20.8 16.9)"/>
-    <path d="M7.6 22.6h16.8l-1.9 10.6c-.2 1.2-1.2 2-2.4 2h-8.2c-1.2 0-2.2-.8-2.4-2L7.6 22.6z" fill="#357A53"/>
-    <path d="M11 22.6l1.5 12.6M16 22.6v12.6M21 22.6l-1.5 12.6" stroke="#fff" stroke-width="1.2" opacity=".55"/>
-  </svg>
-  <div>
-    <div style="font:800 11px 'Montserrat',sans-serif;letter-spacing:1px;color:#CE8B30">${kicker}</div>
-    <div style="font:800 14.5px 'Nunito',sans-serif;color:#252B37;margin-top:2px">${line1}</div>
-    ${line2 ? `<div style="font:700 12px 'Nunito',sans-serif;color:#5A6472;margin-top:3px">${line2}</div>` : ""}
-  </div>
-</div>`;
+        h("div", { style: { font: "500 " + px(12.5) + "/1.4 Nunito", color: "#2A2A2E" } }, this.parseBold(b)))));
   }
   cardPriceFooter(item, r, t, scale) {
     const h = React.createElement, U = window.PC.utils, s = scale || 1, px = (n) => this.px(n, s);
@@ -1659,6 +1637,20 @@ class Component extends DCLogic {
       hasDisc ? row("Precio final sin IVA", U.money(r.finalPrice)) : null,
       h("div", { style: { height: "1px", background: "#E0E0E6", margin: px(7) + " 0" } }),
       row("Precio final con IVA", U.money(r.finalPriceIVA), { strong: true, big: true, labelColor: "#146b3d", valueColor: "#1b8f51", mb: "0" }));
+  }
+  // Bloque de promoción AUTOMÁTICA dentro de la tarjeta de producto de la
+  // propuesta (mismo espacio visual que manualPromoStrip, ver más abajo).
+  // Se calcula solo con Inventario del cliente + Producto/Periodo/Cobertura;
+  // no depende del botón manual "Promo" ni de promotions.js.
+  autoPromoStrip(item, t) {
+    const h = React.createElement;
+    const promo = item.autoPromo;
+    if (!promo) return null;
+    return h("div", { style: { margin: "0 18px 14px", padding: "9px 12px", borderRadius: "9px", background: t.soft, border: "1px dashed " + t.chip, display: "flex", gap: "8px", alignItems: "flex-start" } },
+      h("span", { style: { color: t.chip, fontWeight: 800, fontSize: "13px" } }, "★"),
+      h("div", { style: { flex: 1 } },
+        h("div", { style: { font: "800 11px Nunito", color: t.main } }, "Promo"),
+        h("div", { style: { font: "500 11px/1.35 Nunito", color: "#2A2A2E", marginTop: "2px" } }, promo.text)));
   }
   manualPromoStrip(item, t) {
     const h = React.createElement, C = window.PC.config, D = window.PC.pricingData;
@@ -1692,11 +1684,11 @@ class Component extends DCLogic {
     const sizeStyle = count === 1
       ? { width: "100%", maxWidth: "380px", minWidth: "320px", margin: "0 auto" }
       : {};
-    const extraBullet = r.productId === "oportunidades" ? item.cfg.period : null;
     return h("div", { className: className, style: Object.assign({ display: "flex", flexDirection: "column", border: "1px solid " + t.border, borderRadius: "14px", overflow: "hidden", background: "#fff", boxShadow: "0 18px 30px -14px rgba(17,17,17,.4), 0 4px 12px -8px rgba(17,17,17,.2)" }, sizeStyle) },
       this.cardHeader(r, t, meta, scale),
       this.cardValueBlock(item, r, t, meta, scale),
-      this.cardBenefits(benefits, t, scale, extraBullet),
+      this.cardBenefits(benefits, t, scale),
+      this.autoPromoStrip(item, t),
       this.manualPromoStrip(item, t),
       this.cardPriceFooter(item, r, t, scale));
   }
@@ -1707,12 +1699,12 @@ class Component extends DCLogic {
     const col = (item, tag) => {
       const r = item.result, t = this.themes[r.theme] || this.themes.green;
       const meta = this.pcfg(r.productId), benefits = meta.benefits;
-      const extraBullet = r.productId === "oportunidades" ? item.cfg.period : null;
       return h("div", { style: { flex: 1, display: "flex", flexDirection: "column", border: "1px solid " + t.border, borderRadius: "14px", overflow: "hidden", background: "#fff", boxShadow: "0 4px 16px -10px rgba(17,17,17,.22)" } },
         h("div", { style: { padding: "7px", background: "#111", color: "#fff", textAlign: "center", font: "800 11px Nunito", letterSpacing: ".14em" } }, "OPCIÓN " + tag),
         this.cardHeader(r, t, meta, scale),
         this.cardValueBlock(item, r, t, meta, scale),
-        this.cardBenefits(benefits, t, scale, extraBullet),
+        this.cardBenefits(benefits, t, scale),
+        this.autoPromoStrip(item, t),
         this.manualPromoStrip(item, t),
         this.vsPriceFooter(item, r, t, scale));
     };
