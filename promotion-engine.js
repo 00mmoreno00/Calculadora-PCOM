@@ -152,12 +152,15 @@ window.PC.PromotionEngine = (function () {
      Devuelve null si ninguna promo aplica, o { text } si aplica.
      ---------------------------------------------------------------- */
   function evaluateAutoPromo(ctx) {
+    // Interruptor temporal: conserva las reglas configuradas, pero evita que
+    // las promociones automáticas de OI, Destacados y Prime se muestren.
+    const showOiAndHighlightedPromotions = false;
     const inv = Number(ctx.inventory) || 0;
     const period = ctx.period;
     const productId = ctx.productId;
     const qty = Number(ctx.quantity) || 0;
 
-    if (productId === "oportunidades") {
+    if (showOiAndHighlightedPromotions && productId === "oportunidades") {
       if (inv >= 10 && inv <= 29) {
         if (period === "semestral") return { text: "Paga 6 meses y llévate 1 mes de servicio adicional." };
         if (period === "anual") return { text: "Paga 12 meses y llévate 3 meses de servicio adicional + 20% de descuento adicional en Destacado o Prime." };
@@ -168,7 +171,7 @@ window.PC.PromotionEngine = (function () {
       return null;
     }
 
-    if (productId === "destacados" || productId === "prime") {
+    if (showOiAndHighlightedPromotions && (productId === "destacados" || productId === "prime")) {
       if (inv >= 30 && (period === "semestral" || period === "anual")) {
         if (qty >= 1 && qty <= 5) return { text: "5% de descuento ¡Para gritar Viva México!" };
         if (qty >= 6 && qty <= 15) return { text: "10% de descuento ¡Para gritar Viva México!" };
