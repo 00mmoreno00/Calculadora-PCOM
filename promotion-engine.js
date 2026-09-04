@@ -170,7 +170,7 @@ window.PC.PromotionEngine = (function () {
         if (period === "anual") return { text: "Paga 12 meses y llévate 3 meses de servicio adicional.", label: "Promo 1" };
       } else if (inv >= 30) {
         if (period === "semestral") return { text: "Paga 6 meses y llévate 1 mes de servicio adicional.", label: "Promo 2" };
-        if (period === "anual") return { text: "Paga 12 meses y llévate 2 meses de servicio adicional.", label: "Promo 2" };
+        if (period === "anual") return { text: "Paga 12 meses y llévate 3 meses de servicio adicional.", label: "Promo 2" };
       }
       return null;
     }
