@@ -148,13 +148,16 @@ window.PC.PromotionEngine = (function () {
      periodo + cobertura/cantidad). Independiente del catálogo editable
      de promotions.js y del botón manual "Promo" (courtesía/bonificación
      manual): esta función NO se edita desde el panel de administración.
-     ctx: { productId, period, quantity, inventory }
+     ctx: { productId, period, quantity, inventory, mode }
+     La promo de Destacados/Prime no es combinable con la de Oportunidades
+     Ilimitadas: solo se muestra en configuración individual, nunca en un
+     paquete (donde podría ir junto con OI).
      Devuelve null si ninguna promo aplica, o { text } si aplica.
      ---------------------------------------------------------------- */
   function evaluateAutoPromo(ctx) {
-    // Interruptor temporal: conserva las reglas configuradas, pero evita que
-    // las promociones automáticas de OI, Destacados y Prime se muestren.
-    const showOiAndHighlightedPromotions = false;
+    // Interruptor: activa/desactiva las promociones automáticas de OI,
+    // Destacados y Prime sin borrar las reglas configuradas.
+    const showOiAndHighlightedPromotions = true;
     const inv = Number(ctx.inventory) || 0;
     const period = ctx.period;
     const productId = ctx.productId;
@@ -162,20 +165,23 @@ window.PC.PromotionEngine = (function () {
 
     if (showOiAndHighlightedPromotions && productId === "oportunidades") {
       if (inv >= 10 && inv <= 29) {
-        if (period === "semestral") return { text: "Paga 6 meses y llévate 1 mes de servicio adicional." };
-        if (period === "anual") return { text: "Paga 12 meses y llévate 3 meses de servicio adicional + 20% de descuento adicional en Destacado o Prime." };
+        // label: nombre corto que el panel muestra en el switch (Promo 1/2/3).
+        if (period === "semestral") return { text: "Paga 6 meses y llévate 1 mes de servicio adicional.", label: "Promo 1" };
+        if (period === "anual") return { text: "Paga 12 meses y llévate 3 meses de servicio adicional.", label: "Promo 1" };
       } else if (inv >= 30) {
-        if (period === "semestral") return { text: "Paga 6 meses y llévate 1 mes de servicio adicional + 10% de bonificación en producto." };
-        if (period === "anual") return { text: "Paga 12 meses y llévate 2 meses de servicio adicional + 20% de bonificación en producto." };
+        if (period === "semestral") return { text: "Paga 6 meses y llévate 1 mes de servicio adicional.", label: "Promo 2" };
+        if (period === "anual") return { text: "Paga 12 meses y llévate 2 meses de servicio adicional.", label: "Promo 2" };
       }
       return null;
     }
 
-    if (showOiAndHighlightedPromotions && (productId === "destacados" || productId === "prime")) {
-      if (inv >= 30 && (period === "semestral" || period === "anual")) {
-        if (qty >= 1 && qty <= 5) return { text: "5% de descuento ¡Para gritar Viva México!" };
-        if (qty >= 6 && qty <= 15) return { text: "10% de descuento ¡Para gritar Viva México!" };
-        if (qty >= 16) return { text: "20% de descuento ¡Para gritar Viva México!" };
+    if (showOiAndHighlightedPromotions && (productId === "destacados" || productId === "prime") && ctx.mode === "individual") {
+      if (period === "semestral" || period === "anual") {
+        // pct: además del texto, el % que pricing-engine descuenta del precio
+        // final cuando esta promo está habilitada (ver Calculadora.dc.html).
+        if (qty >= 1 && qty <= 5) return { text: "5% de descuento ¡Para gritar Viva México!", pct: 5, label: "Promo 3" };
+        if (qty >= 6 && qty <= 15) return { text: "10% de descuento ¡Para gritar Viva México!", pct: 10, label: "Promo 3" };
+        if (qty >= 16) return { text: "20% de descuento ¡Para gritar Viva México!", pct: 20, label: "Promo 3" };
       }
       return null;
     }
@@ -183,9 +189,32 @@ window.PC.PromotionEngine = (function () {
     return null;
   }
 
+  /* ----------------------------------------------------------------
+     evaluateBonusPromo(amount) -> bono de Destacados por monto de compra
+     (Precio final con IVA de un producto). Regla fija de negocio,
+     independiente de evaluateAutoPromo; el comercial la activa/desactiva
+     con el botón "Promoción 4" (ver Calculadora.dc.html).
+     Devuelve null si el monto no alcanza ningún escalón, o { text, qty }.
+     ---------------------------------------------------------------- */
+  const BONUS_TIERS = [
+    { min: 100000, qty: 200 },
+    { min: 50000, qty: 50 },
+    { min: 30000, qty: 30 },
+    { min: 20000, qty: 20 },
+    { min: 15000, qty: 10 },
+    { min: 11000, qty: 5 }
+  ];
+
+  function evaluateBonusPromo(amount) {
+    const amt = Number(amount) || 0;
+    const tier = BONUS_TIERS.find(t => amt >= t.min);
+    if (!tier) return null;
+    return { text: "+ " + tier.qty + " Destacados de bono · vigencia 3 meses", qty: tier.qty };
+  }
+
   return {
     getPromotions, savePromotions, resetPromotions,
-    evaluateForProduct, evaluateForPackage, matches, evaluateAutoPromo,
+    evaluateForProduct, evaluateForPackage, matches, evaluateAutoPromo, evaluateBonusPromo,
     PRODUCT_EFFECTS, PACKAGE_EFFECTS
   };
 })();

@@ -277,6 +277,14 @@ class Component extends DCLogic {
       customPickValue: "",
       customPickQty: 1,
       manualDiscountPct: 0,
+      // Muestra "+X% de descuento" en la tarjeta principal del producto.
+      showDiscountPct: false,
+      // Promo automática (evaluateAutoPromo): activada por defecto; el
+      // comercial puede desactivarla con el botón "Promo aplicable" del panel.
+      autoPromoOn: true,
+      // Bono de Destacados por monto de compra (evaluateBonusPromo): activado
+      // por defecto; el comercial puede desactivarlo con "Promoción 4".
+      bonusPromoOn: true,
       // Promo manual por producto (bonificación / cortesía)
       promoOn: false,
       promoQty: "",
@@ -464,7 +472,7 @@ class Component extends DCLogic {
         period: p.period, eliteOption: p.eliteOption, oppOption: p.oppOption,
         inventory: s.clientInventory, quantity: p.quantity, primeCalcMode: p.primeCalcMode,
         customPackages: p.customPackages || [],
-        manualDiscountPct: p.manualDiscountPct,
+        manualDiscountPct: p.manualDiscountPct, showDiscountPct: p.showDiscountPct,
         promoOn: p.promoOn, promoQty: p.promoQty, promoProduct: p.promoProduct, promoPeriod: p.promoPeriod,
         basePriceOverride: baseOverride, maxDiscount: pc.maxDiscount
       };
@@ -475,11 +483,18 @@ class Component extends DCLogic {
       const promoEval = PR.evaluateForProduct(promoCtx);
       // Promoción automática (reglas fijas de negocio, ver promotion-engine.js).
       // Se recalcula con cada cambio de inventario/producto/periodo/cobertura.
-      const autoPromo = PR.evaluateAutoPromo({
-        productId: p.productId, period: p.period, quantity: p.quantity, inventory: s.clientInventory
+      // El comercial puede apagarla con el botón "Promo aplicable" del panel
+      // (p.autoPromoOn); rawAutoPromo conserva el resultado sin filtrar para
+      // que el botón siga visible aunque esté desactivada.
+      const rawAutoPromo = PR.evaluateAutoPromo({
+        productId: p.productId, period: p.period, quantity: p.quantity, inventory: s.clientInventory, mode: s.mode
       });
+      const autoPromo = (p.autoPromoOn !== false) ? rawAutoPromo : null;
+      // Si la promo automática trae un % (Destacados/Prime), el precio final
+      // debe reflejar ese descuento (ver pricing-engine.js).
+      cfg.autoDiscountPct = (autoPromo && autoPromo.pct) ? autoPromo.pct : 0;
       // El botón "Promo" es SOLO para capturar una cortesía/bonificación manual
-      // (cantidad + producto, ver manualPromoStrip). NUNCA debe disparar un
+      // (cantidad + producto, ver promoBox). NUNCA debe disparar un
       // efecto de precio de promotions.js (descuento %, monto fijo o precio
       // especial): esos tipos jamás se pasan al motor de precios desde aquí,
       // sin importar si "Promo" está activo. Solo efectos que no tocan el
@@ -494,6 +509,10 @@ class Component extends DCLogic {
         result.zoneListPrice = Math.round(csvInfo.base);
         result.zoneDiscountPct = csvInfo.discountPct;
       }
+      // Bono de Destacados por monto de compra (Precio final con IVA de este
+      // producto). El comercial la activa/desactiva con "Promoción 4".
+      const rawBonusPromo = PR.evaluateBonusPromo(result.finalPriceIVA);
+      const bonusPromo = (p.bonusPromoOn !== false) ? rawBonusPromo : null;
       const validation = V.validateProduct(Object.assign({}, cfg, { startDate: p.startDate }), result);
       // Restricción por estado(s) (admin): el producto solo aplica en los estados listados.
       if (pc.states.length && pc.states.indexOf(s.stateName) < 0) {
@@ -504,7 +523,7 @@ class Component extends DCLogic {
       const start = window.PC.utils.fromISO(p.startDate);
       const extra = result.appliedPromotion ? (result.appliedPromotion.extraMonths || 0) : 0;
       const end = start ? window.PC.utils.addMonths(start, result.months + extra) : null;
-      return { cfg, result, promoEval, autoPromo, validation, start, end, extraMonths: extra };
+      return { cfg, result, promoEval, autoPromo, rawAutoPromo, bonusPromo, rawBonusPromo, validation, start, end, extraMonths: extra };
     });
 
     // Promo a nivel paquete
@@ -932,24 +951,37 @@ class Component extends DCLogic {
 
       // Indicador automático de Promo: se calcula solo a partir de Inventario
       // del cliente (Sección 02) + Producto/Periodo/Cobertura de este producto
-      // (ver PC.PromotionEngine.evaluateAutoPromo). No requiere acción del
-      // usuario; se oculta por completo si ninguna promo aplica.
-      item.autoPromo ? h("div", { style: { marginBottom: "13px", padding: "9px 12px", borderRadius: "8px", background: "#E4F5EC", border: "1px solid #1b8f51", display: "flex", alignItems: "flex-start", gap: "8px" } },
-        h("span", { style: { width: "8px", height: "8px", borderRadius: "999px", background: "#1b8f51", marginTop: "5px", flex: "none" } }),
-        h("div", null,
-          h("div", { style: { font: "800 11px Nunito", color: "#146b3d", textTransform: "uppercase", letterSpacing: ".04em" } }, "Promo aplicable"),
-          h("div", { style: { font: "500 11.5px/1.35 Nunito", color: "#2A2A2E", marginTop: "2px" } }, item.autoPromo.text))) : null,
+      // (ver PC.PromotionEngine.evaluateAutoPromo). Se oculta por completo si
+      // ninguna promo aplica; si aplica, trae un switch con el que el
+      // comercial la activa/desactiva (p.autoPromoOn, ver rawAutoPromo).
+      item.rawAutoPromo ? h("div", {
+        style: { marginBottom: "13px", padding: "9px 12px", borderRadius: "8px", background: (p.autoPromoOn !== false) ? "#E4F5EC" : "#F1F1F4", border: "1px solid " + ((p.autoPromoOn !== false) ? "#1b8f51" : "#D0D0D8") }
+      },
+        h("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" } },
+          h("div", { style: { font: "800 11px Nunito", color: (p.autoPromoOn !== false) ? "#146b3d" : "#6B6B73", textTransform: "uppercase", letterSpacing: ".04em" } }, item.rawAutoPromo.label || "Promo"),
+          this.toggleSwitch(p.autoPromoOn !== false, () => this.updateProduct(idx, { autoPromoOn: !(p.autoPromoOn !== false) }))),
+        h("div", { style: { font: "500 11.5px/1.35 Nunito", color: (p.autoPromoOn !== false) ? "#2A2A2E" : "#8A8A93", marginTop: "4px", textDecoration: (p.autoPromoOn !== false) ? "none" : "line-through" } }, item.rawAutoPromo.text)) : null,
 
-      // Botón Promo: activa/desactiva el descuento adicional (%) y la
+      // Fila "Promoción": activa/desactiva el descuento adicional (%) y la
       // cortesía manual (cantidad + producto) de este producto.
+      // Fila "Promoción 4": bono de Destacados por monto de compra (ver
+      // PC.PromotionEngine.evaluateBonusPromo). Solo aparece si el Precio
+      // final con IVA de este producto alcanza algún escalón del bono; el
+      // comercial la activa/desactiva con p.bonusPromoOn.
       h("div", { style: { marginBottom: "13px" } },
-        h("button", {
-          onClick: () => this.updateProduct(idx, p.promoOn ? { promoOn: false, manualDiscountPct: 0 } : { promoOn: true }),
-          style: { display: "inline-flex", alignItems: "center", gap: "7px", padding: "8px 14px", borderRadius: "8px", border: "1px solid " + (p.promoOn ? "#1b8f51" : "#D0D0D8"), background: p.promoOn ? "#1b8f51" : "#fff", color: p.promoOn ? "#fff" : "#2A2A2E", font: "700 12.5px Nunito" }
-        },
-          h("span", { style: { width: "8px", height: "8px", borderRadius: "999px", background: p.promoOn ? "#8FE3B4" : "#C9C9D2" } }), "Promo"),
+        h("div", { style: { display: "flex", flexDirection: "column", gap: "8px" } },
+          h("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", borderRadius: "8px", border: "1px solid " + (p.promoOn ? "#1b8f51" : "#D0D0D8"), background: p.promoOn ? "#F3FBF6" : "#fff" } },
+            h("span", { style: { font: "700 12.5px Nunito", color: "#2A2A2E" } }, "Promoción"),
+            this.toggleSwitch(p.promoOn, () => this.updateProduct(idx, p.promoOn ? { promoOn: false, manualDiscountPct: 0 } : { promoOn: true }))),
+          item.rawBonusPromo ? h("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", borderRadius: "8px", border: "1px solid " + ((p.bonusPromoOn !== false) ? "#1b8f51" : "#D0D0D8"), background: (p.bonusPromoOn !== false) ? "#F3FBF6" : "#fff" } },
+            h("span", { style: { font: "700 12.5px Nunito", color: "#2A2A2E" } }, "Promoción 4"),
+            this.toggleSwitch(p.bonusPromoOn !== false, () => this.updateProduct(idx, { bonusPromoOn: !(p.bonusPromoOn !== false) }))) : null),
         p.promoOn ? h("div", { style: { marginTop: "10px" } },
-          this.field("Descuento adicional %", h("input", { type: "number", min: "0", max: String(this.pcfg(p.productId).maxDiscount), style: this.st.input, value: p.manualDiscountPct, onChange: e => this.updateProduct(idx, { manualDiscountPct: e.target.value }) })),
+          h("div", { style: { display: "flex", gap: "10px", alignItems: "flex-end" } },
+            h("div", { style: { flex: 1 } }, this.field("Descuento adicional %", h("input", { type: "number", min: "0", max: String(this.pcfg(p.productId).maxDiscount), style: this.st.input, value: p.manualDiscountPct, onChange: e => this.updateProduct(idx, { manualDiscountPct: e.target.value }) }))),
+            h("label", { style: { display: "flex", alignItems: "center", gap: "6px", paddingBottom: "9px", font: "600 12px Nunito", color: "#2A2A2E", whiteSpace: "nowrap" } },
+              h("input", { type: "checkbox", checked: !!p.showDiscountPct, onChange: e => this.updateProduct(idx, { showDiscountPct: e.target.checked }) }),
+              "Mostrar porcentaje")),
           h("div", { style: { display: "flex", gap: "10px", marginTop: "10px", flexWrap: "wrap" } },
             h("div", { style: { width: "92px" } }, this.field("Cantidad", h("input", { type: "number", min: "1", style: this.st.input, value: p.promoQty, onChange: e => this.updateProduct(idx, { promoQty: e.target.value }) }))),
             h("div", { style: { flex: 1, minWidth: "140px" } }, this.field("Producto", this.select(p.promoProduct, v => this.updateProduct(idx, { promoProduct: v }), [{ value: "", label: "Seleccionar" }].concat(productOpts)))),
@@ -1537,6 +1569,17 @@ class Component extends DCLogic {
     };
     return h("svg", { viewBox: "0 0 24 24", width: size, height: size, fill: color, style: { display: "block" } }, h("path", { d: paths[name] || paths.star }));
   }
+  // Switch tipo iOS (verde = encendido) para activar/desactivar promos en el
+  // panel de configuración (Promo aplicable, Promoción, Promoción 4).
+  toggleSwitch(on, onClick) {
+    const h = React.createElement;
+    return h("button", {
+      type: "button", onClick,
+      "aria-pressed": on,
+      style: { flex: "none", width: "38px", height: "22px", padding: 0, border: "none", borderRadius: "999px", cursor: "pointer", background: on ? "#1b8f51" : "#D0D0D8", position: "relative" }
+    },
+      h("span", { style: { position: "absolute", top: "2px", left: on ? "18px" : "2px", width: "18px", height: "18px", borderRadius: "50%", background: "#fff", boxShadow: "0 1px 2px rgba(0,0,0,.35)" } }));
+  }
   checkIcon(color) {
     const h = React.createElement;
     return h("svg", { viewBox: "0 0 24 24", width: 19, height: 19, style: { flex: "none", marginTop: "1px" } },
@@ -1638,40 +1681,48 @@ class Component extends DCLogic {
       h("div", { style: { height: "1px", background: "#E0E0E6", margin: px(7) + " 0" } }),
       row("Precio final con IVA", U.money(r.finalPriceIVA), { strong: true, big: true, labelColor: "#146b3d", valueColor: "#1b8f51", mb: "0" }));
   }
-  // Bloque de promoción AUTOMÁTICA dentro de la tarjeta de producto de la
-  // propuesta (mismo espacio visual que manualPromoStrip, ver más abajo).
-  // Se calcula solo con Inventario del cliente + Producto/Periodo/Cobertura;
-  // no depende del botón manual "Promo" ni de promotions.js.
-  autoPromoStrip(item, t) {
-    const h = React.createElement;
-    const promo = item.autoPromo;
-    if (!promo) return null;
-    return h("div", { style: { margin: "0 18px 14px", padding: "9px 12px", borderRadius: "9px", background: t.soft, border: "1px dashed " + t.chip, display: "flex", gap: "8px", alignItems: "flex-start" } },
-      h("span", { style: { color: t.chip, fontWeight: 800, fontSize: "13px" } }, "★"),
-      h("div", { style: { flex: 1 } },
-        h("div", { style: { font: "800 11px Nunito", color: t.main } }, "Promo"),
-        h("div", { style: { font: "500 11px/1.35 Nunito", color: "#2A2A2E", marginTop: "2px" } }, promo.text)));
-  }
-  manualPromoStrip(item, t) {
+  // Único recuadro de promo de la tarjeta principal: agrupa TODA promo o
+  // descuento activo del producto en un solo recuadro (nunca más de uno).
+  // Orden fijo: 1) promo del mes (automática: OI/Destacados, bono por monto
+  // de compra), 2) descuento adicional (manual: % y/o cortesía de producto).
+  promoBox(item, t) {
     const h = React.createElement, C = window.PC.config, D = window.PC.pricingData;
     const c = item.cfg;
-    if (!c.promoOn) return null;
-    const qty = Number(c.promoQty) || 0;
-    if (qty <= 0) return null;
-    const name = (C.productMeta[c.promoProduct] || {}).name || c.promoProduct;
-    const periodLabel = (D.PERIODS[c.promoPeriod] || {}).label || "";
-    // Características ya registradas para el producto otorgado como promo
-    // (mismo catálogo/config que usa cardBenefits) — nunca se redactan aquí.
-    const benefits = (this.pcfg(c.promoProduct).benefits || []).filter(b => b != null && String(b).trim() !== "");
+    const rows = [];
+
+    // 1) Promo del mes (automática)
+    if (item.autoPromo) rows.push(h("div", { key: "auto", style: { font: "500 11px/1.35 Nunito", color: "#2A2A2E" } }, item.autoPromo.text));
+    if (item.bonusPromo) rows.push(h("div", { key: "bonus", style: { font: "500 11px/1.35 Nunito", color: "#2A2A2E" } }, item.bonusPromo.text));
+
+    // 2) Descuento adicional (manual, botón "Promoción")
+    if (c.promoOn && c.showDiscountPct) {
+      const pct = Number(c.manualDiscountPct) || 0;
+      if (pct > 0) rows.push(h("div", { key: "pct", style: { font: "500 11px/1.35 Nunito", color: "#2A2A2E" } }, "+ " + Math.round(pct) + "% de descuento"));
+    }
+    if (c.promoOn) {
+      const qty = Number(c.promoQty) || 0;
+      if (qty > 0) {
+        const name = (C.productMeta[c.promoProduct] || {}).name || c.promoProduct;
+        const periodLabel = (D.PERIODS[c.promoPeriod] || {}).label || "";
+        // Características ya registradas para el producto otorgado como
+        // promo (mismo catálogo/config que usa cardBenefits) — nunca se
+        // redactan aquí.
+        const benefits = (this.pcfg(c.promoProduct).benefits || []).filter(b => b != null && String(b).trim() !== "");
+        rows.push(h("div", { key: "cortesia" },
+          h("div", { style: { font: "500 11px/1.35 Nunito", color: "#2A2A2E" } }, qty + " × " + name + " de cortesía" + (periodLabel ? " · " + periodLabel : "")),
+          benefits.length ? h("div", { style: { marginTop: "8px" } },
+            benefits.map((b, i) => h("div", { key: i, style: { display: "flex", gap: "6px", alignItems: "flex-start", marginBottom: i < benefits.length - 1 ? "5px" : 0 } },
+              this.checkIcon(t.accent),
+              h("div", { style: { font: "500 11px/1.35 Nunito", color: "#2A2A2E" } }, this.parseBold(b))))) : null));
+      }
+    }
+
+    if (!rows.length) return null;
     return h("div", { style: { margin: "0 18px 14px", padding: "9px 12px", borderRadius: "9px", background: t.soft, border: "1px dashed " + t.chip, display: "flex", gap: "8px", alignItems: "flex-start" } },
       h("span", { style: { color: t.chip, fontWeight: 800, fontSize: "13px" } }, "★"),
       h("div", { style: { flex: 1 } },
         h("div", { style: { font: "800 11px Nunito", color: t.main } }, "Promo"),
-        h("div", { style: { font: "500 11px/1.35 Nunito", color: "#2A2A2E", marginTop: "2px" } }, qty + " × " + name + " de cortesía" + (periodLabel ? " · " + periodLabel : "")),
-        benefits.length ? h("div", { style: { marginTop: "8px" } },
-          benefits.map((b, i) => h("div", { key: i, style: { display: "flex", gap: "6px", alignItems: "flex-start", marginBottom: i < benefits.length - 1 ? "5px" : 0 } },
-            this.checkIcon(t.accent),
-            h("div", { style: { font: "500 11px/1.35 Nunito", color: "#2A2A2E" } }, this.parseBold(b))))) : null));
+        h("div", { style: { marginTop: "2px", display: "flex", flexDirection: "column", gap: "6px" } }, rows)));
   }
 
   renderProductCard(item, idx, count) {
@@ -1688,8 +1739,7 @@ class Component extends DCLogic {
       this.cardHeader(r, t, meta, scale),
       this.cardValueBlock(item, r, t, meta, scale),
       this.cardBenefits(benefits, t, scale),
-      this.autoPromoStrip(item, t),
-      this.manualPromoStrip(item, t),
+      this.promoBox(item, t),
       this.cardPriceFooter(item, r, t, scale));
   }
 
@@ -1704,8 +1754,7 @@ class Component extends DCLogic {
         this.cardHeader(r, t, meta, scale),
         this.cardValueBlock(item, r, t, meta, scale),
         this.cardBenefits(benefits, t, scale),
-        this.autoPromoStrip(item, t),
-        this.manualPromoStrip(item, t),
+        this.promoBox(item, t),
         this.vsPriceFooter(item, r, t, scale));
     };
     return h("div", { style: { display: "flex", gap: "14px", alignItems: "stretch" } },

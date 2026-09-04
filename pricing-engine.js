@@ -289,6 +289,14 @@ window.PC.PricingEngine = (function () {
     let afterManual = regionalPrice - manualDiscount;
     if (manualPct > 0) breakdown.push("Descuento adicional " + manualPct + "%: −" + U.money(manualDiscount));
 
+    // 2b) Descuento de promo automática (Destacados/Prime, ver
+    // PC.PromotionEngine.evaluateAutoPromo). Solo se aplica mientras esa
+    // promo está habilitada (botón "Promo aplicable" del panel).
+    const autoPct = U.clamp(Number(cfg.autoDiscountPct) || 0, 0, 100);
+    const autoDiscount = Math.round(afterManual * (autoPct / 100));
+    if (autoPct > 0) breakdown.push("Promo automática " + autoPct + "%: −" + U.money(autoDiscount));
+    afterManual = afterManual - autoDiscount;
+
     // 3) Promoción (solo efectos a nivel producto)
     let promotionDiscount = 0;
     let appliedPromo = null;
@@ -361,6 +369,8 @@ window.PC.PricingEngine = (function () {
       regionalPrice: Math.round(regionalPrice),
       manualDiscount: Math.round(manualDiscount),
       manualDiscountPct: manualPct,
+      autoPromoDiscount: Math.round(autoDiscount),
+      autoPromoDiscountPct: autoPct,
       promotionDiscount: Math.round(promotionDiscount),
       originalPrice: Math.round(originalPrice),
       finalPrice: Math.round(finalPrice),
