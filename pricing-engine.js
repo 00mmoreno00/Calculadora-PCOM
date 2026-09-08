@@ -56,7 +56,14 @@ window.PC.PricingEngine = (function () {
   // ---- PERSONALIZADO: total mensual + cobertura de una combinación --
   function customPackageMonthly(productId, rows, zone) {
     const warnings = [];
-    let monthly = 0, coverage = 0;
+    let monthly = 0, coverage = 0, baseMonthly = 0, extrasMonthly = 0, extraBlocks = 0;
+    // OI: si se agregan 2+ "Paquete 500", el primero se cobra a precio de
+    // paquete y cada 500 adicional a precio de bloque extra — igual que
+    // Elite, pero solo se activa en este caso; cualquier otra combinación
+    // sigue sumando cada paquete tal cual. Personalizado siempre usa lista
+    // nacional (FULLPRICE, ver packageListInfo), así que el bloque extra
+    // también sale de FULLPRICE, nunca del precio de zona.
+    const oiExtraUnit = productId === "oportunidades" ? Number((D.oportunidades.zones.FULLPRICE || {}).extra) : null;
     (rows || []).forEach(row => {
       const qty = Math.max(1, Math.round(Number(row.qty) || 0));
       const info = packageListInfo(productId, row.value, zone);
@@ -66,6 +73,14 @@ window.PC.PricingEngine = (function () {
         warnings.push("Sin precio para \"" + row.value + "\" en la zona seleccionada: no se incluyó en el total.");
         return;
       }
+      if (productId === "oportunidades" && row.value === "500" && qty >= 2 && oiExtraUnit > 0) {
+        baseMonthly += info.price;
+        extraBlocks += qty - 1;
+        extrasMonthly += oiExtraUnit * (qty - 1);
+        monthly += info.price + oiExtraUnit * (qty - 1);
+        return;
+      }
+      baseMonthly += info.price * qty;
       monthly += info.price * qty;
     });
 
@@ -93,10 +108,11 @@ window.PC.PricingEngine = (function () {
       return { monthly, coverage, warnings, extraBlocks, baseMonthly, extrasMonthly };
     }
 
-    // Oportunidades (y cualquier producto no-Elite): personalizado toma el
-    // precio base de cada paquete (FULLPRICE) × cantidad, sumado fila por fila,
-    // sin redondear la cobertura total al siguiente tier de paquete.
-    return { monthly, coverage, warnings, extraBlocks: 0, baseMonthly: monthly, extrasMonthly: 0 };
+    // Oportunidades (y cualquier producto no-Elite): personalizado suma el
+    // precio de cada paquete agregado × cantidad, sin redondear la cobertura
+    // total al siguiente tier — salvo 2+ "Paquete 500", que ya se separó
+    // arriba en baseMonthly/extrasMonthly/extraBlocks (bloque adicional).
+    return { monthly, coverage, warnings, extraBlocks, baseMonthly, extrasMonthly };
   }
 
   // ---- ELITE: precio mensual + cobertura de inventario -------------
