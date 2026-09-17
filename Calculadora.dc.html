@@ -508,13 +508,10 @@ class Component extends DCLogic {
         result.zoneListPrice = Math.round(csvInfo.base);
         result.zoneDiscountPct = csvInfo.discountPct;
       }
-      // Bono de Destacados por monto de compra ("Promoción 4"): desactivada
-      // a pedido de negocio, no debe verse en la calculadora. Para
-      // reactivarla, descomentar estas dos líneas y borrar las de abajo.
-      // const rawBonusPromo = PR.evaluateBonusPromo(result.finalPriceIVA);
-      // const bonusPromo = (p.bonusPromoOn !== false) ? rawBonusPromo : null;
-      const rawBonusPromo = null;
-      const bonusPromo = null;
+      // Bono de Destacados por monto de compra (Precio final con IVA de este
+      // producto). El comercial la activa/desactiva con "Promoción 4".
+      const rawBonusPromo = PR.evaluateBonusPromo(result.finalPriceIVA);
+      const bonusPromo = (p.bonusPromoOn !== false) ? rawBonusPromo : null;
       const validation = V.validateProduct(Object.assign({}, cfg, { startDate: p.startDate }), result);
       // Restricción por estado(s) (admin): el producto solo aplica en los estados listados.
       if (pc.states.length && pc.states.indexOf(s.stateName) < 0) {
