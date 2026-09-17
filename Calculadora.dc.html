@@ -76,7 +76,6 @@ class Component extends DCLogic {
     advisorId: "",
     clientName: "",
     clientPhone: "",
-    clientInventory: "",
     clientStatus: "Prospecto",
     stateName: "",
     zone: "",
@@ -118,7 +117,7 @@ class Component extends DCLogic {
 
   PWD = "12345";
   PRODUCT_IDS = ["oportunidades", "destacados", "prime", "elite"];
-  DRAFT_FIELDS = ["advisorId", "clientName", "clientPhone", "clientInventory", "clientStatus", "stateName", "zone", "mode", "proposalDate", "proposalValidUntil", "folio", "proposalNotes", "products"];
+  DRAFT_FIELDS = ["advisorId", "clientName", "clientPhone", "clientStatus", "stateName", "zone", "mode", "proposalDate", "proposalValidUntil", "folio", "proposalNotes", "products"];
 
   // Catálogo de asesores: viven en config.js (window.PC.config.advisors).
   getAdvisors() {
@@ -354,7 +353,7 @@ class Component extends DCLogic {
     const advs = this.getAdvisorsWithContactCenter();
     this.setState({
       advisorId: advs[0] ? advs[0].id : "",
-      clientName: "", clientPhone: "", clientInventory: "", clientStatus: "Prospecto",
+      clientName: "", clientPhone: "", clientStatus: "Prospecto",
       stateName: "", zone: "",
       mode: "individual", advisorSearch: "", proposalNotes: "",
       proposalDate: U.toISO(today),
@@ -470,7 +469,7 @@ class Component extends DCLogic {
       const cfg = {
         productId: p.productId, mode: s.mode, zone: s.zone || "CDMX_EDOMEX",
         period: p.period, eliteOption: p.eliteOption, oppOption: p.oppOption,
-        inventory: s.clientInventory, quantity: p.quantity, primeCalcMode: p.primeCalcMode,
+        inventory: p.inventory, quantity: p.quantity, primeCalcMode: p.primeCalcMode,
         customPackages: p.customPackages || [],
         manualDiscountPct: p.manualDiscountPct, showDiscountPct: p.showDiscountPct,
         promoOn: p.promoOn, promoQty: p.promoQty, promoProduct: p.promoProduct, promoPeriod: p.promoPeriod,
@@ -487,7 +486,7 @@ class Component extends DCLogic {
       // (p.autoPromoOn); rawAutoPromo conserva el resultado sin filtrar para
       // que el botón siga visible aunque esté desactivada.
       const rawAutoPromo = PR.evaluateAutoPromo({
-        productId: p.productId, period: p.period, quantity: p.quantity, inventory: s.clientInventory, mode: s.mode
+        productId: p.productId, period: p.period, quantity: p.quantity, inventory: p.inventory, mode: s.mode
       });
       const autoPromo = (p.autoPromoOn !== false) ? rawAutoPromo : null;
       // Si la promo automática trae un % (Destacados/Prime), el precio final
@@ -765,8 +764,7 @@ class Component extends DCLogic {
       this.section("Sección 02", "Datos del cliente",
         h("div", null,
           this.field("Cliente o empresa", h("input", { style: this.st.input, value: s.clientName, placeholder: "Nombre del cliente o empresa", onChange: e => this.set("clientName", e.target.value) })),
-          this.field("Número celular", h("input", { type: "tel", style: this.st.input, value: s.clientPhone, placeholder: "Ej. 5512345678", onChange: e => this.set("clientPhone", e.target.value) })),
-          this.field("Inventario del cliente", h("input", { type: "number", min: "0", style: this.st.input, value: s.clientInventory, placeholder: "Ej. 250", onChange: e => this.set("clientInventory", e.target.value) })))),
+          this.field("Número celular", h("input", { type: "tel", style: this.st.input, value: s.clientPhone, placeholder: "Ej. 5512345678", onChange: e => this.set("clientPhone", e.target.value) })))),
 
       // 3. Estado y zona
       this.section("Sección 03", "Estado y zona de pricing",
@@ -947,11 +945,12 @@ class Component extends DCLogic {
 
       this.field("Producto", this.select(p.productId, v => { const patch = { productId: v, customPackages: [], customPickValue: "", customPickQty: 1 }; if (v !== "oportunidades" && p.period === "promo8") patch.period = "anual"; this.updateProduct(idx, patch); }, productOpts)),
       this.field("Periodo", this.select(p.period, v => this.updateProduct(idx, { period: v }), periodOpts)),
+      this.field("Inventario del cliente", h("input", { type: "number", min: "0", style: this.st.input, value: p.inventory, placeholder: "Ej. 250", onChange: e => this.updateProduct(idx, { inventory: e.target.value }) })),
       conditional,
 
       // Indicador automático de Promo: se calcula solo a partir de Inventario
-      // del cliente (Sección 02) + Producto/Periodo/Cobertura de este producto
-      // (ver PC.PromotionEngine.evaluateAutoPromo). Se oculta por completo si
+      // + Producto/Periodo/Cobertura de este producto (todo en Sección 05,
+      // ver PC.PromotionEngine.evaluateAutoPromo). Se oculta por completo si
       // ninguna promo aplica; si aplica, trae un switch con el que el
       // comercial la activa/desactiva (p.autoPromoOn, ver rawAutoPromo).
       item.rawAutoPromo ? h("div", {
@@ -1074,7 +1073,6 @@ class Component extends DCLogic {
             this.metaCell("Celular", s.clientPhone || "—"),
             this.metaCell("Estado", s.stateName || "—"),
             this.metaCell("Zona de pricing", zoneLabel),
-            this.metaCell("Inventario", s.clientInventory ? (s.clientInventory + " propiedades") : "—"),
             this.metaCell("Asesor", adv ? adv.name : "—")),
           h("p", { style: { font: "500 13px/1.5 Nunito", color: "#2A2A2E", margin: "0 0 4px" } }, C.introMessage),
           h("div", { style: { font: "800 20px Nunito", color: "#111", margin: "10px 0 2px", letterSpacing: "-.02em" } }, modeTitle)),
