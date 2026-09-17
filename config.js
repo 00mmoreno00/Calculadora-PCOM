@@ -39,12 +39,8 @@ window.PC.config = (function () {
     ],
     suggestZone: function (state) { return this.stateToZone[state] || "RESTO"; },
     advisors: [
-          { id: "a0", name: "Daniel Brena",   email: "luis.brena@propiedades.com",   phone: "5215597712824" },
-      { id: "a1", name: "Doranely Gonzalez",   email: "doranely.gonzalez@propiedades.com",   phone: "5215594486001" },
        { id: "a2", name: "Esteban Jimenez",   email: "esteban.jimenez@propiedades.com",   phone: " 5572100087" },
-        { id: "a3", name: "Aldayr Sanchez",   email: "jesus.garcia@propiedades.com",   phone: "5581094424" },
        { id: "a4", name: "Jose Yañez",   email: "jose.yanez@propiedades.com",   phone: "5534391672" },
-      { id: "a5", name: "Hanad Martinez",  email: "hanad.martinez@propiedades.com",  phone: "5563177104" },
        { id: "a6", name: "Tanya Sanchez",    email: "tanya.sanchez@propiedades.com",    phone: "5597710411" },
        { id: "a7", name: "Lizzette Benitez",    email: "lizzette.benitez@propiedades.com",    phone: "5594483642" },
        { id: "a8", name: "Marlen Salinas",    email: "marlen.salinas@propiedades.com",    phone: "5658646765" },
