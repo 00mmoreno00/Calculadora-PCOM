@@ -155,25 +155,12 @@ window.PC.PromotionEngine = (function () {
      Devuelve null si ninguna promo aplica, o { text } si aplica.
      ---------------------------------------------------------------- */
   function evaluateAutoPromo(ctx) {
-    // Interruptor: activa/desactiva las promociones automáticas de OI,
+    // Interruptor: activa/desactiva la promoción automática de
     // Destacados y Prime sin borrar las reglas configuradas.
     const showOiAndHighlightedPromotions = true;
-    const inv = Number(ctx.inventory) || 0;
     const period = ctx.period;
     const productId = ctx.productId;
     const qty = Number(ctx.quantity) || 0;
-
-    if (showOiAndHighlightedPromotions && productId === "oportunidades") {
-      if (inv >= 10 && inv <= 29) {
-        // label: nombre corto que el panel muestra en el switch (Promo 1/2/3).
-        if (period === "semestral") return { text: "Paga 6 meses y llévate 1 mes de servicio adicional.", label: "Promo 1" };
-        if (period === "anual") return { text: "Paga 12 meses y llévate 3 meses de servicio adicional.", label: "Promo 1" };
-      } else if (inv >= 30) {
-        if (period === "semestral") return { text: "Paga 6 meses y llévate 1 mes de servicio adicional.", label: "Promo 2" };
-        if (period === "anual") return { text: "Paga 12 meses y llévate 3 meses de servicio adicional.", label: "Promo 2" };
-      }
-      return null;
-    }
 
     if (showOiAndHighlightedPromotions && (productId === "destacados" || productId === "prime") && ctx.mode === "individual") {
       if (period === "semestral" || period === "anual") {
@@ -189,32 +176,9 @@ window.PC.PromotionEngine = (function () {
     return null;
   }
 
-  /* ----------------------------------------------------------------
-     evaluateBonusPromo(amount) -> bono de Destacados por monto de compra
-     (Precio final con IVA de un producto). Regla fija de negocio,
-     independiente de evaluateAutoPromo; el comercial la activa/desactiva
-     con el botón "Promoción 4" (ver Calculadora.dc.html).
-     Devuelve null si el monto no alcanza ningún escalón, o { text, qty }.
-     ---------------------------------------------------------------- */
-  const BONUS_TIERS = [
-    { min: 100000, qty: 200 },
-    { min: 50000, qty: 50 },
-    { min: 30000, qty: 30 },
-    { min: 20000, qty: 20 },
-    { min: 15000, qty: 10 },
-    { min: 11000, qty: 5 }
-  ];
-
-  function evaluateBonusPromo(amount) {
-    const amt = Number(amount) || 0;
-    const tier = BONUS_TIERS.find(t => amt >= t.min);
-    if (!tier) return null;
-    return { text: "+ " + tier.qty + " Destacados de bono · vigencia 3 meses", qty: tier.qty };
-  }
-
   return {
     getPromotions, savePromotions, resetPromotions,
-    evaluateForProduct, evaluateForPackage, matches, evaluateAutoPromo, evaluateBonusPromo,
+    evaluateForProduct, evaluateForPackage, matches, evaluateAutoPromo,
     PRODUCT_EFFECTS, PACKAGE_EFFECTS
   };
 })();

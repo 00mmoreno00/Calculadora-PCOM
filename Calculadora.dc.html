@@ -281,9 +281,6 @@ class Component extends DCLogic {
       // Promo automática (evaluateAutoPromo): activada por defecto; el
       // comercial puede desactivarla con el botón "Promo aplicable" del panel.
       autoPromoOn: true,
-      // Bono de Destacados por monto de compra (evaluateBonusPromo):
-      // desactivado por defecto; el comercial puede activarlo con "Promoción 4".
-      bonusPromoOn: false,
       // Promo manual por producto (bonificación / cortesía)
       promoOn: false,
       promoQty: "",
@@ -508,10 +505,6 @@ class Component extends DCLogic {
         result.zoneListPrice = Math.round(csvInfo.base);
         result.zoneDiscountPct = csvInfo.discountPct;
       }
-      // Bono de Destacados por monto de compra (Precio final con IVA de este
-      // producto). El comercial la activa/desactiva con "Promoción 4".
-      const rawBonusPromo = PR.evaluateBonusPromo(result.finalPriceIVA);
-      const bonusPromo = (p.bonusPromoOn !== false) ? rawBonusPromo : null;
       const validation = V.validateProduct(Object.assign({}, cfg, { startDate: p.startDate }), result);
       // Restricción por estado(s) (admin): el producto solo aplica en los estados listados.
       if (pc.states.length && pc.states.indexOf(s.stateName) < 0) {
@@ -522,7 +515,7 @@ class Component extends DCLogic {
       const start = window.PC.utils.fromISO(p.startDate);
       const extra = result.appliedPromotion ? (result.appliedPromotion.extraMonths || 0) : 0;
       const end = start ? window.PC.utils.addMonths(start, result.months + extra) : null;
-      return { cfg, result, promoEval, autoPromo, rawAutoPromo, bonusPromo, rawBonusPromo, validation, start, end, extraMonths: extra };
+      return { cfg, result, promoEval, autoPromo, rawAutoPromo, validation, start, end, extraMonths: extra };
     });
 
     // Promo a nivel paquete
@@ -960,15 +953,6 @@ class Component extends DCLogic {
           h("div", { style: { font: "800 11px Nunito", color: (p.autoPromoOn !== false) ? "#146b3d" : "#6B6B73", textTransform: "uppercase", letterSpacing: ".04em" } }, item.rawAutoPromo.label || "Promo"),
           this.toggleSwitch(p.autoPromoOn !== false, () => this.updateProduct(idx, { autoPromoOn: !(p.autoPromoOn !== false) }))),
         h("div", { style: { font: "500 11.5px/1.35 Nunito", color: (p.autoPromoOn !== false) ? "#2A2A2E" : "#8A8A93", marginTop: "4px", textDecoration: (p.autoPromoOn !== false) ? "none" : "line-through" } }, item.rawAutoPromo.text)) : null,
-
-      // Fila "Promoción 4": bono de Destacados por monto de compra (ver
-      // PC.PromotionEngine.evaluateBonusPromo). Solo aparece si el Precio
-      // final con IVA de este producto alcanza algún escalón del bono; el
-      // comercial la activa/desactiva con p.bonusPromoOn. Va debajo del
-      // indicador de Promo 1/2 (autoPromo) y arriba del botón "Promoción".
-      item.rawBonusPromo ? h("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", borderRadius: "8px", border: "1px solid " + ((p.bonusPromoOn !== false) ? "#1b8f51" : "#D0D0D8"), background: (p.bonusPromoOn !== false) ? "#F3FBF6" : "#fff", marginBottom: "8px" } },
-        h("span", { style: { font: "700 12.5px Nunito", color: "#2A2A2E" } }, "Promoción 4 · Válido hasta el 16/09"),
-        this.toggleSwitch(p.bonusPromoOn !== false, () => this.updateProduct(idx, { bonusPromoOn: !(p.bonusPromoOn !== false) }))) : null,
 
       // Fila "Promoción": activa/desactiva el descuento adicional (%) y la
       // cortesía manual (cantidad + producto) de este producto.
@@ -1569,7 +1553,7 @@ class Component extends DCLogic {
     return h("svg", { viewBox: "0 0 24 24", width: size, height: size, fill: color, style: { display: "block" } }, h("path", { d: paths[name] || paths.star }));
   }
   // Switch tipo iOS (verde = encendido) para activar/desactivar promos en el
-  // panel de configuración (Promo aplicable, Promoción, Promoción 4).
+  // panel de configuración (Promo aplicable, Promoción).
   toggleSwitch(on, onClick) {
     const h = React.createElement;
     return h("button", {
@@ -1682,8 +1666,8 @@ class Component extends DCLogic {
   }
   // Único recuadro de promo de la tarjeta principal: agrupa TODA promo o
   // descuento activo del producto en un solo recuadro (nunca más de uno).
-  // Orden fijo: 1) promo del mes (automática: OI/Destacados, bono por monto
-  // de compra), 2) descuento adicional (manual: % y/o cortesía de producto).
+  // Orden fijo: 1) promo del mes (automática: Destacados/Prime),
+  // 2) descuento adicional (manual: % y/o cortesía de producto).
   promoBox(item, t) {
     const h = React.createElement, C = window.PC.config, D = window.PC.pricingData;
     const c = item.cfg;
@@ -1691,7 +1675,6 @@ class Component extends DCLogic {
 
     // 1) Promo del mes (automática)
     if (item.autoPromo) rows.push(h("div", { key: "auto", style: { font: "500 11px/1.35 Nunito", color: "#2A2A2E" } }, item.autoPromo.text));
-    if (item.bonusPromo) rows.push(h("div", { key: "bonus", style: { font: "500 11px/1.35 Nunito", color: "#2A2A2E" } }, item.bonusPromo.text));
 
     // 2) Descuento adicional (manual, botón "Promoción")
     if (c.promoOn && c.showDiscountPct) {
