@@ -970,7 +970,7 @@ class Component extends DCLogic {
             h("div", { style: { flex: 1 } }, this.field("Descuento adicional %", h("input", { type: "number", min: "0", max: String(this.pcfg(p.productId).maxDiscount), style: this.st.input, value: p.manualDiscountPct, onChange: e => this.updateProduct(idx, { manualDiscountPct: e.target.value }) }))),
             h("label", { style: { display: "flex", alignItems: "center", gap: "6px", paddingBottom: "9px", font: "600 12px Nunito", color: "#2A2A2E", whiteSpace: "nowrap" } },
               h("input", { type: "checkbox", checked: !!p.showDiscountPct, onChange: e => this.updateProduct(idx, { showDiscountPct: e.target.checked }) }),
-              "Mostrar porcentaje")),
+              "Mostrar descuento adicional")),
           h("label", { style: { display: "flex", alignItems: "center", gap: "6px", marginTop: "8px", font: "600 12px Nunito", color: r.zoneDiscountPct > 0 ? "#2A2A2E" : "#A5A5AD" } },
             h("input", { type: "checkbox", disabled: !(r.zoneDiscountPct > 0), checked: !!p.showZoneDiscount && r.zoneDiscountPct > 0, onChange: e => this.updateProduct(idx, { showZoneDiscount: e.target.checked }) }),
             "Mostrar descuento de zona" + (r.zoneDiscountPct > 0 ? " (" + Math.round(r.zoneDiscountPct) + "%)" : " (sin descuento de zona)")),
@@ -1703,7 +1703,7 @@ class Component extends DCLogic {
     // 3) Descuento adicional (manual, botón "Promoción")
     if (c.promoOn && c.showDiscountPct) {
       const pct = Number(c.manualDiscountPct) || 0;
-      if (pct > 0) rows.push(h("div", { key: "pct", style: { font: "500 11px/1.35 Nunito", color: "#2A2A2E" } }, "+ " + Math.round(pct) + "% de descuento"));
+      if (pct > 0) rows.push(h("div", { key: "pct", style: { font: "500 11px/1.35 Nunito", color: "#2A2A2E" } }, "+ " + Math.round(pct) + "% de descuento adicional"));
     }
     if (c.promoOn) {
       const qty = Number(c.promoQty) || 0;
