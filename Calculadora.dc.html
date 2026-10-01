@@ -373,7 +373,7 @@ class Component extends DCLogic {
     L.push("");
     data.items.forEach((it, i) => {
       const r = it.result;
-      L.push((i + 1) + ". " + r.productName + " (" + r.periodLabel + ")" +
+      L.push((i + 1) + ". " + r.productName + " (" + r.periodLabel + (it.bonusMonths ? ": paga " + r.months + ", recibe " + (r.months + it.bonusMonths) + " meses" : "") + ")" +
         (r.visibleDiscountPct > 0 ? "  −" + r.visibleDiscountPct + "%" : "") +
         "  →  " + U.money(r.finalPriceIVA) + " con IVA");
     });
@@ -511,11 +511,13 @@ class Component extends DCLogic {
         validation.complete = false;
         validation.missing.push(pc.name + " solo aplica en: " + pc.states.join(", ") + " (estado actual: " + (s.stateName || "sin estado") + ")");
       }
-      // Vigencia por producto (incluye meses de cortesía por promo).
+      // Vigencia por producto (incluye meses de cortesía por promo y los
+      // meses de regalo del periodo, ej. Promo 7 meses = paga 7, recibe 10).
       const start = window.PC.utils.fromISO(p.startDate);
       const extra = result.appliedPromotion ? (result.appliedPromotion.extraMonths || 0) : 0;
-      const end = start ? window.PC.utils.addMonths(start, result.months + extra) : null;
-      return { cfg, result, promoEval, autoPromo, rawAutoPromo, validation, start, end, extraMonths: extra };
+      const bonusMonths = (window.PC.pricingData.PERIODS[p.period] || {}).bonusMonths || 0;
+      const end = start ? window.PC.utils.addMonths(start, result.months + extra + bonusMonths) : null;
+      return { cfg, result, promoEval, autoPromo, rawAutoPromo, validation, start, end, extraMonths: extra, bonusMonths };
     });
 
     // Promo a nivel paquete
@@ -900,9 +902,9 @@ class Component extends DCLogic {
     const item = data.items[idx];
     const vsTag = s.mode === "vs" ? (idx === 0 ? "A" : "B") : null;
     const productOpts = this.productOpts();
-    // "Promo 8 meses" (periodo especial) se quitó del listado de periodos.
+    // "Promo 7 meses" (periodo especial) solo aplica a Oportunidades ilimitadas.
     const periodOpts = Object.keys(D.PERIODS)
-      .filter(k => k !== "promo8")
+      .filter(k => k !== "promo7" || p.productId === "oportunidades")
       .map(k => ({ value: k, label: D.PERIODS[k].label }));
 
     const conditional = [];
@@ -936,7 +938,7 @@ class Component extends DCLogic {
           h("span", { style: { font: "700 13px Nunito", color: complete ? "#16763F" : "#6B6B73" } }, complete ? "Completo" : "Incompleto")),
         (s.mode === "paquete" && s.products.length > 1) ? h("button", { onClick: () => this.removeProduct(idx), style: { border: "none", background: "none", color: "#D7373F", fontWeight: 700, fontSize: "12px" } }, "Quitar") : null),
 
-      this.field("Producto", this.select(p.productId, v => { const patch = { productId: v, customPackages: [], customPickValue: "", customPickQty: 1 }; if (v !== "oportunidades" && p.period === "promo8") patch.period = "anual"; this.updateProduct(idx, patch); }, productOpts)),
+      this.field("Producto", this.select(p.productId, v => { const patch = { productId: v, customPackages: [], customPickValue: "", customPickQty: 1 }; if (v !== "oportunidades" && p.period === "promo7") patch.period = "anual"; this.updateProduct(idx, patch); }, productOpts)),
       this.field("Periodo", this.select(p.period, v => this.updateProduct(idx, { period: v }), periodOpts)),
       this.field("Inventario del cliente", h("input", { type: "number", min: "0", style: this.st.input, value: p.inventory, placeholder: "Ej. 250", onChange: e => this.updateProduct(idx, { inventory: e.target.value }) })),
       conditional,
@@ -1643,7 +1645,13 @@ class Component extends DCLogic {
     const h = React.createElement, U = window.PC.utils, s = scale || 1, px = (n) => this.px(n, s);
     return h("div", { style: { marginTop: "auto", padding: px(14) + " " + px(18), background: "#fff", borderTop: "1px solid " + t.border, display: "flex", justifyContent: "space-between", alignItems: "center", gap: px(10) } },
       h("span", { style: { font: "500 " + px(13) + " Nunito", color: "#6B6B73" } }, "Periodo"),
-      h("span", { style: { font: "800 " + px(14) + " Nunito", color: "#111" } }, r.periodLabel + (item.extraMonths ? " (+" + item.extraMonths + " mes cortesía)" : "")));
+      h("span", { style: { font: "800 " + px(14) + " Nunito", color: "#111" } }, this.periodText(item, r)));
+  }
+  // Texto del periodo en la tarjeta: etiqueta + meses de regalo del periodo
+  // (Promo 7 meses -> "recibe 10") + meses de cortesía por promo.
+  periodText(item, r) {
+    const bonus = item.bonusMonths ? " (recibe " + (r.months + item.bonusMonths) + " meses)" : "";
+    return r.periodLabel + bonus + (item.extraMonths ? " (+" + item.extraMonths + " mes cortesía)" : "");
   }
   // Footer del modo VS: resumen comercial completo por tarjeta (mismos valores
   // que miniPriceSummary del panel izquierdo). Solo se usa en Comparativo de productos.
@@ -1655,7 +1663,7 @@ class Component extends DCLogic {
     const listPrice = (r.zoneListPrice && r.zoneListPrice > r.finalPrice) ? r.zoneListPrice : r.originalPrice;
     const discPct = listPrice > 0 ? Math.round((listPrice - r.finalPrice) / listPrice * 100) : 0;
     const hasDisc = discPct > 0;
-    const periodTxt = r.periodLabel + (item.extraMonths ? " (+" + item.extraMonths + " mes cortesía)" : "");
+    const periodTxt = this.periodText(item, r);
     return h("div", { style: { marginTop: "auto", padding: px(14) + " " + px(18), background: "#fff", borderTop: "1px solid " + t.border } },
       row("Periodo", periodTxt, { valueColor: "#111" }),
       row("Precio total sin IVA", U.money(listPrice), { strike: hasDisc, valueColor: hasDisc ? "#A5A5AD" : "#111" }),
@@ -1672,6 +1680,9 @@ class Component extends DCLogic {
     const h = React.createElement, C = window.PC.config, D = window.PC.pricingData;
     const c = item.cfg;
     const rows = [];
+
+    // 0) Periodo con meses de regalo (Promo 7 meses: paga 7, llévate 10)
+    if (item.bonusMonths) rows.push(h("div", { key: "bonus", style: { font: "500 11px/1.35 Nunito", color: "#2A2A2E" } }, "Paga " + item.result.months + " meses y llévate " + (item.result.months + item.bonusMonths) + " meses de servicio"));
 
     // 1) Promo del mes (automática)
     if (item.autoPromo) rows.push(h("div", { key: "auto", style: { font: "500 11px/1.35 Nunito", color: "#2A2A2E" } }, item.autoPromo.text));
