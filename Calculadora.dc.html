@@ -278,6 +278,9 @@ class Component extends DCLogic {
       manualDiscountPct: 0,
       // Muestra "+X% de descuento" en la tarjeta principal del producto.
       showDiscountPct: false,
+      // Muestra "X% de descuento por zona" en el recuadro Promo de la tarjeta
+      // (solo texto: el descuento de zona ya viene aplicado en el precio).
+      showZoneDiscount: false,
       // Promo automática (evaluateAutoPromo): activada por defecto; el
       // comercial puede desactivarla con el botón "Promo aplicable" del panel.
       autoPromoOn: true,
@@ -468,7 +471,7 @@ class Component extends DCLogic {
         period: p.period, eliteOption: p.eliteOption, oppOption: p.oppOption,
         inventory: p.inventory, quantity: p.quantity, primeCalcMode: p.primeCalcMode,
         customPackages: p.customPackages || [],
-        manualDiscountPct: p.manualDiscountPct, showDiscountPct: p.showDiscountPct,
+        manualDiscountPct: p.manualDiscountPct, showDiscountPct: p.showDiscountPct, showZoneDiscount: p.showZoneDiscount,
         promoOn: p.promoOn, promoQty: p.promoQty, promoProduct: p.promoProduct, promoPeriod: p.promoPeriod,
         basePriceOverride: baseOverride, maxDiscount: pc.maxDiscount
       };
@@ -968,6 +971,9 @@ class Component extends DCLogic {
             h("label", { style: { display: "flex", alignItems: "center", gap: "6px", paddingBottom: "9px", font: "600 12px Nunito", color: "#2A2A2E", whiteSpace: "nowrap" } },
               h("input", { type: "checkbox", checked: !!p.showDiscountPct, onChange: e => this.updateProduct(idx, { showDiscountPct: e.target.checked }) }),
               "Mostrar porcentaje")),
+          h("label", { style: { display: "flex", alignItems: "center", gap: "6px", marginTop: "8px", font: "600 12px Nunito", color: r.zoneDiscountPct > 0 ? "#2A2A2E" : "#A5A5AD" } },
+            h("input", { type: "checkbox", disabled: !(r.zoneDiscountPct > 0), checked: !!p.showZoneDiscount && r.zoneDiscountPct > 0, onChange: e => this.updateProduct(idx, { showZoneDiscount: e.target.checked }) }),
+            "Mostrar descuento de zona" + (r.zoneDiscountPct > 0 ? " (" + Math.round(r.zoneDiscountPct) + "%)" : " (sin descuento de zona)")),
           h("div", { style: { display: "flex", gap: "10px", marginTop: "10px", flexWrap: "wrap" } },
             h("div", { style: { width: "92px" } }, this.field("Cantidad", h("input", { type: "number", min: "1", style: this.st.input, value: p.promoQty, onChange: e => this.updateProduct(idx, { promoQty: e.target.value }) }))),
             h("div", { style: { flex: 1, minWidth: "140px" } }, this.field("Producto", this.select(p.promoProduct, v => this.updateProduct(idx, { promoProduct: v }), [{ value: "", label: "Seleccionar" }].concat(productOpts)))),
@@ -1690,7 +1696,11 @@ class Component extends DCLogic {
     // 1) Promo del mes (automática)
     if (item.autoPromo) rows.push(h("div", { key: "auto", style: { font: "500 11px/1.35 Nunito", color: "#2A2A2E" } }, item.autoPromo.text));
 
-    // 2) Descuento adicional (manual, botón "Promoción")
+    // 2) Descuento de zona (solo se muestra; ya está aplicado en el precio)
+    const zonePct = Number(item.result.zoneDiscountPct) || 0;
+    if (c.promoOn && c.showZoneDiscount && zonePct > 0) rows.push(h("div", { key: "zone", style: { font: "500 11px/1.35 Nunito", color: "#2A2A2E" } }, Math.round(zonePct) + "% de descuento por zona"));
+
+    // 3) Descuento adicional (manual, botón "Promoción")
     if (c.promoOn && c.showDiscountPct) {
       const pct = Number(c.manualDiscountPct) || 0;
       if (pct > 0) rows.push(h("div", { key: "pct", style: { font: "500 11px/1.35 Nunito", color: "#2A2A2E" } }, "+ " + Math.round(pct) + "% de descuento"));
