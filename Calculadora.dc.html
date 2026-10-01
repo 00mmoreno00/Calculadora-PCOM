@@ -1608,7 +1608,7 @@ class Component extends DCLogic {
     const h = React.createElement, s = scale || 1, px = (n) => this.px(n, s);
     const syncedH = this.state.cardHeaderH;
     // hw (Halloween, Promo 7 meses): telaraña + araña en lugar del ícono,
-    // murciélagos y logo "P" en lugar de la etiqueta (ver hwDeco).
+    // murciélagos y destellos en lugar de la etiqueta (ver hwDeco).
     if (hw) {
       const d = (kind, w, st) => this.hwDeco(kind, w * s, st);
       return h("div", {
@@ -1629,8 +1629,7 @@ class Component extends DCLogic {
         d("spark", 9, { top: px(24), left: "34%", key: "s2" }),
         d("spark", 12, { top: px(60), right: px(4), key: "s3" }),
         d("dot", 5, { top: px(8), right: px(66), key: "d1" }),
-        d("logoP", 44, { top: px(10), right: px(14), key: "lg" }),
-        h("div", { key: "row", style: { position: "relative", display: "flex", gap: px(11), alignItems: "center", paddingRight: px(52) } },
+        h("div", { key: "row", style: { position: "relative", display: "flex", gap: px(11), alignItems: "center" } },
           h("div", { style: { width: px(34), height: px(34), flex: "none" } }),
           h("div", { style: { font: "800 " + px(16) + " Nunito", letterSpacing: "-.01em" } }, r.productName)),
         h("div", { key: "tag", style: { position: "relative", font: "500 " + px(11.5) + "/1.35 Nunito", color: "rgba(255,255,255,.88)", marginTop: px(8), width: "100%" } }, meta.tagline));
@@ -1798,10 +1797,6 @@ class Component extends DCLogic {
       + '<path d="M34 46V35M30 39H38" stroke="#8E86AC" stroke-width="3" stroke-linecap="round"/>'];
     if (kind === "tree") return [100, 70, '<path d="M0 70C8 56 30 52 52 54C76 56 92 62 100 70Z" fill="' + L + '"/>'
       + '<path d="M84 58C84 46 82 38 86 26M85 40C78 34 74 30 70 24M74 30L67 30M85 34C90 29 93 24 94 18M86 26C84 20 86 14 84 8" fill="none" stroke="#4A3F66" stroke-width="3" stroke-linecap="round"/>'];
-    // Isotipo "P" de Propiedades.com en tonos menta (visible sobre el verde).
-    if (kind === "logoP") return [64, 64, '<path d="M24 24V60" stroke="#9BEBCB" stroke-width="10"/>'
-      + '<path d="M24 26C24 15 31 9 39 9C47 9 54 15 54 24C54 32 47 39 39 39" fill="none" stroke="#9BEBCB" stroke-width="10"/>'
-      + '<path d="M5 17C14 31 26 39 39 39" fill="none" stroke="#3FD3B0" stroke-width="10" stroke-linecap="round"/>'];
     return [1, 1, ""];
   }
   // Figura decorativa posicionada (absoluta, sin capturar clics). w en px.
