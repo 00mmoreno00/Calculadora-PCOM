@@ -149,19 +149,19 @@ window.PC.PromotionEngine = (function () {
      de promotions.js y del botón manual "Promo" (courtesía/bonificación
      manual): esta función NO se edita desde el panel de administración.
      ctx: { productId, period, quantity, inventory, mode }
-     La promo de Destacados/Prime aplica en configuración individual y en
-     paquete (no en comparativo VS).
+     La promo de Prime aplica en configuración individual y en paquete
+     (no en comparativo VS). Destacados ya no tiene promo automática.
      Devuelve null si ninguna promo aplica, o { text } si aplica.
      ---------------------------------------------------------------- */
   function evaluateAutoPromo(ctx) {
     // Interruptor: activa/desactiva la promoción automática de
-    // Destacados y Prime sin borrar las reglas configuradas.
+    // Prime sin borrar las reglas configuradas.
     const showOiAndHighlightedPromotions = true;
     const period = ctx.period;
     const productId = ctx.productId;
     const qty = Number(ctx.quantity) || 0;
 
-    if (showOiAndHighlightedPromotions && (productId === "destacados" || productId === "prime") && (ctx.mode === "individual" || ctx.mode === "paquete")) {
+    if (showOiAndHighlightedPromotions && productId === "prime" && (ctx.mode === "individual" || ctx.mode === "paquete")) {
       if (period === "semestral" || period === "anual") {
         // pct: además del texto, el % que pricing-engine descuenta del precio
         // final cuando esta promo está habilitada (ver Calculadora.dc.html).
