@@ -1069,25 +1069,8 @@ class Component extends DCLogic {
         // Total
         totalBlock ? h("div", { style: { padding: "4px 44px 0" } }, totalBlock) : null,
 
-        // Pagos + banco
-        h("div", { style: { padding: "4px 44px 14px", marginTop: "10px" } },
-          h("div", { style: { background: "rgba(27,143,81,.06)", border: "1px solid rgba(27,143,81,.18)", borderRadius: "12px", padding: "14px 22px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" } },
-            h("div", null,
-              this.payEyebrow(this.icoCard(), "Formas de pago"),
-              h("ul", { style: { margin: "10px 0 0", paddingLeft: "16px", font: "500 12.5px/1.7 Nunito", color: "#2A2A2E" } },
-                C.payments.msiPaypal.enabled ? h("li", null, C.payments.msiPaypal.label + " — " + C.payments.msiPaypal.detail) : null,
-                C.payments.transfer.enabled ? h("li", null, C.payments.transfer.label) : null)),
-            h("div", null,
-              this.payEyebrow(this.icoBank(), "Datos bancarios"),
-              h("div", { style: { font: "500 12px/1.7 Nunito", color: "#2A2A2E", marginTop: "10px" } },
-                h("div", null, h("b", null, "Banco: "), C.bank.bank),
-                h("div", null, h("b", null, "Cuenta: "), C.bank.account),
-                h("div", null, h("b", null, "CLABE Interbancaria: "), C.bank.clabe),
-                h("div", null, h("b", null, "Razón Social: "), C.bank.beneficiary),
-                h("div", null, h("b", null, "RFC: "), C.bank.rfc))))),
-
         // Ejecutivo + whatsapp + vigencia
-        h("div", { style: { padding: "4px 44px 8px" } },
+        h("div", { style: { padding: "4px 44px 8px", marginTop: "10px" } },
         h("div", { style: { background: "rgba(17,17,17,.045)", border: "1px solid rgba(17,17,17,.1)", borderRadius: "12px", padding: "13px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px", flexWrap: "wrap" } },
           h("div", null,
             h("div", { style: this.st.eyebrow }, "Ejecutivo comercial"),
@@ -1515,25 +1498,6 @@ class Component extends DCLogic {
       h("button", { onClick: add, style: { width: "100%", marginTop: "2px", padding: "12px", borderRadius: "10px", border: "1px dashed #1b8f51", background: "#EAF7F0", color: "#146b3d", font: "800 13px Nunito" } }, "+ Nuevo asesor"),
       h("button", { onClick: () => this.persistConfigJs(), style: { width: "100%", marginTop: "12px", padding: "13px", borderRadius: "10px", border: "none", background: "#1b8f51", color: "#fff", font: "800 14px Nunito", boxShadow: "0 6px 18px -8px rgba(27,143,81,.6)" } }, "Guardar"),
       h("div", { style: { marginTop: "8px", font: "500 10.5px/1.4 Nunito", color: "#A5A5AD" } }, "El teléfono se usa para el botón de WhatsApp. Formato: 10 dígitos (se antepone 52) o número completo con lada. Los cambios de arriba se aplican al instante; \"Guardar\" es lo que los escribe en config.js."));
-  }
-
-  icoCard() {
-    const h = React.createElement;
-    return h("svg", { viewBox: "0 0 24 24", width: 15, height: 15, fill: "none", stroke: "#1b8f51", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round", style: { flex: "none" } },
-      h("rect", { x: 2.5, y: 5, width: 19, height: 14, rx: 2 }),
-      h("path", { d: "M2.5 9.5h19" }));
-  }
-  icoBank() {
-    const h = React.createElement;
-    return h("svg", { viewBox: "0 0 24 24", width: 15, height: 15, fill: "none", stroke: "#1b8f51", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round", style: { flex: "none" } },
-      h("path", { d: "M3 9.5L12 4l9 5.5" }),
-      h("path", { d: "M5 10.5v7.5M9.5 10.5v7.5M14.5 10.5v7.5M19 10.5v7.5" }),
-      h("path", { d: "M3 20h18" }));
-  }
-  payEyebrow(icon, text) {
-    const h = React.createElement;
-    return h("div", { style: { display: "flex", alignItems: "center", gap: "7px" } }, icon,
-      h("span", { style: this.st.eyebrow }, text));
   }
 
   metaCell(label, value) {
