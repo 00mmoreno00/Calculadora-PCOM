@@ -1604,9 +1604,37 @@ class Component extends DCLogic {
   // La altura (minHeight) se sincroniza entre todas las tarjetas visibles
   // vía this.state.cardHeaderH (ver syncCardHeaderHeights) para que los
   // encabezados de toda la fila queden alineados.
-  cardHeader(r, t, meta, scale) {
+  cardHeader(r, t, meta, scale, hw) {
     const h = React.createElement, s = scale || 1, px = (n) => this.px(n, s);
     const syncedH = this.state.cardHeaderH;
+    // hw (Halloween, Promo 7 meses): telaraña + araña en lugar del ícono,
+    // murciélagos y logo "P" en lugar de la etiqueta (ver hwDeco).
+    if (hw) {
+      const d = (kind, w, st) => this.hwDeco(kind, w * s, st);
+      return h("div", {
+        ref: this.registerCardHeaderEl,
+        style: {
+          position: "relative", overflow: "hidden",
+          boxSizing: "border-box", display: "flex", flexDirection: "column",
+          padding: px(36) + " " + px(18) + " " + px(16),
+          minHeight: syncedH ? syncedH + "px" : "auto",
+          background: "linear-gradient(135deg," + t.main + "," + t.accent + ")", color: "#fff"
+        }
+      },
+        d("web", 80, { top: 0, left: 0, key: "w" }),
+        d("spider", 26, { top: px(16), left: px(22), key: "sp" }),
+        d("bat", 34, { top: px(8), left: "42%", key: "b1" }),
+        d("bat", 24, { top: px(20), left: "58%", key: "b2" }),
+        d("spark", 13, { top: px(10), left: px(92), key: "s1" }),
+        d("spark", 9, { top: px(24), left: "34%", key: "s2" }),
+        d("spark", 12, { top: px(60), right: px(4), key: "s3" }),
+        d("dot", 5, { top: px(8), right: px(66), key: "d1" }),
+        d("logoP", 44, { top: px(10), right: px(14), key: "lg" }),
+        h("div", { key: "row", style: { position: "relative", display: "flex", gap: px(11), alignItems: "center", paddingRight: px(52) } },
+          h("div", { style: { width: px(34), height: px(34), flex: "none" } }),
+          h("div", { style: { font: "800 " + px(16) + " Nunito", letterSpacing: "-.01em" } }, r.productName)),
+        h("div", { key: "tag", style: { position: "relative", font: "500 " + px(11.5) + "/1.35 Nunito", color: "rgba(255,255,255,.88)", marginTop: px(8), width: "100%" } }, meta.tagline));
+    }
     return h("div", {
       ref: this.registerCardHeaderEl,
       style: {
@@ -1626,7 +1654,19 @@ class Component extends DCLogic {
   cardValueBlock(item, r, t, meta, scale) {
     const h = React.createElement, s = scale || 1, px = (n) => this.px(n, s);
     const d = this.cardDisplayValue(item);
-    return h("div", { style: { padding: px(18) + " " + px(18) + " " + px(10), textAlign: "center", minHeight: px(120), display: "flex", flexDirection: "column", justifyContent: "center" } },
+    const hw = this.isHalloweenCard(item);
+    const deco = (kind, w, st) => this.hwDeco(kind, w * s, st);
+    return h("div", { style: { position: "relative", padding: px(18) + " " + px(18) + " " + px(10), textAlign: "center", minHeight: px(120), display: "flex", flexDirection: "column", justifyContent: "center" } },
+      hw ? [
+        deco("cloud", 84, { top: px(30), left: px(-14), key: "c1" }),
+        deco("cloud", 74, { top: px(44), right: px(-12), key: "c2" }),
+        deco("bat", 34, { top: px(14), left: px(46), key: "b1" }),
+        deco("bat", 30, { top: px(64), right: px(18), key: "b2" }),
+        deco("spark", 13, { top: px(10), left: px(16), key: "s1" }),
+        deco("spark", 13, { top: px(18), right: px(24), key: "s2" }),
+        deco("spark", 10, { top: px(76), left: px(12), key: "s3" }),
+        deco("dot", 4, { top: px(96), right: px(12), key: "d1" })
+      ] : null,
       h("div", { style: { font: "600 " + px(11) + " Nunito", color: "#6B6B73", marginBottom: px(5) } }, meta.valueLabel),
       d.bigNum != null
         ? h("div", null,
@@ -1643,7 +1683,7 @@ class Component extends DCLogic {
   }
   cardPriceFooter(item, r, t, scale) {
     const h = React.createElement, U = window.PC.utils, s = scale || 1, px = (n) => this.px(n, s);
-    return h("div", { style: { marginTop: "auto", padding: px(14) + " " + px(18), background: "#fff", borderTop: "1px solid " + t.border, display: "flex", justifyContent: "space-between", alignItems: "center", gap: px(10) } },
+    return h("div", { style: { position: "relative", marginTop: "auto", padding: px(14) + " " + px(18), background: "#fff", borderTop: "1px solid " + t.border, display: "flex", justifyContent: "space-between", alignItems: "center", gap: px(10) } },
       h("span", { style: { font: "500 " + px(13) + " Nunito", color: "#6B6B73" } }, "Periodo"),
       h("span", { style: { font: "800 " + px(14) + " Nunito", color: "#111" } }, this.periodText(item, r)));
   }
@@ -1664,7 +1704,7 @@ class Component extends DCLogic {
     const discPct = listPrice > 0 ? Math.round((listPrice - r.finalPrice) / listPrice * 100) : 0;
     const hasDisc = discPct > 0;
     const periodTxt = this.periodText(item, r);
-    return h("div", { style: { marginTop: "auto", padding: px(14) + " " + px(18), background: "#fff", borderTop: "1px solid " + t.border } },
+    return h("div", { style: { position: "relative", marginTop: "auto", padding: px(14) + " " + px(18), background: "#fff", borderTop: "1px solid " + t.border } },
       row("Periodo", periodTxt, { valueColor: "#111" }),
       row("Precio total sin IVA", U.money(listPrice), { strike: hasDisc, valueColor: hasDisc ? "#A5A5AD" : "#111" }),
       hasDisc ? row("Descuento", "−" + discPct + "%", { labelColor: "#1b8f51", valueColor: "#1b8f51" }) : null,
@@ -1711,11 +1751,81 @@ class Component extends DCLogic {
     }
 
     if (!rows.length) return null;
-    return h("div", { style: { margin: "0 18px 14px", padding: "9px 12px", borderRadius: "9px", background: t.soft, border: "1px dashed " + t.chip, display: "flex", gap: "8px", alignItems: "flex-start" } },
+    return h("div", { style: { position: "relative", margin: "0 18px 14px", padding: "9px 12px", borderRadius: "9px", background: t.soft, border: "1px dashed " + t.chip, display: "flex", gap: "8px", alignItems: "flex-start" } },
       h("span", { style: { color: t.chip, fontWeight: 800, fontSize: "13px" } }, "★"),
       h("div", { style: { flex: 1 } },
         h("div", { style: { font: "800 11px Nunito", color: t.main } }, "Promo"),
         h("div", { style: { marginTop: "2px", display: "flex", flexDirection: "column", gap: "6px" } }, rows)));
+  }
+
+  // ===================== DECORACIÓN HALLOWEEN (Promo 7 meses) =====================
+  // Interruptor de temporada: en false la tarjeta de Promo 7 meses vuelve al
+  // diseño normal (la promo y sus cálculos siguen funcionando igual).
+  HALLOWEEN_PROMO7 = true;
+  isHalloweenCard(item) {
+    return !!(this.HALLOWEEN_PROMO7 && item && item.result && item.result.productId === "oportunidades" && item.cfg && item.cfg.period === "promo7");
+  }
+  // Figuras SVG (no símbolos de texto, para que html2canvas las pinte igual
+  // en el PDF). Cada una: [ancho, alto, contenido] en su propio viewBox.
+  hwSvg(kind) {
+    const O = "#F7931E", P = "#2E2148", L = "#E6E0F3";
+    if (kind === "web") {
+      const rad = (a) => a * Math.PI / 180, f = (n) => Math.round(n * 10) / 10;
+      const angs = [0, 22.5, 45, 67.5, 90];
+      let d = angs.map(a => "M0 0L" + f(104 * Math.cos(rad(a))) + " " + f(104 * Math.sin(rad(a)))).join("");
+      [20, 40, 62, 86].forEach(r => {
+        for (let i = 0; i < angs.length - 1; i++) {
+          const a1 = rad(angs[i]), a2 = rad(angs[i + 1]), m = (a1 + a2) / 2;
+          d += "M" + f(r * Math.cos(a1)) + " " + f(r * Math.sin(a1)) + "Q" + f(r * .8 * Math.cos(m)) + " " + f(r * .8 * Math.sin(m)) + " " + f(r * Math.cos(a2)) + " " + f(r * Math.sin(a2));
+        }
+      });
+      return [100, 100, '<path d="' + d + '" fill="none" stroke="' + O + '" stroke-width="2" stroke-linecap="round"/>'];
+    }
+    if (kind === "spider") {
+      const legs = ["M17 34L8 28L4 32", "M16 37L6 36L2 41", "M16 40L7 44L4 50", "M18 43L11 50L10 56"];
+      const mirror = (p) => p.replace(/([ML])(\d+) (\d+)/g, (_, c, x, y) => c + (44 - Number(x)) + " " + y);
+      return [44, 60, '<path d="M22 0V24" stroke="' + O + '" stroke-width="1.6"/>'
+        + '<path d="' + legs.join("") + legs.map(mirror).join("") + '" fill="none" stroke="' + P + '" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>'
+        + '<circle cx="22" cy="27" r="6" fill="' + P + '"/><ellipse cx="22" cy="40" rx="9" ry="8" fill="' + P + '"/>'
+        + '<circle cx="19.5" cy="26" r="1.7" fill="' + O + '"/><circle cx="24.5" cy="26" r="1.7" fill="' + O + '"/>'];
+    }
+    if (kind === "bat") return [64, 30, '<path d="M32 12C29 8 25 8 23 11C19 5 11 3 2 7C8 9 10 13 10 18C14 15 18 16 20 20C23 17 27 18 32 24C37 18 41 17 44 20C46 16 50 15 54 18C54 13 56 9 62 7C53 3 45 5 41 11C39 8 35 8 32 12Z" fill="' + P + '"/><path d="M28.5 10.5L28 5.5L31 9ZM35.5 10.5L36 5.5L33 9Z" fill="' + P + '"/>'];
+    if (kind === "spark" || kind === "sparkP") return [20, 20, '<path d="M10 0C11 7 13 9 20 10C13 11 11 13 10 20C9 13 7 11 0 10C7 9 9 7 10 0Z" fill="' + (kind === "spark" ? O : P) + '"/>'];
+    if (kind === "dot") return [10, 10, '<circle cx="5" cy="5" r="5" fill="' + P + '"/>'];
+    if (kind === "cloud") return [120, 48, '<path d="M14 44C4 44 2 32 12 30C10 20 24 16 30 23C34 10 54 8 60 20C66 12 82 14 82 26C92 22 104 28 100 38C112 38 114 44 108 44Z" fill="' + L + '"/>'];
+    if (kind === "grave") return [100, 56, '<path d="M0 56C10 36 40 32 66 40C82 44 94 50 100 56Z" fill="' + L + '"/>'
+      + '<path d="M4 46V28C4 17 23 17 23 28V46Z" fill="#8E86AC"/><path d="M13.5 25V38M9 30H18" stroke="#6C6489" stroke-width="2.4" stroke-linecap="round"/>'
+      + '<path d="M34 46V35M30 39H38" stroke="#8E86AC" stroke-width="3" stroke-linecap="round"/>'];
+    if (kind === "tree") return [100, 70, '<path d="M0 70C8 56 30 52 52 54C76 56 92 62 100 70Z" fill="' + L + '"/>'
+      + '<path d="M84 58C84 46 82 38 86 26M85 40C78 34 74 30 70 24M74 30L67 30M85 34C90 29 93 24 94 18M86 26C84 20 86 14 84 8" fill="none" stroke="#4A3F66" stroke-width="3" stroke-linecap="round"/>'];
+    // Isotipo "P" de Propiedades.com en tonos menta (visible sobre el verde).
+    if (kind === "logoP") return [64, 64, '<path d="M24 24V60" stroke="#9BEBCB" stroke-width="10"/>'
+      + '<path d="M24 26C24 15 31 9 39 9C47 9 54 15 54 24C54 32 47 39 39 39" fill="none" stroke="#9BEBCB" stroke-width="10"/>'
+      + '<path d="M5 17C14 31 26 39 39 39" fill="none" stroke="#3FD3B0" stroke-width="10" stroke-linecap="round"/>'];
+    return [1, 1, ""];
+  }
+  // Figura decorativa posicionada (absoluta, sin capturar clics). w en px.
+  hwDeco(kind, w, pos) {
+    const h = React.createElement, spec = this.hwSvg(kind);
+    const W = Math.round(w), H = Math.round(w * spec[1] / spec[0]);
+    const st = Object.assign({}, pos || {}), key = st.key; delete st.key;
+    return h("div", { key: key, "aria-hidden": "true", style: Object.assign({ position: "absolute", width: W + "px", height: H + "px", lineHeight: 0, pointerEvents: "none" }, st),
+      dangerouslySetInnerHTML: { __html: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + spec[0] + " " + spec[1] + '" width="' + W + '" height="' + H + '">' + spec[2] + "</svg>" } });
+  }
+  // Capa inferior de la tarjeta (detrás del recuadro Promo y del pie):
+  // lápida a la izquierda, árbol seco a la derecha y destellos.
+  // footerH: alto aproximado del pie (individual ~48px, comparativo más alto).
+  hwBottomDeco(scale, footerH) {
+    const h = React.createElement, s = scale || 1, px = (n) => this.px(n, s), fh = footerH || 48;
+    const d = (kind, w, st) => this.hwDeco(kind, w * s, st);
+    return h("div", { "aria-hidden": "true", style: { position: "absolute", inset: 0, pointerEvents: "none" } },
+      d("grave", 72, { left: 0, bottom: px(fh - 6), key: "g" }),
+      d("tree", 70, { right: 0, bottom: px(fh - 6), key: "t" }),
+      d("spark", 12, { left: px(4), bottom: px(fh + 58), key: "s1" }),
+      d("spark", 13, { right: px(4), bottom: px(fh + 64), key: "s2" }),
+      d("sparkP", 11, { right: px(10), bottom: px(fh + 40), key: "s3" }),
+      d("spark", 9, { left: px(10), bottom: px(6), key: "s4" }),
+      d("spark", 10, { right: px(8), bottom: px(8), key: "s5" }));
   }
 
   renderProductCard(item, idx, count) {
@@ -1728,8 +1838,10 @@ class Component extends DCLogic {
     const sizeStyle = count === 1
       ? { width: "100%", maxWidth: "380px", minWidth: "320px", margin: "0 auto" }
       : {};
-    return h("div", { className: className, style: Object.assign({ display: "flex", flexDirection: "column", border: "1px solid " + t.border, borderRadius: "14px", overflow: "hidden", background: "#fff", boxShadow: "0 18px 30px -14px rgba(17,17,17,.4), 0 4px 12px -8px rgba(17,17,17,.2)" }, sizeStyle) },
-      this.cardHeader(r, t, meta, scale),
+    const hw = this.isHalloweenCard(item);
+    return h("div", { className: className, style: Object.assign({ position: "relative", display: "flex", flexDirection: "column", border: "1px solid " + t.border, borderRadius: "14px", overflow: "hidden", background: "#fff", boxShadow: "0 18px 30px -14px rgba(17,17,17,.4), 0 4px 12px -8px rgba(17,17,17,.2)" }, sizeStyle) },
+      hw ? this.hwBottomDeco(scale) : null,
+      this.cardHeader(r, t, meta, scale, hw),
       this.cardValueBlock(item, r, t, meta, scale),
       this.cardBenefits(benefits, t, scale),
       this.promoBox(item, t),
@@ -1742,9 +1854,11 @@ class Component extends DCLogic {
     const col = (item, tag) => {
       const r = item.result, t = this.themes[r.theme] || this.themes.green;
       const meta = this.pcfg(r.productId), benefits = meta.benefits;
-      return h("div", { style: { flex: 1, display: "flex", flexDirection: "column", border: "1px solid " + t.border, borderRadius: "14px", overflow: "hidden", background: "#fff", boxShadow: "0 4px 16px -10px rgba(17,17,17,.22)" } },
+      const hw = this.isHalloweenCard(item);
+      return h("div", { style: { position: "relative", flex: 1, display: "flex", flexDirection: "column", border: "1px solid " + t.border, borderRadius: "14px", overflow: "hidden", background: "#fff", boxShadow: "0 4px 16px -10px rgba(17,17,17,.22)" } },
+        hw ? this.hwBottomDeco(scale, 118) : null,
         h("div", { style: { padding: "7px", background: "#111", color: "#fff", textAlign: "center", font: "800 11px Nunito", letterSpacing: ".14em" } }, "OPCIÓN " + tag),
-        this.cardHeader(r, t, meta, scale),
+        this.cardHeader(r, t, meta, scale, hw),
         this.cardValueBlock(item, r, t, meta, scale),
         this.cardBenefits(benefits, t, scale),
         this.promoBox(item, t),
