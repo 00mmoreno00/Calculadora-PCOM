@@ -1698,12 +1698,12 @@ class Component extends DCLogic {
 
     // 2) Descuento de zona (solo se muestra; ya está aplicado en el precio)
     const zonePct = Number(item.result.zoneDiscountPct) || 0;
-    if (c.promoOn && c.showZoneDiscount && zonePct > 0) rows.push(h("div", { key: "zone", style: { font: "500 11px/1.35 Nunito", color: "#2A2A2E" } }, Math.round(zonePct) + "% de descuento por zona"));
+    if (c.promoOn && c.showZoneDiscount && zonePct > 0) rows.push(h("div", { key: "zone", style: { font: "500 11px/1.35 Nunito", color: "#2A2A2E" } }, "+ " + Math.round(zonePct) + "% de descuento"));
 
     // 3) Descuento adicional (manual, botón "Promoción")
     if (c.promoOn && c.showDiscountPct) {
       const pct = Number(c.manualDiscountPct) || 0;
-      if (pct > 0) rows.push(h("div", { key: "pct", style: { font: "500 11px/1.35 Nunito", color: "#2A2A2E" } }, "+ " + Math.round(pct) + "% de descuento adicional"));
+      if (pct > 0) rows.push(h("div", { key: "pct", style: { font: "500 11px/1.35 Nunito", color: "#2A2A2E" } }, "+ " + Math.round(pct) + "% de descuento"));
     }
     if (c.promoOn) {
       const qty = Number(c.promoQty) || 0;
