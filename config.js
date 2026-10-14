@@ -46,7 +46,11 @@ window.PC.config = (function () {
        { id: "a8", name: "Marlen Salinas",    email: "marlen.salinas@propiedades.com",    phone: "5658646765" },
       { id: "a9", name: "Claudia Mariscal", email: "claudia.mariscal@propiedades.com", phone: "5576947101" },
       { id: "a10", name: "Blanca Islas", email: "blanca.islas@propiedades.com", phone: "5594483907" },
-      { id: "a11", name: "Gerardo Tapia", email: "gerardo.tapia@propiedades.com", phone: "5597712824" }
+      { id: "a11", name: "Gerardo Tapia", email: "gerardo.tapia@propiedades.com", phone: "5597712824" },
+      // PENDIENTES DE TELÉFONO: quitar el // de cada línea cuando tengan número
+      // { id: "a12", name: "Maribel Mena", email: "maribelmena@propiedades.com", phone: "" },
+      // { id: "a13", name: "Sandra Olmedo", email: "sandraolmedo@propiedades.com", phone: "" },
+      // { id: "a14", name: "Leonardo Lechuga", email: "alfonsolechuga@propiedades.com", phone: "" }
     ],
     contactCenter: {
       id: "contactcenter",
