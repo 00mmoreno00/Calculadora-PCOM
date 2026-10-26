@@ -939,17 +939,16 @@ class Component extends DCLogic {
         (s.mode === "paquete" && s.products.length > 1) ? h("button", { onClick: () => this.removeProduct(idx), style: { border: "none", background: "none", color: "#D7373F", fontWeight: 700, fontSize: "12px" } }, "Quitar") : null),
 
       this.field("Producto", this.select(p.productId, v => { const patch = { productId: v, customPackages: [], customPickValue: "", customPickQty: 1 }; if (v !== "oportunidades" && p.period === "promo7") patch.period = "anual"; this.updateProduct(idx, patch); }, productOpts)),
-      this.field("Periodo", this.select(p.period, v => this.updateProduct(idx, { period: v }), periodOpts)),
+      this.field("Periodo", this.select(p.period, v => this.updateProduct(idx, v === "anual" ? { period: v } : { period: v, promoOn: false, manualDiscountPct: 0, showDiscountPct: false }), periodOpts)),
       this.field("Inventario del cliente", h("input", { type: "number", min: "0", style: this.st.input, value: p.inventory, placeholder: "Ej. 250", onChange: e => this.updateProduct(idx, { inventory: e.target.value }) })),
       conditional,
 
       // Fila "Promoción": activa/desactiva el descuento adicional (%) y la
       // cortesía manual (cantidad + producto) de este producto.
-      h("div", { style: { marginBottom: "13px" } },
+      p.period === "anual" ? h("div", { style: { marginBottom: "13px" } },
         h("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", borderRadius: "8px", border: "1px solid " + (p.promoOn ? "#1b8f51" : "#D0D0D8"), background: p.promoOn ? "#F3FBF6" : "#fff" } },
-          h("span", { style: { font: "700 12.5px Nunito", color: "#2A2A2E" } }, window.PC.config.monthlyPromo.label + " (" + window.PC.config.monthlyPromo.pct + "% adicional, solo anual)"),
+          h("span", { style: { font: "700 12.5px Nunito", color: "#2A2A2E" } }, window.PC.config.monthlyPromo.label + " (" + window.PC.config.monthlyPromo.pct + "% adicional)"),
           this.toggleSwitch(p.promoOn, () => this.updateProduct(idx, p.promoOn ? { promoOn: false, manualDiscountPct: 0, showDiscountPct: false } : { promoOn: true, manualDiscountPct: window.PC.config.monthlyPromo.pct, showDiscountPct: true }))),
-        p.promoOn && p.period !== "anual" ? h("div", { style: { font: "600 11.5px Nunito", color: "#8A5A0F", marginTop: "8px" } }, "⚠ El descuento adicional solo aplica con periodo Anual.") : null,
         p.promoOn ? h("div", { style: { marginTop: "10px" } },
           h("label", { style: { display: "flex", alignItems: "center", gap: "6px", marginTop: "8px", font: "600 12px Nunito", color: r.zoneDiscountPct > 0 ? "#2A2A2E" : "#A5A5AD" } },
             h("input", { type: "checkbox", disabled: !(r.zoneDiscountPct > 0), checked: !!p.showZoneDiscount && r.zoneDiscountPct > 0, onChange: e => this.updateProduct(idx, { showZoneDiscount: e.target.checked }) }),
@@ -957,7 +956,7 @@ class Component extends DCLogic {
           h("div", { style: { display: "flex", gap: "10px", marginTop: "10px", flexWrap: "wrap" } },
             h("div", { style: { width: "92px" } }, this.field("Cantidad", h("input", { type: "number", min: "1", style: this.st.input, value: p.promoQty, onChange: e => this.updateProduct(idx, { promoQty: e.target.value }) }))),
             h("div", { style: { flex: 1, minWidth: "140px" } }, this.field("Producto", this.select(p.promoProduct, v => this.updateProduct(idx, { promoProduct: v }), [{ value: "", label: "Seleccionar" }].concat(productOpts)))),
-            h("div", { style: { flex: 1, minWidth: "120px" } }, this.field("Vigencia", this.select(p.promoPeriod, v => this.updateProduct(idx, { promoPeriod: v }), [{ value: "", label: "Seleccionar" }].concat(periodOpts)))))) : null),
+            h("div", { style: { flex: 1, minWidth: "120px" } }, this.field("Vigencia", this.select(p.promoPeriod, v => this.updateProduct(idx, { promoPeriod: v }), [{ value: "", label: "Seleccionar" }].concat(periodOpts)))))) : null) : null,
 
       // Mini resumen de precio en vivo
       this.miniPriceSummary(r, p.promoOn),
