@@ -1585,8 +1585,8 @@ class Component extends DCLogic {
         dd("spark", { top: px(10), left: px(90), key: "s1" }),
         dd("percent", { top: px(10), left: px(185), key: "p" }),
         dd("spark", { top: px(59), right: px(7), key: "s2" }),
-        h("div", { key: "name", style: { position: "absolute", top: px(11), right: px(14), border: "1.5px solid rgba(255,255,255,.6)", borderRadius: "999px", padding: px(2) + " " + px(8), font: "700 " + px(9) + " Nunito", letterSpacing: ".06em", textTransform: "uppercase", whiteSpace: "nowrap" } }, r.productName),
-        h("div", { key: "title", style: { position: "relative", margin: px(4) + " 0 " + px(15) + " " + px(43), font: "800 " + px(18) + "/1.2 Nunito", letterSpacing: "-.4px" } }, "Descuento sobre descuento"),
+        h("div", { key: "name", style: { position: "absolute", top: px(11), right: px(14), border: "1.5px solid rgba(255,255,255,.6)", borderRadius: "999px", padding: px(2) + " " + px(8), font: "700 " + px(9) + " Nunito", letterSpacing: ".06em", textTransform: "uppercase", whiteSpace: "nowrap" } }, meta.badge || "Complemento"),
+        h("div", { key: "title", style: { position: "relative", margin: px(4) + " 0 " + px(15) + " " + px(43), font: "800 " + px(18) + "/1.2 Nunito", letterSpacing: "-.4px" } }, r.productName),
         h("div", { key: "tag", style: { position: "relative", font: "500 " + px(12) + "/1.5 Nunito" } }, meta.tagline));
     }
     // hw (Halloween, Promo 7 meses): telaraña + araña en lugar del ícono,
@@ -1715,12 +1715,21 @@ class Component extends DCLogic {
     // 0) Periodo con meses de regalo (Promo 7 meses: paga 7, llévate 10)
     if (item.bonusMonths) rows.push(h("div", { key: "bonus", style: { font: "500 11px/1.35 Nunito", color: "#2A2A2E" } }, "Paga " + item.result.months + " meses y llévate " + (item.result.months + item.bonusMonths) + " meses de servicio"));
 
-    // 2) Descuento de zona (solo se muestra; ya está aplicado en el precio)
+    // Tarjeta "Descuento sobre descuento": zona + adicional en una sola línea
+    // (ej. 65% + 50%), centrada y en negritas.
+    const ds = this.isDiscountCard(item);
     const zonePct = Number(item.result.zoneDiscountPct) || 0;
-    if (c.promoOn && c.showZoneDiscount && zonePct > 0) rows.push(h("div", { key: "zone", style: { font: "500 11px/1.35 Nunito", color: "#2A2A2E" } }, "+ " + Math.round(zonePct) + "% de descuento"));
+    if (ds) {
+      const extraPct = Number(c.manualDiscountPct) || 0;
+      const parts = (zonePct > 0 ? [Math.round(zonePct) + "%"] : []).concat(extraPct > 0 ? [Math.round(extraPct) + "%"] : []);
+      if (parts.length) rows.push(h("div", { key: "dsline", style: { font: "800 16px Nunito", color: t.main, textAlign: "center" } }, parts.join(" + ")));
+    }
+
+    // 2) Descuento de zona (solo se muestra; ya está aplicado en el precio)
+    if (!ds && c.promoOn && c.showZoneDiscount && zonePct > 0) rows.push(h("div", { key: "zone", style: { font: "500 11px/1.35 Nunito", color: "#2A2A2E" } }, "+ " + Math.round(zonePct) + "% de descuento"));
 
     // 3) Descuento adicional (manual, botón "Promoción")
-    if (c.showDiscountPct) {
+    if (!ds && c.showDiscountPct) {
       const pct = Number(c.manualDiscountPct) || 0;
       if (pct > 0) rows.push(h("div", { key: "pct", style: { font: "500 11px/1.35 Nunito", color: "#2A2A2E" } }, "+ " + Math.round(pct) + "% de descuento"));
     }
@@ -1746,7 +1755,7 @@ class Component extends DCLogic {
     return h("div", { style: { position: "relative", margin: "0 18px 14px", padding: "9px 12px", borderRadius: "9px", background: t.soft, border: "1px dashed " + t.chip, display: "flex", gap: "8px", alignItems: "flex-start" } },
       h("span", { style: { color: t.chip, fontWeight: 800, fontSize: "13px" } }, "★"),
       h("div", { style: { flex: 1 } },
-        h("div", { style: { font: "800 11px Nunito", color: t.main } }, "Promo"),
+        h("div", { style: { font: "800 11px Nunito", color: t.main, textAlign: ds ? "center" : "left" } }, ds ? "¡Descuento sobre descuento!" : "Promo"),
         h("div", { style: { marginTop: "2px", display: "flex", flexDirection: "column", gap: "6px" } }, rows)));
   }
 
