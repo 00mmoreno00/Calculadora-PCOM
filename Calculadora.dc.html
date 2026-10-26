@@ -472,7 +472,8 @@ class Component extends DCLogic {
         period: p.period, eliteOption: p.eliteOption, oppOption: p.oppOption,
         inventory: p.inventory, quantity: p.quantity, pkgOption: p.pkgOption,
         customPackages: p.customPackages || [],
-        manualDiscountPct: p.manualDiscountPct, showDiscountPct: p.showDiscountPct, showZoneDiscount: p.showZoneDiscount,
+        // El % de la Promo del mes solo aplica en periodo anual.
+        manualDiscountPct: p.period === "anual" ? p.manualDiscountPct : 0, showDiscountPct: p.showDiscountPct, showZoneDiscount: p.showZoneDiscount,
         promoOn: p.promoOn, promoQty: p.promoQty, promoProduct: p.promoProduct, promoPeriod: p.promoPeriod,
         basePriceOverride: baseOverride, maxDiscount: pc.maxDiscount
       };
@@ -946,8 +947,9 @@ class Component extends DCLogic {
       // cortesía manual (cantidad + producto) de este producto.
       h("div", { style: { marginBottom: "13px" } },
         h("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", borderRadius: "8px", border: "1px solid " + (p.promoOn ? "#1b8f51" : "#D0D0D8"), background: p.promoOn ? "#F3FBF6" : "#fff" } },
-          h("span", { style: { font: "700 12.5px Nunito", color: "#2A2A2E" } }, window.PC.config.monthlyPromo.label + " (" + window.PC.config.monthlyPromo.pct + "% adicional)"),
+          h("span", { style: { font: "700 12.5px Nunito", color: "#2A2A2E" } }, window.PC.config.monthlyPromo.label + " (" + window.PC.config.monthlyPromo.pct + "% adicional, solo anual)"),
           this.toggleSwitch(p.promoOn, () => this.updateProduct(idx, p.promoOn ? { promoOn: false, manualDiscountPct: 0, showDiscountPct: false } : { promoOn: true, manualDiscountPct: window.PC.config.monthlyPromo.pct, showDiscountPct: true }))),
+        p.promoOn && p.period !== "anual" ? h("div", { style: { font: "600 11.5px Nunito", color: "#8A5A0F", marginTop: "8px" } }, "⚠ El descuento adicional solo aplica con periodo Anual.") : null,
         p.promoOn ? h("div", { style: { marginTop: "10px" } },
           h("label", { style: { display: "flex", alignItems: "center", gap: "6px", marginTop: "8px", font: "600 12px Nunito", color: r.zoneDiscountPct > 0 ? "#2A2A2E" : "#A5A5AD" } },
             h("input", { type: "checkbox", disabled: !(r.zoneDiscountPct > 0), checked: !!p.showZoneDiscount && r.zoneDiscountPct > 0, onChange: e => this.updateProduct(idx, { showZoneDiscount: e.target.checked }) }),
