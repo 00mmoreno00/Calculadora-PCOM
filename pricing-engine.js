@@ -196,6 +196,42 @@ window.PC.PricingEngine = (function () {
     return { monthly: list * (1 - pct / 100), listMonthly: list, quantity: Number(opt), coveredLabel: "Paquete " + opt + " aviso(s) " + label, warnings, errors };
   }
 
+  // ---- INVENTARIO DEL CLIENTE: rango permitido según la cobertura -----
+  // Cada paquete cubre desde el siguiente número al paquete anterior hasta su
+  // propio tamaño (ej. Oportunidades: paquete 80 -> 41 a 80; de 40 hacia
+  // abajo pertenece al paquete 40). Devuelve { min, max } (max null = sin
+  // tope) o null si no aplica.
+  function inventoryLimits(cfg) {
+    const id = cfg.productId;
+    if (id === "elite") {
+      if (cfg.eliteOption === "personalizado") {
+        const c = customPackageMonthly("elite", cfg.customPackages, cfg.zone).coverage;
+        return { min: 1, max: c > 0 ? c : null };
+      }
+      return cfg.eliteOption === "301a500" ? { min: 301, max: 500 } : { min: 1, max: 300 };
+    }
+    if (id === "oportunidades") {
+      if (cfg.oppOption === "personalizado") {
+        const c = customPackageMonthly("oportunidades", cfg.customPackages, cfg.zone).coverage;
+        return { min: 1, max: c > 0 ? c : null };
+      }
+      const pk = D.oportunidades.packages, i = pk.indexOf(Number(cfg.oppOption || "10"));
+      if (i < 0) return null;
+      return { min: i > 0 ? pk[i - 1] + 1 : 1, max: pk[i] };
+    }
+    if (id === "destacados" || id === "prime") {
+      const opt = cfg.pkgOption || "1";
+      if (opt === "personalizado") {
+        const q = Math.round(Number(cfg.quantity) || 0);
+        return { min: 1, max: q > 0 ? q : null };
+      }
+      const pk = D[id].packages, i = pk.indexOf(Number(opt));
+      if (i < 0) return null;
+      return { min: pk[i], max: i < pk.length - 1 ? pk[i + 1] - 1 : null };
+    }
+    return null;
+  }
+
   /* ----------------------------------------------------------------
      computePrice(cfg, appliedPromotion)
      appliedPromotion: objeto de promoción ya resuelto por el motor de
@@ -407,5 +443,5 @@ window.PC.PricingEngine = (function () {
     };
   }
 
-  return { computePrice, computePackage, months, customPackageMonthly, packageListInfo };
+  return { computePrice, computePackage, months, customPackageMonthly, packageListInfo, inventoryLimits };
 })();
