@@ -7,8 +7,9 @@
      multiplica el mensual (mensual x1, trimestral x3, semestral x6,
      anual x12). Verificado contra las tablas Semestral/Anual del cliente
      (son múltiplos exactos del mensual).
-   - DESTACADOS: tabla de TOTAL de contrato por cantidad de avisos y
-     periodo (no lineal -> lookup obligatorio). No depende de zona.
+   - DESTACADOS y PRIME: paquetes de 1, 5, 10, 20 y 50 avisos con precio
+     mensual por zona (el periodo multiplica el mensual) o "Personalizado"
+     (avisos × precio de lista).
    - UNIT_FORMULA GLOBAL: para productos unitarios vigentes o nuevos,
      si no existe detalle exacto en CSV, se puede usar una fila base
      Producto,1,Mensual y calcular unitario × cantidad × meses.
@@ -31,74 +32,62 @@ window.PC.pricingData = (function () {
   const data = {
     PERIODS,
 
+    // % de descuento por zona sobre el precio de lista (usado por el respaldo
+    // de Destacados/Prime cuando no hay fila en el CSV).
+    zoneDiscountPct: { FULLPRICE: 0, CDMX_EDOMEX: 0, JALISCO_NL: 50, RESTO: 65 },
+
     // ----------------------------------------------------------------
+    // Descuento por zona (sobre el precio de lista nacional, FULLPRICE):
+    //   CDMX / Estado de México 0% · Jalisco / Nuevo León 50% · Resto del país 65%.
+    // Los CSV de data/precios/ traen PrecioBase (lista) + Descuento por zona y
+    // son la fuente principal; las tablas de abajo son el respaldo.
+    // ----------------------------------------------------------------
+
     // ELITE — precio MENSUAL por zona y bracket de inventario.
     //   p300  = hasta 300 propiedades
     //   p500  = 301 a 500 propiedades
     //   extra = por cada bloque de 500 adicionales (inventario > 500)
-    // Confirmado con el negocio (2026-07-13): Elite NO tiene un precio de
-    // "lista nacional" único — cada zona tiene su propio precio de lista y su
-    // propio % de descuento (20% CDMX, 50% Jalisco/NL, 65% Querétaro, 70%
-    // Resto). Esos precios de lista + descuento ya están capturados en
-    // data/precios/elite.csv (columnas PrecioBase/Descuento) para mostrar el
-    // precio tachado correcto por zona. La zona FULLPRICE se deja sin precio
-    // a propósito: no aplica para Elite.
-    // ----------------------------------------------------------------
     elite: {
       zones: {
-        FULLPRICE:   { p300: null, p500: null, extra: null, _todo: true },
+        FULLPRICE:   { p300: 8500, p500: 11050, extra: 3315 },
         CDMX_EDOMEX: { p300: 8500, p500: 11050, extra: 3315 },
-        JALISCO_NL:  { p300: 4750, p500: 6413,  extra: 1924 },
-        QUERETARO:   { p300: 3500, p500: 4725,  extra: 1418 },
-        RESTO:       { p300: 3000, p500: 4050,  extra: 1215 }
+        JALISCO_NL:  { p300: 4250, p500: 5525,  extra: 1657.5 },
+        RESTO:       { p300: 2975, p500: 3867.5, extra: 1160.25 }
       }
     },
 
-    // ----------------------------------------------------------------
     // OPORTUNIDADES ILIMITADAS — precio MENSUAL por zona y paquete.
     // Paquetes: 10, 40, 80, 140, 300, 500. extra = por cada 500 extra.
-    // FullPrice: lista nacional oficial confirmada por el negocio (2026-07-13).
-    //   Verificado: CDMX/Jalisco/Querétaro/Resto = FULLPRICE × (1 - % descuento
-    //   de zona), cuadra exacto contra los valores regionales de abajo.
-    // ----------------------------------------------------------------
     oportunidades: {
       packages: [10, 40, 80, 140, 300, 500],
       zones: {
-        FULLPRICE:   { "10": 599, "40": 1999, "80": 2999, "140": 4995, "300": 7999, "500": 9199, extra: 1380 },
-        CDMX_EDOMEX: { "10": 479, "40": 1599, "80": 2399, "140": 3996, "300": 6399, "500": 7359, extra: 1104 },
-        JALISCO_NL:  { "10": 299, "40": 1000, "80": 1500, "140": 2498, "300": 3999, "500": 4599, extra: 690 },
-        QUERETARO:   { "10": 210, "40": 700,  "80": 1050, "140": 1748, "300": 2800, "500": 3220, extra: 483 },
-        RESTO:       { "10": 180, "40": 600,  "80": 900,  "140": 1499, "300": 2400, "500": 2760, extra: 414 }
+        FULLPRICE:   { "10": 599, "40": 1999,   "80": 2999,   "140": 4999,   "300": 7999,   "500": 9199,   extra: 1380 },
+        CDMX_EDOMEX: { "10": 599, "40": 1999,   "80": 2999,   "140": 4999,   "300": 7999,   "500": 9199,   extra: 1380 },
+        JALISCO_NL:  { "10": 299.5, "40": 999.5, "80": 1499.5, "140": 2499.5, "300": 3999.5, "500": 4599.5, extra: 690 },
+        RESTO:       { "10": 209.65, "40": 699.65, "80": 1049.65, "140": 1749.65, "300": 2799.65, "500": 3219.65, extra: 483 }
       }
     },
 
-    // ----------------------------------------------------------------
-    // DESTACADOS — TOTAL de contrato por cantidad (1..10) y periodo.
-    // Valores = columna "Pago x N meses" de la tabla del cliente.
-    // Índice = cantidad - 1. El CSV oficial puede reemplazar este fallback.
-    // ----------------------------------------------------------------
+    // DESTACADOS — paquetes de 1, 5, 10, 20 y 50 avisos (precio MENSUAL de
+    // lista = precio por aviso del rango × avisos del paquete). El periodo
+    // multiplica el mensual. Rangos de venta: 1 a 4, 5 a 9, 10 a 19, 20 a 49
+    // y 50 o más. "Personalizado" = avisos × `unit` (precio de lista, sin
+    // descuento por rango ni por zona).
     destacados: {
+      unit: 600,
+      packages: [1, 5, 10, 20, 50],
+      packagePrices: { "1": 600, "5": 2500, "10": 3500, "20": 6000, "50": 10000 },
       minQty: 1,
-      maxQty: 10,
-      table: {
-        mensual:    [599, 1198, 1797, 2396, 2995, 3594, 4193, 4792, 5391, 5990],
-        trimestral: [999, 1998, 2898, 3696, 4500, 5094, 5859, 6648, 7398, 8160],
-        semestral:  [2070, 3312, 4016, 5161, 5762, 6665, 7487, 8390, 9191, 10143],
-        anual:      [3600, 5310, 6885, 8400, 9000, 10350, 11655, 12840, 14040, 15000]
-      }
+      maxQty: 9999
     },
 
-    // ----------------------------------------------------------------
-    // PRIME — precio fijo por anuncio por mes.
-    // La fila base oficial puede venir en data/precios/prime.csv:
-    //   Prime,1,,Mensual,699,0,699
-    // Si no existe detalle para otra cantidad/vigencia, aplica unit_formula.
-    // ----------------------------------------------------------------
+    // PRIME — misma estructura que Destacados.
     prime: {
+      unit: 700,
+      packages: [1, 5, 10, 20, 50],
+      packagePrices: { "1": 700, "5": 3000, "10": 4500, "20": 8000, "50": 17500 },
       minQty: 1,
-      maxQty: 9999,
-      unit: 699,
-      defaultCalcMode: "formula"
+      maxQty: 9999
     },
 
     // Mapa global de precios unitarios mensuales detectados desde CSV.
@@ -168,12 +157,6 @@ window.PC.pricingData = (function () {
     const z = normalizeZone(zone);
     if (!p || !(price > 0)) return;
     data.unitFormulaPrices[p + "|" + z] = price;
-    // Prime SÍ se sincroniza aquí a propósito: prime.unit es el precio unitario
-    // que usa el modo "fórmula" (unit × cantidad × meses) cuando no hay fila
-    // exacta en el CSV para la cantidad pedida. Mantenerlo igual a la fila
-    // Oferta=1/Mensual de data/precios/prime.csv evita que ese fallback quede
-    // desactualizado si el CSV cambia.
-    if (p === "prime" && !z) data.prime.unit = price;
   }
 
   function getUnitFormulaMonthlyPrice(productId, productName, zoneId, zoneLabel) {

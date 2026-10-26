@@ -1,2 +1,16 @@
 Producto,Oferta,Zona,Vigencia,PrecioBase,Descuento,PrecioFinal
-Prime,1,,Mensual,699,0,699
+Prime,Paquete 1,CDMX / Estado de México,Mensual,700,0,700
+Prime,Paquete 1,Jalisco / Nuevo León,Mensual,700,50,350
+Prime,Paquete 1,Resto del país,Mensual,700,65,245
+Prime,Paquete 5,CDMX / Estado de México,Mensual,3000,0,3000
+Prime,Paquete 5,Jalisco / Nuevo León,Mensual,3000,50,1500
+Prime,Paquete 5,Resto del país,Mensual,3000,65,1050
+Prime,Paquete 10,CDMX / Estado de México,Mensual,4500,0,4500
+Prime,Paquete 10,Jalisco / Nuevo León,Mensual,4500,50,2250
+Prime,Paquete 10,Resto del país,Mensual,4500,65,1575
+Prime,Paquete 20,CDMX / Estado de México,Mensual,8000,0,8000
+Prime,Paquete 20,Jalisco / Nuevo León,Mensual,8000,50,4000
+Prime,Paquete 20,Resto del país,Mensual,8000,65,2800
+Prime,Paquete 50,CDMX / Estado de México,Mensual,17500,0,17500
+Prime,Paquete 50,Jalisco / Nuevo León,Mensual,17500,50,8750
+Prime,Paquete 50,Resto del país,Mensual,17500,65,6125

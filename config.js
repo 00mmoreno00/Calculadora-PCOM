@@ -15,18 +15,19 @@ window.PC.config = (function () {
       email: "ventas@propiedades.com"
     },
     iva: 0.16,
+    // Descuento único adicional (casilla "Promo del mes" de cada producto).
+    // Se calcula sobre el precio ya con descuento de zona.
+    monthlyPromo: { label: "Promo del mes", pct: 50 },
     zones: [
       { id: "CDMX_EDOMEX", label: "CDMX / Estado de México" },
       { id: "JALISCO_NL",  label: "Jalisco / Nuevo León" },
-      { id: "QUERETARO",   label: "Querétaro" },
       { id: "RESTO",       label: "Resto del país" }
     ],
     stateToZone: {
       "Ciudad de México": "CDMX_EDOMEX",
       "Estado de México": "CDMX_EDOMEX",
       "Jalisco": "JALISCO_NL",
-      "Nuevo León": "JALISCO_NL",
-      "Querétaro": "QUERETARO"
+      "Nuevo León": "JALISCO_NL"
     },
     states: [
       "Aguascalientes", "Baja California", "Baja California Sur", "Campeche",

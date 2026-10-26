@@ -13,7 +13,6 @@ window.PC.Validators = (function () {
   function validateProduct(cfg, result) {
     const missing = [];
     const errors = [];
-    const pricedByCsvOrFormula = !!(result && result.finalPrice > 0 && !(result.errors || []).length);
 
     if (!cfg.productId) missing.push("Selecciona un producto");
     if (!cfg.period) missing.push("Selecciona un periodo");
@@ -29,15 +28,13 @@ window.PC.Validators = (function () {
       if (cfg.oppOption === "personalizado" && (!cfg.customPackages || !cfg.customPackages.length))
         missing.push("Agrega al menos un paquete a la combinación personalizada (Oportunidades)");
     }
-    if (cfg.productId === "destacados") {
-      const q = Number(cfg.quantity) || 0;
-      if (q < D.destacados.minQty || (!pricedByCsvOrFormula && q > D.destacados.maxQty))
-        missing.push("Cantidad Destacados (mínimo " + D.destacados.minQty + ")");
-    }
-    if (cfg.productId === "prime") {
-      const q = Number(cfg.quantity) || 0;
-      if (q < D.prime.minQty || (!pricedByCsvOrFormula && q > D.prime.maxQty))
-        missing.push("Cantidad Prime (mínimo " + D.prime.minQty + ")");
+    if (cfg.productId === "destacados" || cfg.productId === "prime") {
+      const conf = D[cfg.productId], name = cfg.productId === "destacados" ? "Destacados" : "Prime";
+      if (!cfg.pkgOption) missing.push("Paquete " + name);
+      if (cfg.pkgOption === "personalizado") {
+        const q = Number(cfg.quantity) || 0;
+        if (q < conf.minQty) missing.push("Número de avisos " + name + " (mínimo " + conf.minQty + ")");
+      }
     }
 
     const pct = Number(cfg.manualDiscountPct) || 0;
