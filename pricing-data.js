@@ -76,6 +76,7 @@ window.PC.pricingData = (function () {
     destacados: {
       unit: 600,
       packages: [1, 5, 10, 20, 50],
+      ranges: { "1": "1 a 4", "5": "5 a 9", "10": "10 a 19", "20": "20 a 49", "50": "50" },
       packagePrices: { "1": 600, "5": 2500, "10": 3500, "20": 6000, "50": 10000 },
       minQty: 1,
       maxQty: 9999
@@ -85,6 +86,7 @@ window.PC.pricingData = (function () {
     prime: {
       unit: 700,
       packages: [1, 5, 10, 20, 50],
+      ranges: { "1": "1 a 4", "5": "5 a 9", "10": "10 a 19", "20": "20 a 49", "50": "50" },
       packagePrices: { "1": 700, "5": 3000, "10": 4500, "20": 8000, "50": 17500 },
       minQty: 1,
       maxQty: 9999
