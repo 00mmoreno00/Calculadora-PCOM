@@ -1564,9 +1564,31 @@ class Component extends DCLogic {
   // La altura (minHeight) se sincroniza entre todas las tarjetas visibles
   // vía this.state.cardHeaderH (ver syncCardHeaderHeights) para que los
   // encabezados de toda la fila queden alineados.
-  cardHeader(r, t, meta, scale, hw) {
+  cardHeader(r, t, meta, scale, hw, ds) {
     const h = React.createElement, s = scale || 1, px = (n) => this.px(n, s);
     const syncedH = this.state.cardHeaderH;
+    // ds (Promo del mes, anual): encabezado "Descuento sobre descuento" con
+    // etiquetas, cupones y destellos (ver dsDeco). Conserva el color del producto.
+    if (ds) {
+      const dd = (kind, st) => this.dsDeco(kind, s, st);
+      return h("div", {
+        ref: this.registerCardHeaderEl,
+        style: {
+          position: "relative", overflow: "hidden",
+          boxSizing: "border-box", display: "flex", flexDirection: "column",
+          padding: px(40) + " " + px(18) + " " + px(15),
+          minHeight: syncedH ? syncedH + "px" : px(126),
+          background: "linear-gradient(110deg," + t.main + "," + t.accent + ")", color: "#fff"
+        }
+      },
+        dd("tags", { top: px(16), left: px(15), key: "t" }),
+        dd("spark", { top: px(10), left: px(90), key: "s1" }),
+        dd("percent", { top: px(10), left: px(185), key: "p" }),
+        dd("spark", { top: px(59), right: px(7), key: "s2" }),
+        h("div", { key: "name", style: { position: "absolute", top: px(11), right: px(14), border: "1.5px solid rgba(255,255,255,.6)", borderRadius: "999px", padding: px(2) + " " + px(8), font: "700 " + px(9) + " Nunito", letterSpacing: ".06em", textTransform: "uppercase", whiteSpace: "nowrap" } }, r.productName),
+        h("div", { key: "title", style: { position: "relative", margin: px(4) + " 0 " + px(15) + " " + px(43), font: "800 " + px(18) + "/1.2 Nunito", letterSpacing: "-.4px" } }, "Descuento sobre descuento"),
+        h("div", { key: "tag", style: { position: "relative", font: "500 " + px(12) + "/1.5 Nunito" } }, meta.tagline));
+    }
     // hw (Halloween, Promo 7 meses): telaraña + araña en lugar del ícono,
     // murciélagos y destellos en lugar de la etiqueta (ver hwDeco).
     if (hw) {
@@ -1614,8 +1636,18 @@ class Component extends DCLogic {
     const h = React.createElement, s = scale || 1, px = (n) => this.px(n, s);
     const d = this.cardDisplayValue(item);
     const hw = this.isHalloweenCard(item);
+    const ds = this.isDiscountCard(item);
     const deco = (kind, w, st) => this.hwDeco(kind, w * s, st);
-    return h("div", { style: { position: "relative", padding: px(18) + " " + px(18) + " " + px(10), textAlign: "center", minHeight: px(120), display: "flex", flexDirection: "column", justifyContent: "center" } },
+    const dd = (kind, st) => this.dsDeco(kind, s, st);
+    return h("div", { style: { position: "relative", padding: ds ? px(31) + " " + px(18) + " " + px(22) : px(18) + " " + px(18) + " " + px(10), textAlign: "center", minHeight: px(120), display: "flex", flexDirection: "column", justifyContent: "center" } },
+      ds ? [
+        dd("spark", { top: px(10), left: px(15), key: "s1" }),
+        dd("percent", { top: px(10), left: px(55), key: "p1", size: 17 }),
+        dd("spark", { top: px(17), right: px(21), key: "s2" }),
+        dd("coupon", { top: px(47), left: px(-9), key: "c1" }),
+        dd("coupon", { top: px(52), right: px(-5), key: "c2" }),
+        dd("spark", { top: px(91), left: px(12), key: "s3", size: 13 })
+      ] : null,
       hw ? [
         deco("cloud", 84, { top: px(30), left: px(-14), key: "c1" }),
         deco("cloud", 74, { top: px(44), right: px(-12), key: "c2" }),
@@ -1718,6 +1750,42 @@ class Component extends DCLogic {
         h("div", { style: { marginTop: "2px", display: "flex", flexDirection: "column", gap: "6px" } }, rows)));
   }
 
+  // ===================== TARJETA "DESCUENTO SOBRE DESCUENTO" (Promo del mes, anual) =====================
+  // Se usa en todos los productos cuando la casilla Promo del mes está activa
+  // (cfg.showDiscountPct solo es true con periodo anual + casilla prendida).
+  isDiscountCard(item) {
+    return !!(item && item.cfg && item.cfg.showDiscountPct && item.cfg.period === "anual");
+  }
+  // Adornos dibujados con CSS (sin imágenes). st: posición + key (+ size, bg, rot).
+  dsDeco(kind, scale, st) {
+    const h = React.createElement, s = scale || 1, px = (n) => Math.round(n * s) + "px";
+    const key = st.key, size = st.size, bg = st.bg, rot = st.rot;
+    const pos = Object.assign({}, st); delete pos.key; delete pos.size; delete pos.bg; delete pos.rot;
+    const base = Object.assign({ position: "absolute", pointerEvents: "none", userSelect: "none" }, pos);
+    const center = { display: "flex", alignItems: "center", justifyContent: "center" };
+    const notch = (w, top, side, i) => h("span", { key: "n" + i, style: Object.assign({ position: "absolute", top: px(top), width: px(w), height: px(w), background: "#fff", borderRadius: "50%" }, side) });
+    if (kind === "spark") return h("span", { key: key, "aria-hidden": "true", style: Object.assign(base, { color: "#ff981c", font: "400 " + px(size || 17) + "/1 Nunito" }) }, "✦");
+    if (kind === "percent") return h("span", { key: key, "aria-hidden": "true", style: Object.assign(base, { color: "#ffbd37", font: "700 " + px(size || 20) + "/1 Nunito", transform: "rotate(-13deg)" }) }, "%");
+    if (kind === "coupon") return h("span", { key: key, "aria-hidden": "true", style: Object.assign(base, center, { width: px(44), height: px(24), background: "#d2eee1", color: "#64ac8b", font: "700 " + px(21) + "/1 Nunito", transform: "rotate(-19deg)", borderRadius: px(3) }) }, "%", notch(7, 9, { left: px(-4) }, 1), notch(7, 9, { right: px(-4) }, 2));
+    if (kind === "couponS") return h("span", { key: key, "aria-hidden": "true", style: Object.assign(base, center, { width: px(28), height: px(18), background: bg || "#ffae27", color: "#fff", font: "700 " + px(14) + "/1 Nunito", transform: "rotate(" + (rot || -19) + "deg)", borderRadius: px(3), zIndex: 2 }) }, "%", notch(5, 6, { left: px(-3) }, 1), notch(5, 6, { right: px(-3) }, 2));
+    if (kind === "tags") {
+      const tag = (extra, label, i) => h("span", { key: i, style: Object.assign({ position: "absolute", width: px(24), height: px(36), borderRadius: px(5), background: "#ff981c", color: "#fff", display: "flex", justifyContent: "center", paddingTop: px(8), boxSizing: "border-box", font: "700 " + px(21) + "/1 Nunito" }, extra) }, label, h("span", { style: { position: "absolute", top: px(4), left: px(10), width: px(4), height: px(4), borderRadius: "50%", background: "#fff" } }));
+      return h("span", { key: key, "aria-hidden": "true", style: Object.assign(base, { width: px(48), height: px(44) }) },
+        tag({ left: px(16), top: px(2), background: "#ffda79", transform: "rotate(-12deg)" }, "", 1),
+        tag({ left: 0, top: 0, transform: "rotate(29deg)" }, "%", 2));
+    }
+    return null;
+  }
+  // Capa inferior: destello y dos cupones sobre el pie (footerH: alto del pie).
+  dsBottomDeco(scale, footerH) {
+    const h = React.createElement, s = scale || 1, px = (n) => this.px(n, s), fh = footerH || 48;
+    const dd = (kind, st) => this.dsDeco(kind, s, st);
+    return h("div", { key: "dsbottom", "aria-hidden": "true", style: { position: "absolute", inset: 0, pointerEvents: "none", zIndex: 3 } },
+      dd("spark", { right: px(3), bottom: px(fh + 68), key: "s" }),
+      dd("couponS", { left: px(8), bottom: px(fh + 3), key: "c1" }),
+      dd("couponS", { right: px(8), bottom: px(fh + 3), key: "c2", bg: "#1da361", rot: 17 }));
+  }
+
   // ===================== DECORACIÓN HALLOWEEN (Promo 7 meses) =====================
   // Interruptor de temporada: en false la tarjeta de Promo 7 meses vuelve al
   // diseño normal (la promo y sus cálculos siguen funcionando igual).
@@ -1794,14 +1862,15 @@ class Component extends DCLogic {
     const sizeStyle = count === 1
       ? { width: "100%", maxWidth: "380px", minWidth: "320px", margin: "0 auto" }
       : {};
-    const hw = this.isHalloweenCard(item);
+    const hw = this.isHalloweenCard(item), ds = this.isDiscountCard(item);
     return h("div", { className: className, style: Object.assign({ position: "relative", display: "flex", flexDirection: "column", border: "1px solid " + t.border, borderRadius: "14px", overflow: "hidden", background: "#fff", boxShadow: "0 18px 30px -14px rgba(17,17,17,.4), 0 4px 12px -8px rgba(17,17,17,.2)" }, sizeStyle) },
       hw ? this.hwBottomDeco(scale) : null,
-      this.cardHeader(r, t, meta, scale, hw),
+      this.cardHeader(r, t, meta, scale, hw, ds),
       this.cardValueBlock(item, r, t, meta, scale),
       this.cardBenefits(benefits, t, scale),
       this.promoBox(item, t),
-      this.cardPriceFooter(item, r, t, scale));
+      this.cardPriceFooter(item, r, t, scale),
+      ds ? this.dsBottomDeco(scale) : null);
   }
 
   renderVsBody(data) {
@@ -1810,15 +1879,16 @@ class Component extends DCLogic {
     const col = (item, tag) => {
       const r = item.result, t = this.themes[r.theme] || this.themes.green;
       const meta = this.pcfg(r.productId), benefits = meta.benefits;
-      const hw = this.isHalloweenCard(item);
+      const hw = this.isHalloweenCard(item), ds = this.isDiscountCard(item);
       return h("div", { style: { position: "relative", flex: 1, display: "flex", flexDirection: "column", border: "1px solid " + t.border, borderRadius: "14px", overflow: "hidden", background: "#fff", boxShadow: "0 4px 16px -10px rgba(17,17,17,.22)" } },
         hw ? this.hwBottomDeco(scale, 118) : null,
         h("div", { style: { padding: "7px", background: "#111", color: "#fff", textAlign: "center", font: "800 11px Nunito", letterSpacing: ".14em" } }, "OPCIÓN " + tag),
-        this.cardHeader(r, t, meta, scale, hw),
+        this.cardHeader(r, t, meta, scale, hw, ds),
         this.cardValueBlock(item, r, t, meta, scale),
         this.cardBenefits(benefits, t, scale),
         this.promoBox(item, t),
-        this.vsPriceFooter(item, r, t, scale));
+        this.vsPriceFooter(item, r, t, scale),
+        ds ? this.dsBottomDeco(scale, 118) : null);
     };
     return h("div", { style: { display: "flex", gap: "14px", alignItems: "stretch" } },
       col(data.items[0], "A"),
