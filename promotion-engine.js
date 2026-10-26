@@ -142,42 +142,9 @@ window.PC.PromotionEngine = (function () {
     };
   }
 
-  /* ----------------------------------------------------------------
-     evaluateAutoPromo(ctx) -> promoción comercial automática vigente,
-     según reglas fijas de negocio (inventario del cliente + producto +
-     periodo + cobertura/cantidad). Independiente del catálogo editable
-     de promotions.js y del botón manual "Promo" (courtesía/bonificación
-     manual): esta función NO se edita desde el panel de administración.
-     ctx: { productId, period, quantity, inventory, mode }
-     La promo de Prime aplica en configuración individual y en paquete
-     (no en comparativo VS). Destacados ya no tiene promo automática.
-     Devuelve null si ninguna promo aplica, o { text } si aplica.
-     ---------------------------------------------------------------- */
-  function evaluateAutoPromo(ctx) {
-    // Interruptor: activa/desactiva la promoción automática de
-    // Prime sin borrar las reglas configuradas.
-    const showOiAndHighlightedPromotions = true;
-    const period = ctx.period;
-    const productId = ctx.productId;
-    const qty = Number(ctx.quantity) || 0;
-
-    if (showOiAndHighlightedPromotions && productId === "prime" && (ctx.mode === "individual" || ctx.mode === "paquete")) {
-      if (period === "semestral" || period === "anual") {
-        // pct: además del texto, el % que pricing-engine descuenta del precio
-        // final cuando esta promo está habilitada (ver Calculadora.dc.html).
-        if (qty >= 1 && qty <= 5) return { text: "5% de descuento ¡Para gritar Viva México!", pct: 5, label: "Promo 3" };
-        if (qty >= 6 && qty <= 15) return { text: "10% de descuento ¡Para gritar Viva México!", pct: 10, label: "Promo 3" };
-        if (qty >= 16) return { text: "20% de descuento ¡Para gritar Viva México!", pct: 20, label: "Promo 3" };
-      }
-      return null;
-    }
-
-    return null;
-  }
-
   return {
     getPromotions, savePromotions, resetPromotions,
-    evaluateForProduct, evaluateForPackage, matches, evaluateAutoPromo,
+    evaluateForProduct, evaluateForPackage, matches,
     PRODUCT_EFFECTS, PACKAGE_EFFECTS
   };
 })();

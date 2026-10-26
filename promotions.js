@@ -41,7 +41,7 @@ window.PC.defaultPromotions = [
     appliesTo: {
       modes: ["individual", "paquete", "vs"],
       requiredProducts: null,          // aplica a cualquier producto
-      zones: ["FULLPRICE", "CDMX_EDOMEX", "JALISCO_NL", "QUERETARO", "RESTO"],
+      zones: ["FULLPRICE", "CDMX_EDOMEX", "JALISCO_NL", "RESTO"],
       periods: ["mensual", "trimestral", "semestral", "anual"],
       minInventory: null, maxInventory: null, minQty: null, maxQty: null
     },
@@ -62,7 +62,7 @@ window.PC.defaultPromotions = [
     appliesTo: {
       modes: ["paquete"],
       requiredProducts: ["oportunidades", "destacados"],
-      zones: ["CDMX_EDOMEX", "JALISCO_NL", "QUERETARO", "RESTO"],
+      zones: ["CDMX_EDOMEX", "JALISCO_NL", "RESTO"],
       periods: ["mensual", "trimestral", "semestral", "anual"],
       minInventory: null, maxInventory: null, minQty: null, maxQty: null
     },
@@ -83,7 +83,7 @@ window.PC.defaultPromotions = [
     appliesTo: {
       modes: ["individual", "paquete", "vs"],
       requiredProducts: ["destacados"],
-      zones: ["FULLPRICE", "CDMX_EDOMEX", "JALISCO_NL", "QUERETARO", "RESTO"],
+      zones: ["FULLPRICE", "CDMX_EDOMEX", "JALISCO_NL", "RESTO"],
       periods: ["anual"],
       minInventory: null, maxInventory: null, minQty: null, maxQty: null
     },
@@ -104,7 +104,7 @@ window.PC.defaultPromotions = [
     appliesTo: {
       modes: ["individual"],
       requiredProducts: ["prime"],
-      zones: ["FULLPRICE", "CDMX_EDOMEX", "JALISCO_NL", "QUERETARO", "RESTO"],
+      zones: ["FULLPRICE", "CDMX_EDOMEX", "JALISCO_NL", "RESTO"],
       periods: ["anual"],
       minInventory: null, maxInventory: null, minQty: 1, maxQty: 1
     },

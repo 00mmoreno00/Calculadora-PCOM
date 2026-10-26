@@ -24,6 +24,12 @@ window.PC.PricingEngine = (function () {
     return Math.max(1, Math.round(Number(cfg.quantity) || 1));
   }
 
+  // Destacados/Prime en modo paquete (no personalizado): el precio base es
+  // el mensual del paquete completo.
+  function isAvisosPackage(cfg) {
+    return (cfg.productId === "destacados" || cfg.productId === "prime") && (cfg.pkgOption || "1") !== "personalizado";
+  }
+
   function unitFormulaMonthly(cfg, meta) {
     if (!D.getUnitFormulaMonthlyPrice) return null;
     const zoneObj = (CFG.zones || []).find(z => z.id === cfg.zone) || {};
@@ -166,38 +172,28 @@ window.PC.PricingEngine = (function () {
     return { monthly: monthly, listMonthly: (listMonthly == null ? monthly : listMonthly), coveredLabel: coveredLabel, warnings: warnings };
   }
 
-  // ---- DESTACADOS: total por cantidad y periodo (tabla) ------------
-  function destacadosTotal(cfg) {
+  // ---- DESTACADOS / PRIME: paquete (1, 5, 10, 20, 50) o personalizado --
+  // Paquete: precio mensual de lista del paquete menos el descuento de la
+  // zona. Personalizado: avisos × precio de lista menos el descuento de la
+  // zona (sin descuento por rango). El periodo multiplica el mensual.
+  function avisosMonthly(cfg, conf, label) {
     const warnings = [], errors = [];
-    const q = Math.round(Number(cfg.quantity) || 0);
-    const t = D.destacados;
-    let total = 0;
-    if (q < t.minQty) errors.push("Destacados requiere mínimo " + t.minQty + " aviso.");
-    if (q > t.maxQty) errors.push("Destacados: máximo " + t.maxQty + " avisos en la tabla actual.");
-    const idx = U.clamp(q, t.minQty, t.maxQty) - 1;
-    const row = t.table[cfg.period];
-    if (!row) { errors.push("Periodo inválido para Destacados."); }
-    else { total = row[idx]; }
-    return {
-      total, listTotal: total, coveredLabel: q + " aviso(s) destacado(s)",
-      quantity: q, warnings, errors
-    };
-  }
-
-  // ---- PRIME: total por cantidad y periodo (fórmula) ---------------
-  function primeTotal(cfg) {
-    const warnings = [], errors = [];
-    const q = Math.round(Number(cfg.quantity) || 0);
-    const p = D.prime;
-    if (q < p.minQty) errors.push("Prime requiere mínimo " + p.minQty + " aviso.");
-    if (q > p.maxQty) errors.push("Prime: máximo " + p.maxQty + " avisos configurados.");
-    const qEff = U.clamp(q, p.minQty, p.maxQty);
-    const total = p.unit * qEff * months(cfg.period);
-    return {
-      total, listTotal: total, coveredLabel: q + " aviso(s) Prime",
-      quantity: q, warnings, errors,
-      calcMode: cfg.primeCalcMode || p.defaultCalcMode
-    };
+    const opt = cfg.pkgOption || "1";
+    if (opt === "personalizado") {
+      const q = Math.round(Number(cfg.quantity) || 0);
+      if (q < conf.minQty) errors.push(label + " requiere mínimo " + conf.minQty + " aviso.");
+      const qEff = Math.max(q, conf.minQty);
+      const pctP = (D.zoneDiscountPct && D.zoneDiscountPct[cfg.zone]) || 0;
+      const listMonthly = conf.unit * qEff;
+      return { monthly: listMonthly * (1 - pctP / 100), listMonthly, quantity: q, coveredLabel: q + " aviso(s) " + label + " (personalizado)", warnings, errors };
+    }
+    const list = conf.packagePrices[opt];
+    if (list == null) {
+      errors.push("Paquete " + label + " inválido.");
+      return { monthly: 0, listMonthly: 0, quantity: null, coveredLabel: "", warnings, errors };
+    }
+    const pct = (D.zoneDiscountPct && D.zoneDiscountPct[cfg.zone]) || 0;
+    return { monthly: list * (1 - pct / 100), listMonthly: list, quantity: Number(opt), coveredLabel: "Paquete " + opt + " aviso(s) " + label, warnings, errors };
   }
 
   /* ----------------------------------------------------------------
@@ -228,18 +224,13 @@ window.PC.PricingEngine = (function () {
       coveredLabel = r.coveredLabel; inventory = Number(cfg.inventory) || null;
       warnings.push(...r.warnings);
       breakdown.push("Mensual zona " + cfg.zone + ": " + U.money(r.monthly) + " × " + m + " mes(es) = " + U.money(regionalPrice));
-    } else if (cfg.productId === "destacados") {
-      const r = destacadosTotal(cfg);
-      regionalPrice = r.total; listPrice = r.listTotal;
+    } else if (cfg.productId === "destacados" || cfg.productId === "prime") {
+      const label = cfg.productId === "destacados" ? "Destacados" : "Prime";
+      const r = avisosMonthly(cfg, D[cfg.productId], label);
+      regionalPrice = r.monthly * m; listPrice = r.listMonthly * m;
       coveredLabel = r.coveredLabel; quantity = r.quantity;
       warnings.push(...r.warnings); errors.push(...r.errors);
-      breakdown.push("Tabla Destacados " + cfg.period + " (" + r.quantity + " avisos): " + U.money(regionalPrice));
-    } else if (cfg.productId === "prime") {
-      const r = primeTotal(cfg);
-      regionalPrice = r.total; listPrice = r.listTotal;
-      coveredLabel = r.coveredLabel; quantity = r.quantity;
-      warnings.push(...r.warnings); errors.push(...r.errors);
-      breakdown.push("Prime " + r.calcMode + ": " + window.PC.pricingData.prime.unit + " × " + r.quantity + " × " + m + " mes(es) = " + U.money(regionalPrice));
+      breakdown.push(label + " " + (cfg.pkgOption || "1") + " zona " + cfg.zone + ": " + U.money(r.monthly) + " × " + m + " mes(es) = " + U.money(regionalPrice));
     } else {
       // Producto personalizado (admin): se cobra por precio base × cantidad × meses.
       const q = productQty(cfg);
@@ -254,7 +245,7 @@ window.PC.PricingEngine = (function () {
     //     Si existe, reemplaza el cálculo de fallback y elimina errores de límite de tabla.
     if (cfg.basePriceOverride != null && cfg.basePriceOverride !== "" && Number(cfg.basePriceOverride) > 0) {
       const bp = Number(cfg.basePriceOverride);
-      if (cfg.productId === "elite" || cfg.productId === "oportunidades") {
+      if (cfg.productId === "elite" || cfg.productId === "oportunidades" || isAvisosPackage(cfg)) {
         regionalPrice = bp * m;
       } else {
         const q = productQty(cfg);
@@ -264,7 +255,7 @@ window.PC.PricingEngine = (function () {
       listPrice = regionalPrice;
       errors.length = 0;
       breakdown.push("Precio base configurado / CSV exacto: " + U.money(regionalPrice));
-    } else if (cfg.productId !== "elite" && cfg.productId !== "oportunidades") {
+    } else if (cfg.productId !== "elite" && cfg.productId !== "oportunidades" && cfg.productId !== "destacados" && cfg.productId !== "prime") {
       // 1c) Regla global unit_formula:
       //     si no hay detalle exacto, busca Producto + Oferta=1 + Vigencia=Mensual
       //     en los CSV oficiales y calcula unitario × cantidad × meses.
@@ -289,14 +280,6 @@ window.PC.PricingEngine = (function () {
     let manualDiscount = Math.round(regionalPrice * (manualPct / 100));
     let afterManual = regionalPrice - manualDiscount;
     if (manualPct > 0) breakdown.push("Descuento adicional " + manualPct + "%: −" + U.money(manualDiscount));
-
-    // 2b) Descuento de promo automática (Destacados/Prime, ver
-    // PC.PromotionEngine.evaluateAutoPromo). Solo se aplica mientras esa
-    // promo está habilitada (botón "Promo aplicable" del panel).
-    const autoPct = U.clamp(Number(cfg.autoDiscountPct) || 0, 0, 100);
-    const autoDiscount = Math.round(afterManual * (autoPct / 100));
-    if (autoPct > 0) breakdown.push("Promo automática " + autoPct + "%: −" + U.money(autoDiscount));
-    afterManual = afterManual - autoDiscount;
 
     // 3) Promoción (solo efectos a nivel producto)
     let promotionDiscount = 0;
@@ -370,8 +353,6 @@ window.PC.PricingEngine = (function () {
       regionalPrice: Math.round(regionalPrice),
       manualDiscount: Math.round(manualDiscount),
       manualDiscountPct: manualPct,
-      autoPromoDiscount: Math.round(autoDiscount),
-      autoPromoDiscountPct: autoPct,
       promotionDiscount: Math.round(promotionDiscount),
       originalPrice: Math.round(originalPrice),
       finalPrice: Math.round(finalPrice),
