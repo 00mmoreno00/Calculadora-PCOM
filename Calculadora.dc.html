@@ -953,7 +953,8 @@ class Component extends DCLogic {
     const invLim = window.PC.PricingEngine.inventoryLimits(Object.assign({}, p, { zone: s.zone }));
     const invNum = Number(p.inventory) || 0;
     const invBad = !!(invLim && invNum > 0 && (invNum < invLim.min || (invLim.max != null && invNum > invLim.max)));
-    const invHint = invLim ? (invLim.max != null ? "Para esta cobertura: de " + invLim.min.toLocaleString("es-MX") + " a " + invLim.max.toLocaleString("es-MX") : "Para esta cobertura: " + invLim.min.toLocaleString("es-MX") + " o más") : "";
+    const fmt = (n) => n.toLocaleString("es-MX");
+    const invHint = !invLim ? "" : "Para esta cobertura: " + (invLim.max == null ? fmt(invLim.min) + " o más" : (invLim.min === invLim.max ? fmt(invLim.max) : "de " + fmt(invLim.min) + " a " + fmt(invLim.max)));
     return h("div", { key: p.uid, style: { border: "1px solid " + (complete ? "#C3E7D2" : "#E6E6EB"), borderRadius: "10px", padding: "14px", marginBottom: "12px", background: "#FCFCFD" } },
       h("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" } },
         h("div", { style: { display: "flex", alignItems: "center", gap: "8px" } },

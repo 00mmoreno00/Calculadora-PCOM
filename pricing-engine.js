@@ -227,7 +227,7 @@ window.PC.PricingEngine = (function () {
       }
       const pk = D[id].packages, i = pk.indexOf(Number(opt));
       if (i < 0) return null;
-      return { min: pk[i], max: i < pk.length - 1 ? pk[i + 1] - 1 : null };
+      return { min: pk[i], max: i < pk.length - 1 ? pk[i + 1] - 1 : pk[i] };
     }
     return null;
   }
