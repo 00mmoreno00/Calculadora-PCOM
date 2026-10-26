@@ -651,7 +651,7 @@ class Component extends DCLogic {
       { label: "Personalizado", value: "personalizado" }
     ];
     if (id === "oportunidades") return D.oportunidades.packages.map(n => ({ label: "Paquete " + n, value: String(n) })).concat([{ label: "Personalizado", value: "personalizado" }]);
-    if (id === "destacados" || id === "prime") return D[id].packages.map(n => ({ label: "Paquete " + n, value: String(n) })).concat([{ label: "Personalizado", value: "personalizado" }]);
+    if (id === "destacados" || id === "prime") return D[id].packages.map(n => ({ label: D[id].ranges[n], value: String(n) })).concat([{ label: "Personalizado", value: "personalizado" }]);
     return [];
   }
   // Catálogo completo (base + personalizados) y catálogo activo (sin ocultos).
@@ -1531,6 +1531,8 @@ class Component extends DCLogic {
     if (p.productId === "oportunidades") {
       return { bigNum: (Number(p.inventory) || 0).toLocaleString("es-MX"), unit: "" };
     }
+    const rng = (window.PC.pricingData[p.productId] || {}).ranges;
+    if (rng && p.pkgOption !== "personalizado" && rng[p.pkgOption]) return { bigNum: rng[p.pkgOption], unit: "" };
     const q = Number(item.result.quantity) || Number(p.quantity) || 0;
     return { bigNum: String(q), unit: "" };
   }
