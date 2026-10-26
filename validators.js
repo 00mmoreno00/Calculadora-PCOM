@@ -37,6 +37,12 @@ window.PC.Validators = (function () {
       }
     }
 
+    // El inventario capturado debe caer dentro del rango de la cobertura elegida.
+    const inv = Number(cfg.inventory) || 0;
+    const lim = inv > 0 && window.PC.PricingEngine && window.PC.PricingEngine.inventoryLimits ? window.PC.PricingEngine.inventoryLimits(cfg) : null;
+    if (lim && (inv < lim.min || (lim.max != null && inv > lim.max)))
+      missing.push("Inventario del cliente fuera de la cobertura (" + (lim.max != null ? "de " + lim.min + " a " + lim.max : lim.min + " o más") + ")");
+
     const pct = Number(cfg.manualDiscountPct) || 0;
     if (pct < 0 || pct > 100) errors.push("Descuento adicional debe estar entre 0 y 100");
 
