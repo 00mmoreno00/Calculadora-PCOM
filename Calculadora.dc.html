@@ -279,6 +279,8 @@ class Component extends DCLogic {
       manualDiscountPct: 0,
       // Muestra "+X% de descuento" en la tarjeta principal del producto.
       showDiscountPct: false,
+      // Promo del mes (descuento adicional, solo periodo anual).
+      monthlyPromoOn: false,
       // Muestra "X% de descuento por zona" en el recuadro Promo de la tarjeta
       // (solo texto: el descuento de zona ya viene aplicado en el precio).
       showZoneDiscount: false,
@@ -473,7 +475,8 @@ class Component extends DCLogic {
         inventory: p.inventory, quantity: p.quantity, pkgOption: p.pkgOption,
         customPackages: p.customPackages || [],
         // El % de la Promo del mes solo aplica en periodo anual.
-        manualDiscountPct: p.period === "anual" ? p.manualDiscountPct : 0, showDiscountPct: p.showDiscountPct, showZoneDiscount: p.showZoneDiscount,
+        manualDiscountPct: (p.monthlyPromoOn && p.period === "anual") ? window.PC.config.monthlyPromo.pct : 0,
+        showDiscountPct: !!(p.monthlyPromoOn && p.period === "anual"), showZoneDiscount: p.showZoneDiscount,
         promoOn: p.promoOn, promoQty: p.promoQty, promoProduct: p.promoProduct, promoPeriod: p.promoPeriod,
         basePriceOverride: baseOverride, maxDiscount: pc.maxDiscount
       };
@@ -939,16 +942,16 @@ class Component extends DCLogic {
         (s.mode === "paquete" && s.products.length > 1) ? h("button", { onClick: () => this.removeProduct(idx), style: { border: "none", background: "none", color: "#D7373F", fontWeight: 700, fontSize: "12px" } }, "Quitar") : null),
 
       this.field("Producto", this.select(p.productId, v => { const patch = { productId: v, customPackages: [], customPickValue: "", customPickQty: 1 }; if (v !== "oportunidades" && p.period === "promo7") patch.period = "anual"; this.updateProduct(idx, patch); }, productOpts)),
-      this.field("Periodo", this.select(p.period, v => this.updateProduct(idx, v === "anual" ? { period: v } : { period: v, promoOn: false, manualDiscountPct: 0, showDiscountPct: false }), periodOpts)),
+      this.field("Periodo", this.select(p.period, v => this.updateProduct(idx, v === "anual" ? { period: v } : { period: v, monthlyPromoOn: false }), periodOpts)),
       this.field("Inventario del cliente", h("input", { type: "number", min: "0", style: this.st.input, value: p.inventory, placeholder: "Ej. 250", onChange: e => this.updateProduct(idx, { inventory: e.target.value }) })),
       conditional,
 
-      // Fila "Promoción": activa/desactiva el descuento adicional (%) y la
-      // cortesía manual (cantidad + producto) de este producto.
-      p.period === "anual" ? h("div", { style: { marginBottom: "13px" } },
+      // Fila "Promoción": zona visible y cortesía manual (cantidad + producto).
+      // Es independiente de la Promo del mes (más abajo).
+      h("div", { style: { marginBottom: "13px" } },
         h("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", borderRadius: "8px", border: "1px solid " + (p.promoOn ? "#1b8f51" : "#D0D0D8"), background: p.promoOn ? "#F3FBF6" : "#fff" } },
-          h("span", { style: { font: "700 12.5px Nunito", color: "#2A2A2E" } }, window.PC.config.monthlyPromo.label + " (" + window.PC.config.monthlyPromo.pct + "% adicional)"),
-          this.toggleSwitch(p.promoOn, () => this.updateProduct(idx, p.promoOn ? { promoOn: false, manualDiscountPct: 0, showDiscountPct: false } : { promoOn: true, manualDiscountPct: window.PC.config.monthlyPromo.pct, showDiscountPct: true }))),
+          h("span", { style: { font: "700 12.5px Nunito", color: "#2A2A2E" } }, "Promoción"),
+          this.toggleSwitch(p.promoOn, () => this.updateProduct(idx, { promoOn: !p.promoOn }))),
         p.promoOn ? h("div", { style: { marginTop: "10px" } },
           h("label", { style: { display: "flex", alignItems: "center", gap: "6px", marginTop: "8px", font: "600 12px Nunito", color: r.zoneDiscountPct > 0 ? "#2A2A2E" : "#A5A5AD" } },
             h("input", { type: "checkbox", disabled: !(r.zoneDiscountPct > 0), checked: !!p.showZoneDiscount && r.zoneDiscountPct > 0, onChange: e => this.updateProduct(idx, { showZoneDiscount: e.target.checked }) }),
@@ -956,10 +959,16 @@ class Component extends DCLogic {
           h("div", { style: { display: "flex", gap: "10px", marginTop: "10px", flexWrap: "wrap" } },
             h("div", { style: { width: "92px" } }, this.field("Cantidad", h("input", { type: "number", min: "1", style: this.st.input, value: p.promoQty, onChange: e => this.updateProduct(idx, { promoQty: e.target.value }) }))),
             h("div", { style: { flex: 1, minWidth: "140px" } }, this.field("Producto", this.select(p.promoProduct, v => this.updateProduct(idx, { promoProduct: v }), [{ value: "", label: "Seleccionar" }].concat(productOpts)))),
-            h("div", { style: { flex: 1, minWidth: "120px" } }, this.field("Vigencia", this.select(p.promoPeriod, v => this.updateProduct(idx, { promoPeriod: v }), [{ value: "", label: "Seleccionar" }].concat(periodOpts)))))) : null) : null,
+            h("div", { style: { flex: 1, minWidth: "120px" } }, this.field("Vigencia", this.select(p.promoPeriod, v => this.updateProduct(idx, { promoPeriod: v }), [{ value: "", label: "Seleccionar" }].concat(periodOpts)))))) : null),
+
+      // Promo del mes (descuento adicional): independiente de "Promoción" y
+      // solo disponible con periodo Anual.
+      p.period === "anual" ? h("div", { style: { marginBottom: "13px", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", borderRadius: "8px", border: "1px solid " + (p.monthlyPromoOn ? "#1b8f51" : "#D0D0D8"), background: p.monthlyPromoOn ? "#F3FBF6" : "#fff" } },
+        h("span", { style: { font: "700 12.5px Nunito", color: "#2A2A2E" } }, window.PC.config.monthlyPromo.label + " (" + window.PC.config.monthlyPromo.pct + "% adicional)"),
+        this.toggleSwitch(p.monthlyPromoOn, () => this.updateProduct(idx, { monthlyPromoOn: !p.monthlyPromoOn }))) : null,
 
       // Mini resumen de precio en vivo
-      this.miniPriceSummary(r, p.promoOn),
+      this.miniPriceSummary(r, p.monthlyPromoOn && p.period === "anual"),
       (r.warnings && r.warnings.length) ? h("div", { style: { marginTop: "8px", padding: "9px 11px", borderRadius: "8px", background: "#FDF3E1", border: "1px solid #EBCB8B" } }, r.warnings.map((w, i) => h("div", { key: i, style: { display: "flex", gap: "7px", alignItems: "flex-start", font: "600 11.5px/1.45 Nunito", color: "#8A5A0F", marginBottom: i < r.warnings.length - 1 ? "4px" : 0 } }, h("span", { style: { flex: "none" } }, "⚠"), h("span", null, w)))) : null
     );
   }
@@ -1679,7 +1688,7 @@ class Component extends DCLogic {
     if (c.promoOn && c.showZoneDiscount && zonePct > 0) rows.push(h("div", { key: "zone", style: { font: "500 11px/1.35 Nunito", color: "#2A2A2E" } }, "+ " + Math.round(zonePct) + "% de descuento"));
 
     // 3) Descuento adicional (manual, botón "Promoción")
-    if (c.promoOn && c.showDiscountPct) {
+    if (c.showDiscountPct) {
       const pct = Number(c.manualDiscountPct) || 0;
       if (pct > 0) rows.push(h("div", { key: "pct", style: { font: "500 11px/1.35 Nunito", color: "#2A2A2E" } }, "+ " + Math.round(pct) + "% de descuento"));
     }
