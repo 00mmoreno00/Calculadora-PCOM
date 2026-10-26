@@ -1824,7 +1824,7 @@ class Component extends DCLogic {
         h("div", { style: { font: "800 22px Nunito", letterSpacing: ".01em", textTransform: "uppercase", color: "#6B6B73" } }, info.preferential ? "Total de inversión (precio preferencial)" : "Total de inversión"),
         pkgPromo ? h("div", { style: { font: "600 12px Nunito", color: "#16763F", marginTop: "6px" } }, "Incluye: " + ((pkgPromo.display || {}).label || pkgPromo.name)) : null),
       h("div", { style: { minWidth: "260px" } },
-        row("Precio original (sin descuentos)", U.money(info.originalConIVA)),
+        info.originalConIVA > info.finalConIVA ? row("Precio original (sin descuentos)", U.money(info.originalConIVA)) : null,
         row("Precio final sin IVA", U.money(info.finalSinIVA)),
         h("div", { style: { height: "1px", background: "rgba(17,17,17,.12)", margin: "8px 0" } }),
         h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "18px" } },
