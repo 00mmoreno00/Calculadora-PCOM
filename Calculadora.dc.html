@@ -472,7 +472,8 @@ class Component extends DCLogic {
         period: p.period, eliteOption: p.eliteOption, oppOption: p.oppOption,
         inventory: p.inventory, quantity: p.quantity, pkgOption: p.pkgOption,
         customPackages: p.customPackages || [],
-        manualDiscountPct: p.manualDiscountPct, showDiscountPct: p.showDiscountPct, showZoneDiscount: p.showZoneDiscount,
+        // El % de la Promo del mes solo aplica en periodo anual.
+        manualDiscountPct: p.period === "anual" ? p.manualDiscountPct : 0, showDiscountPct: p.showDiscountPct, showZoneDiscount: p.showZoneDiscount,
         promoOn: p.promoOn, promoQty: p.promoQty, promoProduct: p.promoProduct, promoPeriod: p.promoPeriod,
         basePriceOverride: baseOverride, maxDiscount: pc.maxDiscount
       };
@@ -651,7 +652,7 @@ class Component extends DCLogic {
       { label: "Personalizado", value: "personalizado" }
     ];
     if (id === "oportunidades") return D.oportunidades.packages.map(n => ({ label: "Paquete " + n, value: String(n) })).concat([{ label: "Personalizado", value: "personalizado" }]);
-    if (id === "destacados" || id === "prime") return D[id].packages.map(n => ({ label: "Paquete " + n, value: String(n) })).concat([{ label: "Personalizado", value: "personalizado" }]);
+    if (id === "destacados" || id === "prime") return D[id].packages.map(n => ({ label: D[id].ranges[n], value: String(n) })).concat([{ label: "Personalizado", value: "personalizado" }]);
     return [];
   }
   // Catálogo completo (base + personalizados) y catálogo activo (sin ocultos).
@@ -938,13 +939,13 @@ class Component extends DCLogic {
         (s.mode === "paquete" && s.products.length > 1) ? h("button", { onClick: () => this.removeProduct(idx), style: { border: "none", background: "none", color: "#D7373F", fontWeight: 700, fontSize: "12px" } }, "Quitar") : null),
 
       this.field("Producto", this.select(p.productId, v => { const patch = { productId: v, customPackages: [], customPickValue: "", customPickQty: 1 }; if (v !== "oportunidades" && p.period === "promo7") patch.period = "anual"; this.updateProduct(idx, patch); }, productOpts)),
-      this.field("Periodo", this.select(p.period, v => this.updateProduct(idx, { period: v }), periodOpts)),
+      this.field("Periodo", this.select(p.period, v => this.updateProduct(idx, v === "anual" ? { period: v } : { period: v, promoOn: false, manualDiscountPct: 0, showDiscountPct: false }), periodOpts)),
       this.field("Inventario del cliente", h("input", { type: "number", min: "0", style: this.st.input, value: p.inventory, placeholder: "Ej. 250", onChange: e => this.updateProduct(idx, { inventory: e.target.value }) })),
       conditional,
 
       // Fila "Promoción": activa/desactiva el descuento adicional (%) y la
       // cortesía manual (cantidad + producto) de este producto.
-      h("div", { style: { marginBottom: "13px" } },
+      p.period === "anual" ? h("div", { style: { marginBottom: "13px" } },
         h("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", borderRadius: "8px", border: "1px solid " + (p.promoOn ? "#1b8f51" : "#D0D0D8"), background: p.promoOn ? "#F3FBF6" : "#fff" } },
           h("span", { style: { font: "700 12.5px Nunito", color: "#2A2A2E" } }, window.PC.config.monthlyPromo.label + " (" + window.PC.config.monthlyPromo.pct + "% adicional)"),
           this.toggleSwitch(p.promoOn, () => this.updateProduct(idx, p.promoOn ? { promoOn: false, manualDiscountPct: 0, showDiscountPct: false } : { promoOn: true, manualDiscountPct: window.PC.config.monthlyPromo.pct, showDiscountPct: true }))),
@@ -955,7 +956,7 @@ class Component extends DCLogic {
           h("div", { style: { display: "flex", gap: "10px", marginTop: "10px", flexWrap: "wrap" } },
             h("div", { style: { width: "92px" } }, this.field("Cantidad", h("input", { type: "number", min: "1", style: this.st.input, value: p.promoQty, onChange: e => this.updateProduct(idx, { promoQty: e.target.value }) }))),
             h("div", { style: { flex: 1, minWidth: "140px" } }, this.field("Producto", this.select(p.promoProduct, v => this.updateProduct(idx, { promoProduct: v }), [{ value: "", label: "Seleccionar" }].concat(productOpts)))),
-            h("div", { style: { flex: 1, minWidth: "120px" } }, this.field("Vigencia", this.select(p.promoPeriod, v => this.updateProduct(idx, { promoPeriod: v }), [{ value: "", label: "Seleccionar" }].concat(periodOpts)))))) : null),
+            h("div", { style: { flex: 1, minWidth: "120px" } }, this.field("Vigencia", this.select(p.promoPeriod, v => this.updateProduct(idx, { promoPeriod: v }), [{ value: "", label: "Seleccionar" }].concat(periodOpts)))))) : null) : null,
 
       // Mini resumen de precio en vivo
       this.miniPriceSummary(r, p.promoOn),
@@ -1531,6 +1532,8 @@ class Component extends DCLogic {
     if (p.productId === "oportunidades") {
       return { bigNum: (Number(p.inventory) || 0).toLocaleString("es-MX"), unit: "" };
     }
+    const rng = (window.PC.pricingData[p.productId] || {}).ranges;
+    if (rng && p.pkgOption !== "personalizado" && rng[p.pkgOption]) return { bigNum: rng[p.pkgOption], unit: "" };
     const q = Number(item.result.quantity) || Number(p.quantity) || 0;
     return { bigNum: String(q), unit: "" };
   }
@@ -1824,7 +1827,7 @@ class Component extends DCLogic {
         h("div", { style: { font: "800 22px Nunito", letterSpacing: ".01em", textTransform: "uppercase", color: "#6B6B73" } }, info.preferential ? "Total de inversión (precio preferencial)" : "Total de inversión"),
         pkgPromo ? h("div", { style: { font: "600 12px Nunito", color: "#16763F", marginTop: "6px" } }, "Incluye: " + ((pkgPromo.display || {}).label || pkgPromo.name)) : null),
       h("div", { style: { minWidth: "260px" } },
-        row("Precio original (sin descuentos)", U.money(info.originalConIVA)),
+        info.originalConIVA > info.finalConIVA ? row("Precio original (sin descuentos)", U.money(info.originalConIVA)) : null,
         row("Precio final sin IVA", U.money(info.finalSinIVA)),
         h("div", { style: { height: "1px", background: "rgba(17,17,17,.12)", margin: "8px 0" } }),
         h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "18px" } },
