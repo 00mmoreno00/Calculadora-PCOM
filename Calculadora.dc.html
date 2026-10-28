@@ -516,11 +516,6 @@ class Component extends DCLogic {
         result.zoneListPrice = Math.round(csvInfo.base);
         result.zoneDiscountPct = csvInfo.discountPct;
       }
-      // Personalizado de Destacados/Prime: no viene del CSV, el motor ya aplicó el descuento de zona.
-      if (isAvisos && isPersonalizado) {
-        const zp = (window.PC.pricingData.zoneDiscountPct || {})[cfg.zone] || 0;
-        if (zp > 0 && result.basePrice > result.finalPrice) { result.zoneListPrice = result.basePrice; result.zoneDiscountPct = zp; }
-      }
       const validation = V.validateProduct(Object.assign({}, cfg, { startDate: p.startDate }), result);
       // Restricción por estado(s) (admin): el producto solo aplica en los estados listados.
       if (pc.states.length && pc.states.indexOf(s.stateName) < 0) {

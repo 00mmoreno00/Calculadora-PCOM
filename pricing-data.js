@@ -71,8 +71,8 @@ window.PC.pricingData = (function () {
     // DESTACADOS — paquetes de 1, 5, 10, 20 y 50 avisos (precio MENSUAL de
     // lista = precio por aviso del rango × avisos del paquete). El periodo
     // multiplica el mensual. Rangos de venta: 1 a 4, 5 a 9, 10 a 19, 20 a 49
-    // y 50 o más. "Personalizado" = avisos × `unit` (precio de lista, sin
-    // descuento por rango ni por zona).
+    // y 50 o más. "Personalizado" = avisos × precio por aviso del rango
+    // (paquete ÷ avisos), a precio de lista, sin descuento de zona.
     destacados: {
       unit: 600,
       packages: [1, 5, 10, 20, 50],
