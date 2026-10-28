@@ -935,7 +935,11 @@ class Component extends DCLogic {
       const opts = this.defaultCoverage(p.productId).map(o => ({ value: o.value, label: o.label }));
       conditional.push(this.field("Cobertura", this.select(p.pkgOption || "1", v => this.updateProduct(idx, { pkgOption: v }), opts)));
       if (p.pkgOption === "personalizado")
-        conditional.push(this.field("Número de avisos (precio de lista por aviso según el rango)",
+        conditional.push(this.field("Número de avisos ($" + (() => {
+          const qEff = Math.max(Math.round(Number(p.quantity) || 0), conf.minQty);
+          const pkg = conf.packages.filter(n => n <= qEff).pop() || conf.packages[0];
+          return (conf.packagePrices[pkg] / pkg).toLocaleString("es-MX");
+        })() + " de lista por aviso al mes)",
           h("input", { type: "number", min: String(conf.minQty), style: this.st.input, value: p.quantity, onChange: e => this.updateProduct(idx, { quantity: e.target.value }) })));
     } else {
       // Producto personalizado (admin): cantidad de unidades.
