@@ -174,8 +174,8 @@ window.PC.PricingEngine = (function () {
 
   // ---- DESTACADOS / PRIME: paquete (1, 5, 10, 20, 50) o personalizado --
   // Paquete: precio mensual de lista del paquete menos el descuento de la
-  // zona. Personalizado: avisos × precio de lista menos el descuento de la
-  // zona (sin descuento por rango). El periodo multiplica el mensual.
+  // zona. Personalizado: avisos × precio por aviso del rango, a precio de
+  // lista (sin descuento de zona). El periodo multiplica el mensual.
   function avisosMonthly(cfg, conf, label) {
     const warnings = [], errors = [];
     const opt = cfg.pkgOption || "1";
@@ -183,9 +183,11 @@ window.PC.PricingEngine = (function () {
       const q = Math.round(Number(cfg.quantity) || 0);
       if (q < conf.minQty) errors.push(label + " requiere mínimo " + conf.minQty + " aviso.");
       const qEff = Math.max(q, conf.minQty);
-      const pctP = (D.zoneDiscountPct && D.zoneDiscountPct[cfg.zone]) || 0;
-      const listMonthly = conf.unit * qEff;
-      return { monthly: listMonthly * (1 - pctP / 100), listMonthly, quantity: q, coveredLabel: q + " aviso(s) " + label + " (personalizado)", warnings, errors };
+      // Precio de lista (sin descuento de zona) con el precio por aviso del
+      // rango: el paquete más grande que no excede los avisos capturados.
+      const pkg = conf.packages.filter(n => n <= qEff).pop() || conf.packages[0];
+      const listMonthly = (conf.packagePrices[pkg] / pkg) * qEff;
+      return { monthly: listMonthly, listMonthly, quantity: q, coveredLabel: q + " aviso(s) " + label + " (personalizado)", warnings, errors };
     }
     const list = conf.packagePrices[opt];
     if (list == null) {
