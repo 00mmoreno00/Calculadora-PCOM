@@ -20,6 +20,7 @@
   <script src="promotions.js"></script>
   <script src="pricing-engine.js"></script>
   <script src="promotion-engine.js"></script>
+  <script src="cotizador.js"></script>
   <script src="validators.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" integrity="sha512-BNaRQnYJYiPSqHHDb58B0yaPfCu+Wgds8Gp/gU33kqBtgNS4tSPHuGibyoeqMV/TJlSKda6FXzoEyYGjTe+vXA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha512-qZvrmS2ekKPF2mSznTQsxqPgnpkI4DNTlrdUmTzrDgektczlKNRRhy5X5AAOnx5S09ydFYWWNSfcEqDTTHgtNA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
@@ -442,80 +443,11 @@ class Component extends DCLogic {
 
     const items = s.products.map(p => {
       const pc = this.pcfg(p.productId);
-      // Personalizado: combinación manual de paquetes. Siempre usa el precio
-      // de lista nacional (ver pricing-engine.js), nunca el CSV por zona.
-      const isAvisos = p.productId === "destacados" || p.productId === "prime";
-      const isPersonalizado = (p.productId === "elite" && p.eliteOption === "personalizado")
-        || (p.productId === "oportunidades" && p.oppOption === "personalizado")
-        || (isAvisos && p.pkgOption === "personalizado");
-      // Etiqueta de "Oferta" para buscar en el CSV (según selección del producto).
-      let offerLabel = "";
-      if (p.productId === "elite") { const o = pc.coverage.find(c => c.value === p.eliteOption); offerLabel = o ? o.label : ""; }
-      else if (p.productId === "oportunidades") { const o = pc.coverage.find(c => c.value === p.oppOption); offerLabel = o ? o.label : ""; }
-      else if (isAvisos) { offerLabel = "Paquete " + (p.pkgOption || "1"); }
-      else { offerLabel = String(p.quantity || "").trim(); }
-
-      // Fuente principal: precio del CSV (total del periodo). Si no hay, fallback a la lógica actual.
-      const csvInfo = isPersonalizado ? null : this.csvPeriodInfo(p.productId, offerLabel, p.period, s.zone, s.stateName);
-      const csvTotal = csvInfo ? csvInfo.final : null;
-      let baseOverride = isPersonalizado ? null : pc.basePrice;
-      if (csvTotal != null && csvTotal > 0) {
-        const mm = window.PC.PricingEngine.months(p.period) || 1;
-        // Precio del periodo con descuento de zona: aplica el % del catálogo sobre
-        // el precio de lista y deja que se redondee UNA sola vez (al total del
-        // periodo, en computePrice). Evita el desfase de redondear el mensual antes
-        // de multiplicarlo por los meses (ej. Anual: 7999×12×30% = 28,796, no 28,800).
-        // El Mensual no cambia: 7999×30% = 2399.7 → 2400 al redondear.
-        let periodFinal = csvTotal;
-        if (csvInfo.base != null && csvInfo.discountPct > 0 && csvInfo.base > csvTotal)
-          periodFinal = csvInfo.base * (1 - csvInfo.discountPct / 100);
-        if (p.productId === "elite" || p.productId === "oportunidades" || isAvisos) baseOverride = periodFinal / mm;
-        else { const qq = Math.max(1, Number(p.quantity) || 1); baseOverride = periodFinal / (qq * mm); }
-      } else if (!isPersonalizado && (p.productId === "elite" || p.productId === "oportunidades")) {
-        const sel = p.productId === "elite" ? p.eliteOption : p.oppOption;
-        const o = pc.coverage.find(c => c.value === sel);
-        if (o && o.price != null && o.price !== "") baseOverride = Number(o.price);
-      }
-      const cfg = {
-        productId: p.productId, mode: s.mode, zone: s.zone || "CDMX_EDOMEX",
-        period: p.period, eliteOption: p.eliteOption, oppOption: p.oppOption,
-        inventory: p.inventory, quantity: p.quantity, pkgOption: p.pkgOption,
-        customPackages: p.customPackages || [],
-        // El % de la Promo del mes solo aplica en periodo anual.
-        // Descuento adicional del motor = Promo del mes (solo anual) combinada con el
-        // % personalizado de "Promoción" (si está prendida).
-        manualDiscountPct: (() => {
-          const m = (p.monthlyPromoOn && p.period === "anual") ? window.PC.config.monthlyPromo.pct : 0;
-          const c = p.promoOn ? Math.max(0, Math.min(100, Number(p.manualDiscountPct) || 0)) : 0;
-          return Math.round((1 - (1 - m / 100) * (1 - c / 100)) * 10000) / 100;
-        })(),
-        monthlyPct: (p.monthlyPromoOn && p.period === "anual") ? window.PC.config.monthlyPromo.pct : 0,
-        customPct: p.promoOn ? (Number(p.manualDiscountPct) || 0) : 0,
-        showDiscountPct: p.showDiscountPct, showZoneDiscount: p.showZoneDiscount,
-        promoOn: p.promoOn, promoQty: p.promoQty, promoProduct: p.promoProduct, promoPeriod: p.promoPeriod,
-        basePriceOverride: baseOverride, maxDiscount: pc.maxDiscount
-      };
-      const promoCtx = {
-        mode: s.mode, productId: p.productId, products: productIds,
-        zone: cfg.zone, period: p.period, inventory: p.inventory, quantity: p.quantity, date
-      };
-      const promoEval = PR.evaluateForProduct(promoCtx);
-      // El botón "Promo" es SOLO para capturar una cortesía/bonificación manual
-      // (cantidad + producto, ver promoBox). NUNCA debe disparar un
-      // efecto de precio de promotions.js (descuento %, monto fijo o precio
-      // especial): esos tipos jamás se pasan al motor de precios desde aquí,
-      // sin importar si "Promo" está activo. Solo efectos que no tocan el
-      // precio (cortesía de meses) pueden aplicarse, y solo con "Promo" activo.
-      const PRICE_EFFECTS = ["discount_pct", "discount_fixed", "fixed_price", "replace_price"];
-      const isPriceEffect = !!(promoEval.applied && PRICE_EFFECTS.indexOf(promoEval.applied.effect.type) >= 0);
-      const result = PE.computePrice(cfg, (p.promoOn && !isPriceEffect) ? promoEval.applied : null);
-      result.productName = pc.name; // nombre configurable (admin)
-      result.theme = pc.theme;      // tema configurable (admin)
-      // Descuento de ZONA proveniente del CSV (precio de lista vs precio final).
-      if (csvInfo && csvInfo.base != null && csvInfo.discountPct > 0 && csvInfo.base > result.finalPrice) {
-        result.zoneListPrice = Math.round(csvInfo.base);
-        result.zoneDiscountPct = csvInfo.discountPct;
-      }
+      // Cotización de un producto: módulo compartido con Autogestión (cotizador.js).
+      const { cfg, result, promoEval } = window.PC.Cotizador.calcularProducto(p, {
+        pc: pc, rows: this._priceCatalogRows || [], zone: s.zone, stateName: s.stateName,
+        mode: s.mode, products: productIds, date: date
+      });
       const validation = V.validateProduct(Object.assign({}, cfg, { startDate: p.startDate }), result);
       // Restricción por estado(s) (admin): el producto solo aplica en los estados listados.
       if (pc.states.length && pc.states.indexOf(s.stateName) < 0) {
@@ -1140,115 +1072,11 @@ class Component extends DCLogic {
     return h("svg", { viewBox: "0 0 24 24", width: 15, height: 15, fill: "none", stroke: "#2A2A2E", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" },
       h("path", { d: "M12 15V4" }), h("path", { d: "M8 8l4-4 4 4" }), h("path", { d: "M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" }));
   }
-  // Autodetecta el separador de la primera línea: coma, punto y coma o tab.
-  csvDelimiter(line) {
-    const c = (line.match(/,/g) || []).length;
-    const s = (line.match(/;/g) || []).length;
-    const t = (line.match(/\t/g) || []).length;
-    if (t > 0 && t >= c && t >= s) return "\t";
-    if (s > c) return ";";
-    return ",";
-  }
-  csvSplitLine(line, delim) {
-    const D = delim || ",";
-    const out = []; let cur = "", q = false;
-    for (let i = 0; i < line.length; i++) {
-      const c = line[i];
-      if (q) { if (c === '"') { if (line[i + 1] === '"') { cur += '"'; i++; } else q = false; } else cur += c; }
-      else { if (c === '"') q = true; else if (c === D) { out.push(cur); cur = ""; } else cur += c; }
-    }
-    out.push(cur); return out.map(s => s.trim());
-  }
-  validateCSV(text) {
-    const VIG = ["mensual", "trimestral", "semestral", "anual"];
-    const ALL = ["Producto", "Oferta", "Zona", "Estados", "Vigencia", "PrecioBase", "Descuento", "PrecioFinal"];
-    const REQ = ["Producto", "Oferta", "Vigencia", "PrecioFinal"];
-    const errors = [], rows = [];
-    const clean = String(text || "").replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n");
-    const lines = clean.split("\n").filter(l => l.trim() !== "");
-    if (!lines.length) return { header: [], rows: [], errors: [{ row: 0, msg: "El CSV está vacío." }] };
-    const delim = this.csvDelimiter(lines[0]);
-    const header = this.csvSplitLine(lines[0], delim);
-    const norm = header.map(x => x.toLowerCase());
-    const idx = {}; ALL.forEach(c => idx[c] = norm.indexOf(c.toLowerCase()));
-    REQ.forEach(c => { if (idx[c] < 0) errors.push({ row: 0, msg: "Falta la columna obligatoria: " + c }); });
-    lines.slice(1).forEach((ln, i) => {
-      const rowNum = i + 2;
-      const cells = this.csvSplitLine(ln, delim);
-      const get = (c) => idx[c] >= 0 ? (cells[idx[c]] || "").trim() : "";
-      const producto = get("Producto"), oferta = get("Oferta"), vig = get("Vigencia");
-      const pf = get("PrecioFinal"), pb = get("PrecioBase"), desc = get("Descuento");
-      if (idx["Producto"] >= 0 && !producto) errors.push({ row: rowNum, msg: "Producto vacío" });
-      if (idx["Oferta"] >= 0 && !oferta) errors.push({ row: rowNum, msg: "Oferta vacía" });
-      if (idx["Vigencia"] >= 0) { if (!vig) errors.push({ row: rowNum, msg: "Vigencia vacía" }); else if (VIG.indexOf(vig.toLowerCase()) < 0) errors.push({ row: rowNum, msg: "Vigencia inválida (\"" + vig + "\"): use Mensual, Trimestral, Semestral o Anual" }); }
-      if (pf !== "" && isNaN(Number(pf))) errors.push({ row: rowNum, msg: "PrecioFinal no numérico (\"" + pf + "\")" });
-      if (pb !== "" && isNaN(Number(pb))) errors.push({ row: rowNum, msg: "PrecioBase no numérico (\"" + pb + "\")" });
-      if (desc !== "" && isNaN(Number(String(desc).replace("%", "").trim()))) errors.push({ row: rowNum, msg: "Descuento no numérico (\"" + desc + "\")" });
-      rows.push({ row: rowNum, producto, oferta, zona: get("Zona"), estados: get("Estados"), vigencia: vig, precioBase: pb, descuento: desc, precioFinal: pf });
-    });
-    // Duplicados por Producto + Oferta + Zona + Vigencia (Zona vacía = precio general).
-    const seen = {};
-    rows.forEach(r => {
-      const k = [r.producto, r.oferta, r.zona || "(general)", r.vigencia].join("¦").toLowerCase();
-      if (seen[k]) errors.push({ row: r.row, msg: "Duplicado: " + r.producto + " / " + r.oferta + " / " + (r.zona || "cualquiera") + " / " + r.vigencia });
-      seen[k] = true;
-    });
-    return { header, rows, errors };
-  }
-  csvRowFinal(r) {
-    if (r.precioFinal !== "" && r.precioFinal != null) return Number(r.precioFinal);
-    const b = Number(r.precioBase) || 0, d = Number(String(r.descuento).replace("%", "").trim()) || 0;
-    return Math.round(b * (1 - d / 100));
-  }
-  // Devuelve { final, base, discountPct } del renglón del CSV (o null). base/discountPct
-  // reflejan el descuento de ZONA capturado en el CSV (PrecioBase + Descuento).
+  // CSV y precio por periodo: lógica en cotizador.js (compartida con Autogestión).
+  validateCSV(text) { return window.PC.Cotizador.parseCSV(text); }
+  csvRowFinal(r) { return window.PC.Cotizador.csvRowFinal(r); }
   csvPeriodInfo(productId, offerLabel, period, zoneId, stateName) {
-    // Fuente oficial única: catálogo cargado de /data/precios (se actualiza en
-    // memoria al instante cuando se guarda un CSV desde el panel de admin).
-    const rowsSrc = this._priceCatalogRows || [];
-    if (!rowsSrc.length) return null;
-    const pname = (this.pcfg(productId).name || "").toLowerCase();
-    const ol = String(offerLabel || "").toLowerCase().trim();
-    const per = String(period || "").toLowerCase();
-    const zones = (window.PC.config.zones || []);
-    const zoneObj = zones.find(z => z.id === zoneId) || {};
-    const zlabel = (zoneObj.label || "").toLowerCase();
-    // Normaliza nombres de zona: sin acentos, & / , y -> espacio, colapsa espacios.
-    const nz = window.PC.pricingData.normalizeZone;
-    const zoneTargets = [nz(zoneId), nz(zlabel)].filter(Boolean);
-    const baseMatch = (r) => {
-      const rp = (r.producto || "").toLowerCase().trim();
-      if (rp && rp !== pname && rp !== String(productId).toLowerCase()) return false;
-      const ro = (r.oferta || "").toLowerCase().trim();
-      if (ro && ol && ro !== ol) return false;
-      return true;
-    };
-    const zoneMatch = (r) => {
-      const rz = (r.zona || "").trim(), re = (r.estados || "").trim();
-      if (!rz && !re) return { ok: true, specific: false };
-      let ok = false;
-      if (rz) { const rzn = nz(rz); if (zoneTargets.indexOf(rzn) >= 0) ok = true; }
-      if (re) { const list = re.split(/[;,]/).map(x => x.trim().toLowerCase()); if (list.indexOf(String(stateName || "").toLowerCase()) >= 0) ok = true; }
-      return { ok: ok, specific: true };
-    };
-    // Descuento de zona a partir del renglón: base y % (si vienen capturados).
-    const rowDisc = (r) => {
-      const d = Number(String(r.descuento).replace("%", "").trim()) || 0;
-      const b = (r.precioBase !== "" && r.precioBase != null) ? Number(r.precioBase) : null;
-      const f = this.csvRowFinal(r);
-      let base = b, pct = d;
-      if (base == null && d > 0 && f > 0) base = Math.round(f / (1 - d / 100));
-      if (pct === 0 && base != null && base > f) pct = Math.round((base - f) / base * 100);
-      return { base: base, pct: pct };
-    };
-    const cands = rowsSrc.map(r => ({ r: r, z: zoneMatch(r) })).filter(x => baseMatch(x.r) && x.z.ok);
-    if (!cands.length) return null;
-    const pick = (arr) => arr.slice().sort((a, b) => (b.z.specific ? 1 : 0) - (a.z.specific ? 1 : 0))[0];
-    const exact = cands.filter(x => (x.r.vigencia || "").toLowerCase() === per);
-    if (exact.length) { const r = pick(exact).r, d = rowDisc(r); return { final: this.csvRowFinal(r), base: d.base, discountPct: d.pct }; }
-    const monthly = cands.filter(x => (x.r.vigencia || "").toLowerCase() === "mensual");
-    if (monthly.length) { const mult = (window.PC.pricingData.PERIODS[per] || {}).months || 1; const r = pick(monthly).r, d = rowDisc(r); return { final: this.csvRowFinal(r) * mult, base: d.base != null ? d.base * mult : null, discountPct: d.pct }; }
-    return null;
+    return window.PC.Cotizador.csvPeriodInfo(this._priceCatalogRows || [], this.pcfg(productId), productId, offerLabel, period, zoneId, stateName);
   }
   // Acciones del editor CSV
   setCsvText(id, text) { this.setState({ csvDraft: { id: id, text: text, result: null } }); }
