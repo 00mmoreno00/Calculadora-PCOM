@@ -914,9 +914,7 @@ class Component extends DCLogic {
     const item = data.items[idx];
     const vsTag = s.mode === "vs" ? (idx === 0 ? "A" : "B") : null;
     const productOpts = this.productOpts();
-    // "Promo 7 meses" (periodo especial) solo aplica a Oportunidades ilimitadas.
     const periodOpts = Object.keys(D.PERIODS)
-      .filter(k => k !== "promo7" || p.productId === "oportunidades")
       .map(k => ({ value: k, label: D.PERIODS[k].label }));
 
     const conditional = [];
@@ -961,7 +959,7 @@ class Component extends DCLogic {
           h("span", { style: { font: "700 13px Nunito", color: complete ? "#16763F" : "#6B6B73" } }, complete ? "Completo" : "Incompleto")),
         (s.mode === "paquete" && s.products.length > 1) ? h("button", { onClick: () => this.removeProduct(idx), style: { border: "none", background: "none", color: "#D7373F", fontWeight: 700, fontSize: "12px" } }, "Quitar") : null),
 
-      this.field("Producto", this.select(p.productId, v => { const patch = { productId: v, customPackages: [], customPickValue: "", customPickQty: 1 }; if (v !== "oportunidades" && p.period === "promo7") patch.period = "anual"; this.updateProduct(idx, patch); }, productOpts)),
+      this.field("Producto", this.select(p.productId, v => { const patch = { productId: v, customPackages: [], customPickValue: "", customPickQty: 1 }; this.updateProduct(idx, patch); }, productOpts)),
       this.field("Periodo", this.select(p.period, v => this.updateProduct(idx, v === "anual" ? { period: v } : { period: v, monthlyPromoOn: false }), periodOpts)),
       this.field("Inventario del cliente", h("div", null,
         h("input", { type: "number", min: "0", max: invLim && invLim.max != null ? String(invLim.max) : undefined, style: this.st.input, value: p.inventory, placeholder: "Ej. 250", onChange: e => this.updateProduct(idx, { inventory: e.target.value }) }),
